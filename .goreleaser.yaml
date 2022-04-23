@@ -1,0 +1,92 @@
+project_name: polycrate
+
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # you may remove this if you don't need go generate
+    - go generate ./...
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    hooks:
+      post:
+        - upx --brute "{{ .Path }}"
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "typo"
+  groups:
+    - title: Features
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: "Fixes"
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: Others
+      order: 999
+dockers:
+  - image_templates:
+      - "ghcr.io/polycrate/polycrate:{{ .Version }}-amd64"
+      - "ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64"
+      - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64"
+      - "ghcr.io/polycrate/polycrate:latest-amd64"
+    use: buildx
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - python-requirements.txt
+      - ansible-requirements.yml
+  - image_templates:
+      - "ghcr.io/polycrate/polycrate:{{ .Version }}-arm64"
+      - "ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64"
+      - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64"
+      - "ghcr.io/polycrate/polycrate:latest-arm64"
+    use: buildx
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/arm64"
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    extra_files:
+      - python-requirements.txt
+      - ansible-requirements.yml
+docker_manifests:
+  - name_template: ghcr.io/polycrate/polycrate:{{ .Version }}
+    image_templates:
+      - ghcr.io/polycrate/polycrate:{{ .Version }}-amd64
+      - ghcr.io/polycrate/polycrate:{{ .Version }}-arm64
+  - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}
+    image_templates:
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64
+  - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}arm64
+    image_templates:
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64
+  - name_template: ghcr.io/polycrate/polycrate:latest
+    image_templates:
+      - ghcr.io/polycrate/polycrate:latest-arm64
+      - ghcr.io/polycrate/polycrate:latest-amd64
