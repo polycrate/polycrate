@@ -15,9 +15,9 @@ builds:
       - linux
       - windows
       - darwin
-    hooks:
-      post:
-        - upx --brute "{{ .Path }}"
+    # hooks:
+    #   post:
+    #     - upx --brute "{{ .Path }}"
 checksum:
   name_template: "checksums.txt"
 snapshot:
@@ -29,6 +29,7 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+      - "^chore:"
       - "typo"
   groups:
     - title: Features
