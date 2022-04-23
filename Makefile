@@ -16,7 +16,7 @@ snapshot:
 	goreleaser release --snapshot --rm-dist --debug
 
 release:
-	goreleaser release
+	goreleaser release --rm-dist
 
 check:
 	goreleaser check
