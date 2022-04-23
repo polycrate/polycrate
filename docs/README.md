@@ -1,10 +1,20 @@
 ---
-title: Cloudstack
-description: A framework for hyperconverged infrastructure
+title: Polycrate
+description: A framework to build platforms
 ---
 
-# Cloudstack
+# Polycrate
 
-Cloudstack is a plugin-based framework for hyperconverged infrastructure. You can start with a single node for development and scale to a production-grade system along the way. Cloudstack can create infrastructure and setup Kubernetes for you, too. It's built around industry best practices and mostly unopinionated, allowing you to deploy your cloud native workloads in the way that fits best for you while giving you a concise framework for painless operations. Cloudstack comes with a suite of well-known and tightly integrated tools that you can leverage to support your software development process. It's designed to work with standard Kubernetes clusters and thus enables a common workflow for development and production deployments.
+Polycrate is a framework to build platforms. A platform can be anything from a bash script to automate your daily tasks, to a full-blown Kubernetes deployment.
+
+Polycrate revolves around a [Workspace](#) of [Blocks](#). [Blocks](#) have [Actions](#) that can be automated using [Workflows](#). This way you can build complex but flexible automations and platforms that you can easily share with your team. 
+
+Polycrate can be used to create an overarching "platform development framework" for your organization - using shared **Blocks** and **Workspaces** makes it easy to establish common tactics and best-practices for deployment and operations within your teams.
+
+Polycrate has been created to help builders to build faster. It's being developed in a cloud-native spirit but is fully capable of handling "legacy" infrastructure and operations as well. Polycrate makes it easy for individuals to manage complex IT systems with confidence. With its "Infrastructure-as-Code" approach, Polycrate makes your operational tasks portable and repeatable. 
+
+Polycrate is packaged into a portable container that comes with a plathora of useful tooling out of the box. Construct your infrastructure with Terraform, automate your deployments with Ansible and manage your Containers with Kubernetes. Polycrate works on all major operating systems and comes with only a single dependency - **Docker**.
+
+
 
 [Get started](getting-started.md){ .md-button .md-button--primary }
