@@ -2,6 +2,10 @@ tag:
 	git tag $(shell svu next)
 	git push origin $(shell svu)
 
+delete-tag:
+	git tag -d $(shell svu)
+	git push --delete origin $(shell svu)
+
 next:
 	svu next
 
