@@ -23,17 +23,17 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: light green
-      accent: light green
+      primary: indigo
+      accent: indigo
       toggle:
-        icon: material/weather-sunny
-        name: Switch to dark mode
+        icon: material/toggle-switch-off-outline
+        name: Switch to light mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: light green
-      accent: light green
+      primary: indigo
+      accent: indigo
       toggle:
-        icon: material/weather-night
+        icon: material/toggle-switch
         name: Switch to dark mode
 repo_name: 'polycrate/polycrate'
 repo_url: https://github.com/polycrate/polycrate/
