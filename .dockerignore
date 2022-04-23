@@ -1,0 +1,7 @@
+.gitignore
+Dockerfile
+.gitlab-ci.yml
+.releaserc.yml
+CODEOWNERS
+CONTRIBUTING.md
+logo.png

@@ -1,0 +1,1996 @@
+namespace: cloudstack
+legacy_namespace: acs
+image:
+  reference: registry.gitlab.com/ayedocloudsolutions/cloudstack/cloudstack
+  version: development
+stack:
+  name: ""
+  hostname: my.cloudstack.one
+  tls: false
+  plugins:
+    - prometheus_crds
+    - prometheus
+    - loki
+    - promtail
+    - nginx_ingress
+    - portainer
+  exposed: true
+plugins:
+  alertmanager:
+    enabled: false
+    commands: {}
+    namespace: alertmanager
+    subdomain: alertmanager
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "alertmanager-tls"
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - prometheus
+      - prometheus_crds
+    provides: []
+    rejects: []
+    config:
+      receiver: ""
+      webhook:
+        token: ""
+        url: ""
+  argocd:
+    enabled: false
+    proxy:
+      - target: service/argocd-argo-cd-server
+        local_port: 3010
+        remote_port: 80
+    commands:
+      install:
+        script:
+          - ansible-playbook argocd.yml
+      uninstall:
+        script:
+          - ansible-playbook argocd.yml
+      proxy:
+        interactive: true
+        script:
+          - ansible-playbook argocd.yml
+    namespace: argocd
+    subdomain: argocd
+    version: 2.0.4
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "argocd-tls"
+    chart:
+      name: argo-cd
+      version: 2.0.4
+      url: https://charts.bitnami.com/bitnami/argo-cd-2.0.4.tgz
+      repo:
+        url: https://charts.bitnami.com/bitnami
+        name: bitnami
+    artifacts: []
+    needs:
+      - kubernetes
+    provides: []
+    rejects: []
+    config: {}
+  azure:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config:
+      serviceprincipal:
+        client:
+          id: ""
+          secret: ""
+  azure_aks:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook azure_aks.yml
+      uninstall:
+        script:
+          - ansible-playbook azure_aks.yml
+    namespace: ""
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides:
+      - kubernetes
+      - teardown
+    rejects:
+      - hcloud_csi
+      - longhorn
+      - proxmox_vms
+    config:
+      node:
+        count: 3
+        location: Germany West Central
+        type: Standard_D2_v2
+      os_image: ubuntu-20.04
+      resource_group: ""
+      serviceprincipal:
+        client:
+          id: ""
+          secret: ""
+      tags: {}
+  bastion:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook install-bastion.yml
+    namespace: ""
+    subdomain: ""
+    version: ""
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config: {}
+  botkube:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook botkube.yml
+      uninstall:
+        script:
+          - ansible-playbook botkube.yml
+    namespace: botkube
+    subdomain: ""
+    version: v0.12.4
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "botkube-tls"
+    chart:
+      name: botkube
+      version: v0.12.4
+      url: https://infracloudio.github.io/charts/botkube-v0.12.4.tgz
+      repo:
+        url: https://infracloudio.github.io/charts
+        name: infracloudio
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides: []
+    rejects: []
+    config:
+      communications:
+        mattermost:
+          botname: botkube
+          channel: ""
+          enabled: false
+          team: ""
+          token: ""
+          url: ""
+      config:
+        resources: []
+        settings:
+          clustername: ""
+          kubectl:
+            enabled: true
+  cert_manager:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook cert_manager.yml
+      uninstall:
+        script:
+          - ansible-playbook cert_manager.yml
+    namespace: cert-manager
+    subdomain: ""
+    version: 1.6.1
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: cert-manager
+      version: 1.6.1
+      url: https://charts.jetstack.io/charts/cert-manager-v1.6.1.tgz
+      repo:
+        url: https://charts.jetstack.io
+        name: jetstack
+    artifacts:
+      - name: cert-manager-crds
+        filename: cert-manager-crds.yml
+        url: https://github.com/jetstack/cert-manager/releases/download/v1.6.1/cert-manager.crds.yaml
+    needs:
+      - kubernetes
+      - prometheus_crds
+      - cert_manager_crds
+    provides:
+      - tls
+    rejects: []
+    config:
+      ca_issuer:
+        certificate_path: ca.crt
+        enabled: false
+        key_path: ca.key
+  cert_manager_crds:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook cert_manager_crds.yml
+      uninstall:
+        script:
+          - ansible-playbook cert_manager_crds.yml
+    namespace: kube-system
+    subdomain: ""
+    version: 1.6.1
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - kubernetes
+    provides: []
+    rejects: []
+    config: {}
+  cilium_cni:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook cilium_cni.yml
+      uninstall:
+        script:
+          - ansible-playbook cilium_cni.yml
+    namespace: kube-system
+    subdomain: cilium
+    version: 1.10.5
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "cilium-tls"
+    chart:
+      name: cilium
+      version: 1.10.5
+      url: https://helm.cilium.io/cilium-1.10.5.tgz
+      repo:
+        url: https://helm.cilium.io/
+        name: cilium
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides:
+      - cni
+    rejects: []
+    config: {}
+  cloudflare:
+    enabled: false
+    commands: {}
+    namespace: cloudstack
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config:
+      api:
+        key: ""
+        token: ""
+      proxied: false
+  debug:
+    enabled: true
+    commands:
+      run:
+        interactive: true
+        script:
+          - bash
+    namespace: ""
+    subdomain: ""
+    version: latest
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config: {}
+  eventrouter:
+    enabled: true
+    commands:
+      install:
+        script:
+          - ansible-playbook eventrouter.yml
+      uninstall:
+        script:
+          - ansible-playbook eventrouter.yml
+    namespace: kube-system
+    subdomain: ""
+    version: latest
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - kubernetes
+    provides: []
+    rejects: []
+    config: {}
+  external_dns:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook external_dns.yml
+      uninstall:
+        script:
+          - ansible-playbook external_dns.yml
+    namespace: external-dns
+    subdomain: ""
+    version: 5.4.4
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: external-dns
+      version: 5.4.4
+      url: https://charts.bitnami.com/bitnami/external-dns-5.4.4.tgz
+      repo:
+        url: https://charts.bitnami.com/bitnami
+        name: bitnami
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides: []
+    rejects: []
+    config:
+      provider: cloudflare
+  fission:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: ""
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config: {}
+  gitlab:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: ""
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config: {}
+  grafana:
+    enabled: true
+    commands: {}
+    namespace: grafana
+    subdomain: grafana
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "grafana-tls"
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - prometheus
+      - prometheus_crds
+    provides: []
+    rejects: []
+    config: {}
+  harbor:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: ""
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "harbor-tls"
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config: {}
+  hcloud:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: ""
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config:
+      master:
+        count: 1
+        location: fsn1
+        type: cx31
+      node:
+        count: 3
+        location: fsn1
+        type: cx31
+      os_image: ubuntu-20.04
+      token: ""
+  hcloud_csi:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook hcloud_csi.yml
+    namespace: ""
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - kubernetes
+    provides:
+      - csi
+    rejects:
+      - longhorn
+      - azure_aks
+    config:
+      token: ""
+  hcloud_vms:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook hcloud_vms.yml
+      uninstall:
+        script:
+          - ansible-playbook hcloud_vms.yml
+    namespace: ""
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides:
+      - inventory
+      - teardown
+    rejects:
+      - azure_aks
+      - proxmox_vms
+    config:
+      inventory:
+        path: inventory.yml
+      master:
+        count: 1
+        location: fsn1
+        type: cx31
+      node:
+        count: 3
+        location: fsn1
+        type: cx31
+      os_image: ubuntu-20.04
+      token: ""
+  inventory:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects:
+      - hcloud_vms
+    config:
+      inventory:
+        path: inventory.yml
+  k3s:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook k3s.yml
+      uninstall:
+        script:
+          - ansible-playbook k3s.yml
+    namespace: ""
+    subdomain: ""
+    version: v1.21.1+k3s1
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts:
+      - name: k3s-amd64
+        filename: k3s-amd64
+        url: https://github.com/k3s-io/k3s/releases/download/v1.21.1+k3s1/k3s
+      - name: k3s-arm64
+        filename: k3s-arm64
+        url: https://github.com/k3s-io/k3s/releases/download/v1.21.1+k3s1/k3s-arm64
+      - name: k3s-armhf
+        filename: k3s-armhf
+        url: https://github.com/k3s-io/k3s/releases/download/v1.21.1+k3s1/k3s-arm64
+    needs:
+      - inventory
+    provides:
+      - kubernetes
+    rejects:
+      - azure_aks
+    config:
+      agent:
+        args: ""
+      api:
+        endpoint: ""
+        token: ""
+      server:
+        args:
+          --kube-scheduler-arg 'bind-address=0.0.0.0' --kube-scheduler-arg 'address=0.0.0.0'
+          --kube-proxy-arg 'metrics-bind-address=0.0.0.0' --kube-controller-manager-arg
+          'bind-address=0.0.0.0' --kube-controller-manager-arg 'address=0.0.0.0' --kube-controller-manager-arg
+          'allocate-node-cidrs' --etcd-expose-metrics --disable traefik,local-storage
+          --disable-cloud-controller
+      systemd_dir: /etc/systemd/system
+  keycloak:
+    enabled: false
+    proxy:
+      - target: service/longhorn-frontend
+        local_port: 3020
+        remote_port: 80
+    commands:
+      install:
+        script:
+          - ansible-playbook keycloak.yml
+      uninstall:
+        script:
+          - ansible-playbook keycloak.yml
+      proxy:
+        interactive: true
+        script:
+          - ansible-playbook keycloak.yml
+    namespace: keycloak
+    subdomain: login
+    version: 14.0.1
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "keycloak-tls"
+    chart:
+      name: keycloak
+      version: 14.0.1
+      url: https://github.com/codecentric/helm-charts/releases/download/keycloak-14.0.1/keycloak-14.0.1.tgz
+      repo:
+        url: https://codecentric.github.io/helm-charts
+        name: codecentric
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+      - ingress
+    provides:
+      - sso
+    rejects: []
+    config:
+      admin:
+        password: ""
+        user: ""
+  kubeapps:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook kubeapps.yml
+      uninstall:
+        script:
+          - ansible-playbook kubeapps.yml
+    namespace: kubeapps
+    subdomain: kubeapps
+    version: 7.3.2
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "kubeapps-tls"
+    chart:
+      name: kubeapps
+      version: 7.3.2
+      url: https://charts.bitnami.com/bitnami/kubeapps-7.3.2.tgz
+      repo:
+        url: https://charts.bitnami.com/bitnami
+        name: bitnami
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides: []
+    rejects: []
+    config: {}
+  letsencrypt:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook letsencrypt.yml
+      uninstall:
+        script:
+          - ansible-playbook letsencrypt.yml
+    namespace: cloudstack
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - kubernetes
+      - cert_manager
+      - cert_manager_crds
+    provides: []
+    rejects: []
+    config:
+      environment: staging
+      environments:
+        - name: staging
+          server: https://acme-staging-v02.api.letsencrypt.org/directory
+        - name: prod
+          server: https://acme-v02.api.letsencrypt.org/directory
+      issuers:
+        dns01:
+          enabled: false
+          provider: letsencrypt
+          solver: cloudflare
+          zone: ""
+        http01:
+          enabled: true
+          provider: letsencrypt
+      mail: ""
+  loki:
+    enabled: true
+    commands:
+      install:
+        script:
+          - ansible-playbook loki.yml
+      uninstall:
+        script:
+          - ansible-playbook loki.yml
+    namespace: loki
+    subdomain: loki
+    version: 2.6.0
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "loki-tls-key"
+    chart:
+      name: loki
+      version: 2.6.0
+      url: https://github.com/grafana/helm-charts/releases/download/loki-2.6.0/loki-2.6.0.tgz
+      repo:
+        url: https://grafana.github.io/helm-charts
+        name: grafana
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides:
+      - logs
+    rejects: []
+    config: {}
+  longhorn:
+    enabled: false
+    proxy:
+      - target: service/longhorn-frontend
+        local_port: 3020
+        remote_port: 80
+    commands:
+      install:
+        script:
+          - ansible-playbook longhorn.yml
+      uninstall:
+        script:
+          - ansible-playbook longhorn.yml
+      proxy:
+        interactive: true
+        script:
+          - ansible-playbook longhorn.yml
+    namespace: longhorn-system
+    subdomain: ""
+    version: 1.2.2
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "longhorn-tls-key"
+    chart:
+      name: longhorn
+      version: 1.2.2
+      url: https://github.com/longhorn/charts/releases/download/longhorn-1.2.2/longhorn-1.2.2.tgz
+      repo:
+        url: https://charts.longhorn.io
+        name: longhorn
+    artifacts: []
+    needs:
+      - kubernetes
+    provides:
+      - csi
+    rejects:
+      - hcloud_csi
+    config:
+      agent:
+        args: ""
+      api:
+        endpoint: ""
+        token: ""
+      datapath: /var/lib/longhorn/
+      server:
+        args:
+          --kube-scheduler-arg 'bind-address=0.0.0.0' --kube-scheduler-arg 'address=0.0.0.0'
+          --kube-proxy-arg 'metrics-bind-address=0.0.0.0' --kube-controller-manager-arg
+          'bind-address=0.0.0.0' --kube-controller-manager-arg 'address=0.0.0.0' --kube-controller-manager-arg
+          'allocate-node-cidrs' --etcd-expose-metrics --disable traefik,local-storage
+          --disable-cloud-controller
+      systemd_dir: /etc/systemd/system
+  metallb:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: ""
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config: {}
+  nginx_ingress:
+    enabled: true
+    commands:
+      install:
+        script:
+          - ansible-playbook nginx_ingress.yml
+      uninstall:
+        script:
+          - ansible-playbook nginx_ingress.yml
+    namespace: nginx-ingress
+    subdomain: ""
+    version: 3.36.0
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ingress-nginx
+      version: 3.36.0
+      url: https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-3.36.0/ingress-nginx-3.36.0.tgz
+      repo:
+        url: https://kubernetes.github.io/ingress-nginx
+        name: ingress-nginx
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides:
+      - ingress
+    rejects: []
+    config: {}
+  portainer:
+    proxy:
+      - target: service/portainer
+        local_port: 3030
+        remote_port: 80
+    enabled: true
+    commands:
+      install:
+        script:
+          - ansible-playbook portainer.yml
+      status:
+        script:
+          - ansible-playbook portainer.yml
+      uninstall:
+        script:
+          - ansible-playbook portainer.yml
+      proxy:
+        interactive: true
+        script:
+          - ansible-playbook portainer.yml
+    namespace: portainer
+    subdomain: portainer
+    version: 1.0.18
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "portainer-tls"
+    chart:
+      name: portainer
+      version: 1.0.18
+      url: https://github.com/portainer/k8s/releases/download/portainer-1.0.18/portainer-1.0.18.tgz
+      repo:
+        url: https://portainer.github.io/k8s/
+        name: portainer
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides: []
+    rejects: []
+    config:
+      image:
+        version: 2.9.2
+  portainer_agent:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook portainer_agent.yml
+      uninstall:
+        script:
+          - ansible-playbook portainer_agent.yml
+    namespace: portainer-agent
+    subdomain: ""
+    version: 2.9.0
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides: []
+    rejects: []
+    config: {}
+  prometheus:
+    enabled: true
+    commands:
+      install:
+        script:
+          - ansible-playbook prometheus.yml
+      uninstall:
+        script:
+          - ansible-playbook prometheus.yml
+      proxy:
+        script:
+          - ansible-playbook prometheus.yml
+        interactive: true
+    namespace: monitoring
+    subdomain: prometheus
+    version: 19.2.2
+    proxy:
+      - target: service/prometheus-grafana
+        local_port: 3000
+        remote_port: 80
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: kube-prometheus-stack
+      version: 19.2.2
+      url: https://github.com/prometheus-community/helm-charts/releases/download/kube-prometheus-stack-19.2.2/kube-prometheus-stack-19.2.2.tgz
+      repo:
+        url: https://prometheus-community.github.io/helm-charts
+        name: prometheus-community
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides:
+      - metrics
+    rejects: []
+    config:
+      receiver: ""
+      remote_write:
+        enabled: false
+        targets:
+          - authorization:
+              credentials: {}
+              type: Bearer
+            basicAuth:
+              password: ""
+              username: ""
+            bearerToken: ""
+            bearerTokenFile: ""
+            headers:
+              X-Scope-OrgID: ""
+            name: default
+            oauth2: {}
+            remoteTimeout: 30s
+            sendExemplars: false
+            url: http://prometheus.example.com
+            writeRelabelConfigs: ""
+  prometheus_crds:
+    enabled: true
+    commands:
+      install:
+        script:
+          - ansible-playbook prometheus_crds.yml
+      uninstall:
+        script:
+          - ansible-playbook prometheus_crds.yml
+    namespace: kube-system
+    subdomain: ""
+    version: 19.2.2
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts:
+      - name: crd-alertmanagerconfigs.yaml
+        filename: crd-alertmanagerconfigs.yaml
+        url: https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-19.2.2/charts/kube-prometheus-stack/crds/crd-alertmanagerconfigs.yaml
+      - name: crd-alertmanagers.yaml
+        filename: crd-alertmanagers.yaml
+        url: https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-19.2.2/charts/kube-prometheus-stack/crds/crd-alertmanagers.yaml
+      - name: crd-podmonitors.yaml
+        filename: crd-podmonitors.yaml
+        url: https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-19.2.2/charts/kube-prometheus-stack/crds/crd-podmonitors.yaml
+      - name: crd-prometheuses.yaml
+        filename: crd-prometheuses.yaml
+        url: https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-19.2.2/charts/kube-prometheus-stack/crds/crd-prometheuses.yaml
+      - name: crd-prometheusrules.yaml
+        filename: crd-prometheusrules.yaml
+        url: https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-19.2.2/charts/kube-prometheus-stack/crds/crd-prometheusrules.yaml
+      - name: crd-servicemonitors.yaml
+        filename: crd-servicemonitors.yaml
+        url: https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-19.2.2/charts/kube-prometheus-stack/crds/crd-servicemonitors.yaml
+      - name: crd-thanosrulers.yaml
+        filename: crd-thanosrulers.yaml
+        url: https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-19.2.2/charts/kube-prometheus-stack/crds/crd-thanosrulers.yaml
+    needs:
+      - kubernetes
+    provides: []
+    rejects: []
+    config: {}
+  promtail:
+    enabled: true
+    commands:
+      install:
+        script:
+          - ansible-playbook promtail.yml
+      uninstall:
+        script:
+          - ansible-playbook promtail.yml
+    namespace: promtail
+    subdomain: promtail
+    version: 3.8.2
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: promtail
+      version: 3.8.2
+      url: https://github.com/grafana/helm-charts/releases/download/promtail-3.8.2/promtail-3.8.2.tgz
+      repo:
+        url: https://grafana.github.io/helm-charts
+        name: grafana
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+      - loki
+    provides: []
+    rejects: []
+    config: {}
+  proxmox_vms:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook proxmox_vms.yml
+      uninstall:
+        script:
+          - ansible-playbook proxmox_vms.yml
+    namespace: ""
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides:
+      - inventory
+      - teardown
+    rejects:
+      - azure_aks
+      - hcloud_vms
+    config:
+      api:
+        password: ""
+        url: ""
+        user: root@pam
+      clone: ""
+      master:
+        cores: 4
+        count: 1
+        disk: 150G
+        ipconfig: []
+        memory: 4096
+        network_bridge: vmbr0
+        network_model: virtio
+        sockets: 1
+        storage: local-zfs
+      node:
+        cores: 4
+        count: 1
+        disk: 150G
+        ipconfig:
+          - dhcp
+        memory: 4096
+        network_bridge: vmbr0
+        network_model: virtio
+        sockets: 1
+        storage: local-zfs
+      password: ""
+      ssh_user: cloudstack
+      target_node: ""
+      user: cloudstack
+  route53:
+    enabled: false
+    commands: {}
+    namespace: cloudstack
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config:
+      access_key_id: ""
+      secret_access_key: ""
+  slack:
+    enabled: false
+    commands: {}
+    namespace: cloudstack
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config:
+      api:
+        url: ""
+      channel: "#cloudstack"
+  sonarqube:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: ""
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config: {}
+  ssh:
+    enabled: false
+    commands: {}
+    namespace: ""
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - inventory
+    provides: []
+    rejects: []
+    config:
+      fallback_port: 3519
+      keys:
+        private: id_rsa
+        public: id_rsa.pub
+      port: 22
+  sshd:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook sshd.yml
+      uninstall:
+        script:
+          - ansible-playbook sshd.yml
+    namespace: ""
+    subdomain: ""
+    version: development
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: ""
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs: []
+    provides: []
+    rejects: []
+    config: {}
+  tempo:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook tempo.yml
+      uninstall:
+        script:
+          - ansible-playbook tempo.yml
+    namespace: tempo
+    subdomain: tempo
+    version: 0.2.6
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "tempo-tls"
+    chart:
+      name: grafana-tempo
+      version: 0.2.6
+      url: https://charts.bitnami.com/bitnami/grafana-tempo-0.2.6.tgz
+      repo:
+        url: https://charts.bitnami.com/bitnami
+        name: bitnami
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides:
+      - tracing
+    rejects: []
+    config: {}
+  velero:
+    enabled: true
+    commands:
+      # backup:
+      #   script:
+      #     - ansible-playbook velero.yml
+      install:
+        script:
+          - ansible-playbook velero.yml
+      # status:
+      #   script:
+      #     - ansible-playbook velero.yml
+      uninstall:
+        script:
+          - ansible-playbook velero.yml
+    namespace: velero
+    subdomain: velero
+    version: 2.27.0
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "velero-tls"
+    chart:
+      name: velero
+      version: 2.27.0
+      url: https://github.com/vmware-tanzu/helm-charts/releases/download/velero-2.27.0/velero-2.27.0.tgz
+      repo:
+        url: https://vmware-tanzu.github.io/helm-charts/vmware-tanzu/velero
+        name: velero
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides:
+      - backups
+    rejects: []
+    config:
+      credentials:
+        id: ""
+        key: ""
+      backup_location:
+        name: ""
+        bucket: ""
+        region: ""
+        force_path_style: true
+        url: ""
+      scheduled_backups:
+        disabled: true
+        namespaces: []
+        ttl: ""
+        schedule: ""
+        include_crds: false
+      snapshotLocation: {}
+  weave_scope:
+    enabled: false
+    commands:
+      install:
+        script:
+          - ansible-playbook weave_scope.yml
+      uninstall:
+        script:
+          - ansible-playbook weave_scope.yml
+    namespace: weave
+    subdomain: scope
+    version: 1.13.2
+    backup:
+      enabled: false
+    ingress:
+      enabled: false
+      hostname: ""
+      tls:
+        enabled: false
+        provider: "letsencrypt"
+        secret:
+          cert:
+            content: ""
+            path: ""
+          key:
+            content: ""
+            path: ""
+          name: "weave-scope-tls"
+    chart:
+      name: ""
+      version: ""
+      url: ""
+      repo:
+        url: ""
+        name: ""
+    artifacts: []
+    needs:
+      - kubernetes
+      - prometheus_crds
+    provides: []
+    rejects: []
+    config: {}
