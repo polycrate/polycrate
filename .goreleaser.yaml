@@ -18,6 +18,12 @@ builds:
     # hooks:
     #   post:
     #     - upx --brute "{{ .Path }}"
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=ayedo
+      - ./usemsan=-msan
+    flags:
+      - -trimpath={{.Env.GOPATH}}
 checksum:
   name_template: "checksums.txt"
 snapshot:

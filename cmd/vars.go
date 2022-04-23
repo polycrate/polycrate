@@ -32,7 +32,6 @@ var callUUID = getCallUUID()
 var timeFormat string = "2006-01-02T15:04:05-0700"
 var utcNow time.Time = time.Now().UTC()
 var now string = time.Now().Format(timeFormat)
-var version = "latest"
 var home, _ = homedir.Dir()
 var overrides []string
 var workdir string = workspaceDir
@@ -42,6 +41,11 @@ var polycrateVersion string
 var sshPrivateKey string
 var sshPublicKey string
 var remoteRoot string
+
+// Build meta
+var version string = "latest"
+var commit string
+var date string
 
 var envVars []string
 var mounts []string

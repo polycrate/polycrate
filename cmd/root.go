@@ -98,7 +98,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "Interactive container session")
 	rootCmd.PersistentFlags().StringVarP(&workspaceDir, "workspace", "w", cwd, "Polycrate Workspace directory")
 
-	rootCmd.PersistentFlags().StringVar(&imageRef, "image-ref", "registry.gitlab.com/polycrate/polycrate", "image reference")
+	rootCmd.PersistentFlags().StringVar(&imageRef, "image-ref", "ghcr.io/polycrate/polycrate", "image reference")
 
 	rootCmd.PersistentFlags().StringVar(&imageVersion, "image-version", version, "image version")
 

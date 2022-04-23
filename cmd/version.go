@@ -28,6 +28,7 @@ var versionCmd = &cobra.Command{
 	Long:  `Show CLI version`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(version)
+		fmt.Printf("%s from %s", commit, date)
 	},
 }
 

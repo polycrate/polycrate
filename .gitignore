@@ -215,3 +215,5 @@ package-lock.json
 **/.terraform.lock*
 _.gitlab-ci.yml
 dist/
+
+blocks/
