@@ -18,7 +18,7 @@ theme:
     #- toc.integrate
   favicon: logo.png
   icon:
-    repo: fontawesome/brands/gitlab
+    repo: fontawesome/brands/github
   custom_dir: docs/overrides
   palette:
     - media: "(prefers-color-scheme: light)"
@@ -35,8 +35,8 @@ theme:
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
-repo_name: 'ayedocloudsolutions/cloudstack/docs'
-repo_url: https://gitlab.com/ayedocloudsolutions/cloudstack/docs/
+repo_name: 'polycrate/polycrate'
+repo_url: https://github.com/polycrate/polycrate/
 edit_uri: 'edit/main/docs/'
 site_url: https://docs.cloudstack.one
 extra:
@@ -78,7 +78,7 @@ markdown_extensions:
 terms_of_use: "/terms-of-use"
 privacy: "/privacy"
 # Copyright
-copyright: ' Copyright &copy; 2021 Ayedo Cloud Solutions GmbH
+copyright: ' Copyright &copy; 2022 Ayedo Cloud Solutions GmbH
 
 '
 # extend: https://gitlab.com/r2devops/hub/-/blob/latest/mkdocs.yml
