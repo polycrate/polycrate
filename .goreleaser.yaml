@@ -20,10 +20,9 @@ builds:
     #     - upx --brute "{{ .Path }}"
     mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=ayedo
-      - ./usemsan=-msan
-    flags:
-      - -trimpath={{.Env.GOPATH}}
+      - -s -w -X polycrate/cmd.version={{.Version}} -X polycrate/cmd.commit={{.Commit}} -X polycrate/cmd.date={{.CommitDate}} -X polycrate/cmd.builtBy=ayedo
+    # flags:
+    #   - -trimpath=true
 checksum:
   name_template: "checksums.txt"
 snapshot:

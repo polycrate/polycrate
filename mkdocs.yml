@@ -1,0 +1,91 @@
+site_name: Cloudstack
+site_description: A framework for hyperconverged infrastructure
+site_author: Ayedo Cloud Solutions GmbH
+site_dir: public
+theme:
+  name: material
+  logo: logo.png
+  features:
+    - navigation.instant
+    - search.suggest
+    - search.share
+    - search.highlight
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    # - navigation.tabs.sticky
+    # - navigation.indexes
+    #- toc.integrate
+  favicon: logo.png
+  icon:
+    repo: fontawesome/brands/gitlab
+  custom_dir: docs/overrides
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: light green
+      accent: light green
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: light green
+      accent: light green
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+repo_name: 'ayedocloudsolutions/cloudstack/docs'
+repo_url: https://gitlab.com/ayedocloudsolutions/cloudstack/docs/
+edit_uri: 'edit/main/docs/'
+site_url: https://docs.cloudstack.one
+extra:
+  version: 1.21.0-rc-main.142a3c5a
+markdown_extensions:
+  - abbr
+  - attr_list
+  - admonition # block-styled content (note, idea, warning, ...)
+  - codehilite # highlite code syntax
+  - def_list
+  - footnotes # references in footnotes
+  - md_in_html
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - toc:
+      permalink: True
+  - pymdownx.details
+  - pymdownx.arithmatex
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - meta
+terms_of_use: "/terms-of-use"
+privacy: "/privacy"
+# Copyright
+copyright: ' Copyright &copy; 2021 Ayedo Cloud Solutions GmbH
+
+'
+# extend: https://gitlab.com/r2devops/hub/-/blob/latest/mkdocs.yml
+plugins:
+  - git-revision-date-localized
+  - search
+nav:
+  - 'getting-started.md'
+  - 'creating-a-stack.md'
+  - 'reference.md'
