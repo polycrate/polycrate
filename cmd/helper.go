@@ -10,7 +10,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -105,6 +107,60 @@ func RunCommand(name string, args ...string) (exitCode int, err error) {
 		exitCode = ws.ExitStatus()
 	}
 	return exitCode, err
+}
+
+func ToPathSlice(t reflect.Value, name string, dst []string) []string {
+	typeName := t.Type().Name()
+	if typeName != "" {
+		fmt.Println(typeName)
+		if typeName == "WorkspaceIndex" {
+			return dst
+		}
+	}
+
+	switch t.Kind() {
+	case reflect.Ptr, reflect.Interface:
+		return ToPathSlice(t.Elem(), strings.ToUpper(name), dst)
+
+	case reflect.Struct:
+		for i := 0; i < t.NumField(); i++ {
+			fname := t.Type().Field(i).Name
+			dst = ToPathSlice(t.Field(i), strings.ToUpper(name+"_"+fname), dst)
+		}
+
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < t.Len(); i++ {
+			dst = ToPathSlice(t.Index(i), strings.ToUpper(name+"_"+strconv.Itoa(i)), dst)
+		}
+
+	case reflect.Map:
+		for _, e := range t.MapKeys() {
+			//v := t.MapIndex(e)
+			dst = ToPathSlice(t.MapIndex(e), strings.ToUpper(name), dst)
+		}
+
+	default:
+		var value string
+		switch t.Kind() {
+		case reflect.Bool:
+			value = t.String()
+		case reflect.Struct:
+			value = t.String()
+		default:
+			fmt.Println(value)
+		}
+		fmt.Println(value)
+		return append(dst, name+"="+fmt.Sprintf("%s", t))
+	}
+	return dst
+}
+
+func convertToEnv(object *WorkspaceSnapshot) {
+
+	t := reflect.ValueOf(object)
+	//prefix := t.Type().Elem().Name()
+	prefix := strings.ToUpper(envPrefix)
+	fmt.Println(ToPathSlice(t, prefix, make([]string, 0)))
 }
 
 func PullContainerImage(image string, version string) error {

@@ -87,6 +87,8 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "Interactive container session")
 
+	rootCmd.PersistentFlags().BoolVarP(&build, "build", "b", true, "Build custom image from Dockerfile")
+
 	rootCmd.PersistentFlags().BoolVarP(&snapshot, "snapshot", "", false, "Only dump the snapshot, do not run anything")
 
 	// Workspace

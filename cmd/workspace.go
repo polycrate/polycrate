@@ -114,6 +114,7 @@ func (c *Workspace) Snapshot() {
 		Mounts:    &c.mounts,
 	}
 	printObject(snapshot)
+	//convertToEnv(&snapshot)
 }
 
 func (c *Workspace) Flush() error {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +32,21 @@ import (
 func getDockerCLI() (*client.Client, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	return cli, err
+}
+
+func pullContainerImage(image string) error {
+	ctx := context.Background()
+	cli, err := getDockerCLI()
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.ImagePull(ctx, image, types.ImagePullOptions{})
+	if err != nil {
+		return err
+	}
+	log.Debugf("Pulled image %s", image)
+	return nil
 }
 
 func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
@@ -71,32 +87,55 @@ func doContainerStuff() error {
 
 	// Check if a Dockerfile is configured in the Workspace
 	if workspace.Config.Dockerfile != "" {
-		// Create the filepath
-		dockerfilePath := filepath.Join(workspace.path, workspace.Config.Dockerfile)
+		if build {
+			log.Debugf("Building image %s: --build=%t", containerImage, build)
 
-		// Check if the file exists
-		if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
-			// We need to build and tag this
-			log.Debugf("Found %s in Workspace. Building image.", workspace.Config.Dockerfile)
-			tag := workspace.Metadata.Name + ":" + version
-			log.Debugf("Building image for tag '%s'", tag)
+			// Create the filepath
+			dockerfilePath := filepath.Join(workspace.path, workspace.Config.Dockerfile)
 
-			tags := []string{tag}
-			containerImage, err = buildContainerImage(workspace.Config.Dockerfile, tags)
-			if err != nil {
-				return err
+			// Check if the file exists
+			if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
+				// We need to build and tag this
+				log.Debugf("Found %s in Workspace", workspace.Config.Dockerfile)
+
+				tag := workspace.Metadata.Name + ":" + version
+				log.Debugf("Building image '%s'", tag)
+
+				tags := []string{tag}
+				containerImage, err = buildContainerImage(workspace.Config.Dockerfile, tags)
+				if err != nil {
+					return err
+				}
+
+				// Override image to use
+				//containerImage = tag
+			} else {
+				return errors.New("Could not find Dockerfile at " + workspace.Config.Dockerfile)
 			}
-
-			// Override image to use
-			//containerImage = tag
 		} else {
+			log.Debugf("Not building image %s: --build=%t", containerImage, build)
+
 			if pull {
-				_, err = cli.ImagePull(ctx, containerImage, types.ImagePullOptions{})
+				log.Debugf("Pulling image %s: --pull=%t", containerImage, pull)
+				err := pullContainerImage(containerImage)
+
 				if err != nil {
 					log.Fatal(err)
 				}
-				log.Debugf("Pulled image %s", containerImage)
+			} else {
+				log.Debugf("Not pulling image %s: --pull=%t", containerImage, pull)
 			}
+		}
+	} else {
+		if pull {
+			log.Debugf("Pulling image %s: --pull=%t", containerImage, pull)
+			err := pullContainerImage(containerImage)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			log.Debugf("Not pulling image %s: --pull=%t", containerImage, pull)
 		}
 	}
 

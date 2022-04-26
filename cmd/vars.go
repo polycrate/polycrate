@@ -23,6 +23,7 @@ var pull bool
 var force bool
 var interactive bool
 var envPrefix string = "polycrate"
+var build bool
 
 const defaultFailedCode = 1
 
