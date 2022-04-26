@@ -7,7 +7,7 @@ delete-tag:
 	git push --delete origin $(shell svu)
 
 next:
-	svu next
+	@svu next
 
 docker-login:
 	echo ${GITHUB_TOKEN} | docker login ghcr.io -u ${GHCR_USER} --password-stdin

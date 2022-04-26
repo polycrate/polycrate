@@ -17,3 +17,4 @@ Run `make snapshot` - this will create a `dist` dir that contains the bundled ar
 ### Release a new version
 
 - Make sure the workspace is clean: `git status`
+- Once the workspace is clean, run `make next` to see the next computed version
