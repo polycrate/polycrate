@@ -34,13 +34,9 @@ var utcNow time.Time = time.Now().UTC()
 var now string = time.Now().Format(timeFormat)
 var home, _ = homedir.Dir()
 var overrides []string
-var workdir string = workspaceDir
+var workdir string = workspace.path
 var workdirContainer string = "/workdir"
 var outputFormat string
-var polycrateVersion string
-var sshPrivateKey string
-var sshPublicKey string
-var remoteRoot string
 var extraEnv []string
 var extraMounts []string
 var snapshot bool
@@ -51,7 +47,6 @@ var commit string
 var date string
 
 // Container stuff
-var envVars []string
 var mounts []string
 var ports []string
 
@@ -66,7 +61,7 @@ var gitConfigObject = viper.New()
 // Workspace
 var workspace Workspace           // Struct
 var workspaceConfig = viper.New() // Viper
-var workspaceDir string           // local
+//var workspaceDir string           // local
 
 var workspaceConfigFilePath string
 var workspaceContainerConfigFilePath string

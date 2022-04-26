@@ -36,7 +36,7 @@ func init() {
 
 func showWorkspace() {
 	fmt.Println("Stack Name: ", workspaceConfig.GetString("stack.name"))
-	fmt.Println("Stack Directory: ", workspaceDir)
+	fmt.Println("Stack Directory: ", workspace.path)
 	fmt.Println("Stack Config: ", workspaceConfig.GetString("stack.config"))
 	fmt.Println(workspaceConfig.AllSettings())
 }

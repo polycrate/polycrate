@@ -21,6 +21,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var short bool
+
 // installCmd represents the install command
 var versionCmd = &cobra.Command{
 	Use:   "version",
@@ -28,10 +30,15 @@ var versionCmd = &cobra.Command{
 	Long:  `Show CLI version`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(version)
-		fmt.Printf("Commit %s from %s", commit, date)
+
+		if !short {
+			fmt.Printf("Commit %s from %s", commit, date)
+		}
 	},
 }
 
 func init() {
+
+	versionCmd.Flags().BoolVarP(&short, "short", "", false, "Only dump the snapshot, do not run anything")
 	rootCmd.AddCommand(versionCmd)
 }

@@ -25,7 +25,7 @@ var sandboxCmd = &cobra.Command{
 	Short: "Play with the Polycrate container",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info("Starting sandbox container at ", workspaceDir)
+		log.Info("Starting sandbox container at ", workspace.path)
 		runCommand := []string{"/bin/bash"}
 		interactive = true
 		//bootstrapEnvVars()

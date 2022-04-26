@@ -103,7 +103,7 @@ func (c *Action) Run() error {
 
 	// 1. Determine the correct workdir
 	if workspace.currentBlock.workdir.localPath == "" {
-		workdir = workspaceDir
+		workdir = workspace.path
 		workdirContainer = workspaceContainerDir
 	} else {
 		workdir = workspace.currentBlock.workdir.localPath
@@ -140,8 +140,8 @@ func (c *Action) Run() error {
 	workspace.registerMount(c.executionScriptPath, c.executionScriptPath)
 
 	// Wrapup
-	ar.Env = envVars
-	ar.Mounts = mounts
+	ar.Env = workspace.DumpEnv()
+	ar.Mounts = workspace.DumpMounts()
 	ar.ContainerCmd = []string{"bash", "-c", c.executionScriptPath}
 
 	if action.Interactive {

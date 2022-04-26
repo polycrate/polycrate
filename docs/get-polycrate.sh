@@ -17,12 +17,12 @@
 # The install script is based off of the MIT-licensed script from glide,
 # the package manager for Go: https://github.com/Masterminds/glide.sh/blob/master/get
 
-: ${BINARY_NAME:="cloudstack"}
+: ${BINARY_NAME:="polycrate"}
 : ${USE_SUDO:="true"}
 : ${DEBUG:="false"}
 : ${VERIFY_CHECKSUM:="false"}
 : ${VERIFY_SIGNATURES:="false"}
-: ${CLOUDSTACK_INSTALL_DIR:="/usr/local/bin"}
+: ${POLYCRATE_INSTALL_DIR:="/usr/local/bin"}
 : ${GPG_PUBRING:="pubring.kbx"}
 
 HAS_CURL="$(type "curl" &> /dev/null && echo true || echo false)"
@@ -67,7 +67,7 @@ runAsRoot() {
 # verifySupported checks that the os/arch combination is supported for
 # binary builds, as well whether or not necessary tools are present.
 verifySupported() {
-  local supported="darwin-amd64\ndarwin-arm64\nlinux-386\nlinux-amd64\nlinux-arm\nlinux-arm64\nwindows-amd64"
+  local supported="darwin-amd64\ndarwin-arm64\nlinux-386\nlinux-amd64\nlinux-arm64\nwindows-amd64\nwindows-arm64\nwindows-386"
   if ! echo "${supported}" | grep -q "${OS}-${ARCH}"; then
     echo "No prebuilt binary for ${OS}-${ARCH}."
     exit 1
@@ -107,16 +107,16 @@ checkDesiredVersion() {
   fi
 }
 
-# checkCloudstackInstalledVersion checks which version of Cloudstack is installed and
+# checkPolycrateInstalledVersion checks which version of Polycrate is installed and
 # if it needs to be changed.
-checkCloudstackInstalledVersion() {
-  if [[ -f "${CLOUDSTACK_INSTALL_DIR}/${BINARY_NAME}" ]]; then
-    local version=$("${CLOUDSTACK_INSTALL_DIR}/${BINARY_NAME}" version)
+checkPolycrateInstalledVersion() {
+  if [[ -f "${POLYCRATE_INSTALL_DIR}/${BINARY_NAME}" ]]; then
+    local version=$("${POLYCRATE_INSTALL_DIR}/${BINARY_NAME}" version --short)
     if [[ "$version" == "$TAG" ]]; then
-      echo "Cloudstack ${version} is already ${DESIRED_VERSION:-latest}"
+      echo "Polycrate ${version} is already ${DESIRED_VERSION:-latest}"
       return 0
     else
-      echo "Cloudstack ${TAG} is available. Changing from version ${version}."
+      echo "Polycrate ${TAG} is available. Changing from version ${version}."
       return 1
     fi
   else
@@ -127,10 +127,10 @@ checkCloudstackInstalledVersion() {
 # downloadFile downloads the latest binary package and also the checksum
 # for that binary.
 downloadFile() {
-  DOWNLOAD_URL="https://s3.ayedo.dev/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH"
+  DOWNLOAD_URL="https://s3.ayedo.de/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH"
 
   if [ "$OS" == "WINDOWS" ]; then
-    DOWNLOAD_URL="https://s3.ayedo.dev/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH.exe"
+    DOWNLOAD_URL="https://s3.ayedo.de/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH.exe"
   fi
 
   CHECKSUM_URL="$DOWNLOAD_URL.sha256"
@@ -160,14 +160,14 @@ verifyFile() {
 # installFile installs the Cloudstack binary.
 installFile() {
   CLOUDSTACK_TMP_BIN="$CLOUDSTACK_TMP_ROOT/$BINARY_NAME"
-  echo "Preparing to install $BINARY_NAME into ${CLOUDSTACK_INSTALL_DIR}"
+  echo "Preparing to install $BINARY_NAME into ${POLYCRATE_INSTALL_DIR}"
   
-  if [ -f "$CLOUDSTACK_INSTALL_DIR/$BINARY_NAME" ]; then
-    runAsRoot rm "$CLOUDSTACK_INSTALL_DIR/$BINARY_NAME"
+  if [ -f "$POLYCRATE_INSTALL_DIR/$BINARY_NAME" ]; then
+    runAsRoot rm "$POLYCRATE_INSTALL_DIR/$BINARY_NAME"
   fi
-  runAsRoot cp "$CLOUDSTACK_TMP_BIN" "$CLOUDSTACK_INSTALL_DIR/$BINARY_NAME"
-  runAsRoot chmod +x "$CLOUDSTACK_INSTALL_DIR/$BINARY_NAME"
-  echo "$BINARY_NAME installed into $CLOUDSTACK_INSTALL_DIR/$BINARY_NAME"
+  runAsRoot cp "$CLOUDSTACK_TMP_BIN" "$POLYCRATE_INSTALL_DIR/$BINARY_NAME"
+  runAsRoot chmod +x "$POLYCRATE_INSTALL_DIR/$BINARY_NAME"
+  echo "$BINARY_NAME installed into $POLYCRATE_INSTALL_DIR/$BINARY_NAME"
 }
 
 # verifyChecksum verifies the SHA256 checksum of the binary package.
@@ -249,7 +249,7 @@ testVersion() {
   set +e
   CLOUDSTACK="$(command -v $BINARY_NAME)"
   if [ "$?" = "1" ]; then
-    echo "$BINARY_NAME not found. Is $CLOUDSTACK_INSTALL_DIR on your "'$PATH?'
+    echo "$BINARY_NAME not found. Is $POLYCRATE_INSTALL_DIR on your "'$PATH?'
     exit 1
   fi
   set -e

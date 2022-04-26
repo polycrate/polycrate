@@ -57,10 +57,12 @@ type WorkspaceConfig struct {
 	Image         ImageConfig            `mapstructure:"image" json:"image" validate:"required"`
 	BlocksRoot    string                 `mapstructure:"blocksroot" json:"blocksroot" validate:"required"`
 	WorkflowsRoot string                 `mapstructure:"workflowsroot" json:"workflowsroot" validate:"required"`
-	StateRoot     string                 `mapstructure:"stateroot" json:"stateroot" validate:"required"`
+	ArtifactsRoot string                 `mapstructure:"artifactsroot" json:"artifactsroot" validate:"required"`
 	ContainerRoot string                 `mapstructure:"containerroot" json:"containerroot" validate:"required"`
 	SshPrivateKey string                 `mapstructure:"sshprivatekey" json:"sshprivatekey" validate:"required"`
 	SshPublicKey  string                 `mapstructure:"sshpublickey" json:"sshpublickey" validate:"required"`
+	RemoteRoot    string                 `mapstructure:"remoteroot" json:"remoteroot" validate:"required"`
+	Dockerfile    string                 `mapstructure:"dockerfile,omitempty" json:"dockerfile,omitempty"`
 	Globals       map[string]interface{} `mapstructure:"globals,remain" json:"globals,remain"`
 }
 
@@ -77,6 +79,11 @@ type Workspace struct {
 	env             map[string]string
 	mounts          map[string]string
 	err             error
+	path            string
+	overrides       []string
+	extraEnv        []string
+	extraMounts     []string
+	containerPath   string
 }
 
 type WorkspaceIndex struct {
@@ -101,7 +108,7 @@ func (c *Workspace) Snapshot() {
 		Workspace: c,
 		Action:    c.currentAction,
 		Block:     c.currentBlock,
-		Workflow:  currentWorkflow,
+		Workflow:  c.currentWorkflow,
 		Step:      c.currentStep,
 		Env:       &c.env,
 		Mounts:    &c.mounts,
@@ -222,10 +229,10 @@ func (c *Workspace) unmarshalWorkspaceConfig() error {
 func (c *Workspace) load() {
 	log.Debugf("Loading Workspace")
 
-	workspaceConfigFilePath = filepath.Join(workspaceDir, workspaceConfigFile)
+	workspaceConfigFilePath = filepath.Join(workspace.path, workspaceConfigFile)
 	workspaceContainerConfigFilePath = filepath.Join(workspaceContainerDir, workspaceConfigFile)
 
-	blocksDir = filepath.Join(workspaceDir, blocksRoot)
+	blocksDir = filepath.Join(workspace.path, blocksRoot)
 	blocksContainerDir = filepath.Join(workspaceContainerDir, blocksRoot)
 
 	blockContainerDir = filepath.Join(blocksContainerDir, blockName)
@@ -239,6 +246,7 @@ func (c *Workspace) load() {
 	workspaceConfig.BindPFlag("config.remoteroot", rootCmd.Flags().Lookup("remote-root"))
 	workspaceConfig.BindPFlag("config.sshprivatekey", rootCmd.Flags().Lookup("ssh-private-key"))
 	workspaceConfig.BindPFlag("config.sshpublickey", rootCmd.Flags().Lookup("ssh-public-key"))
+	workspaceConfig.BindPFlag("config.dockerfile", rootCmd.Flags().Lookup("dockerfile"))
 
 	workspaceConfig.SetEnvPrefix(envPrefix)
 	workspaceConfig.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -361,7 +369,7 @@ func (c *Workspace) resolveBlockDependencies() error {
 				c.registerBlock(loadedBlock)
 
 				// Update Artifacts, Kubeconfig & Inventory
-				loadedBlock.artifacts.localPath = filepath.Join(workspaceDir, artifactsRoot, blocksRoot, loadedBlock.Metadata.Name)
+				loadedBlock.artifacts.localPath = filepath.Join(workspace.path, artifactsRoot, blocksRoot, loadedBlock.Metadata.Name)
 				loadedBlock.artifacts.containerPath = filepath.Join(workspaceContainerDir, artifactsRoot, blocksRoot, loadedBlock.Metadata.Name)
 
 				loadedBlock.LoadInventory()
@@ -442,7 +450,7 @@ func (c *Workspace) bootstrapMounts() []string {
 	c.mounts = map[string]string{}
 
 	// Mount the Workspace
-	c.registerMount(workspaceDir, workspaceContainerDir)
+	c.registerMount(workspace.path, workspaceContainerDir)
 
 	// Mount the Docker Socket if possible
 	dockerSocket := "/var/run/docker.sock"
@@ -471,6 +479,26 @@ func (c *Workspace) bootstrapMounts() []string {
 	return mounts
 }
 
+func (c *Workspace) DumpEnv() []string {
+	envVars := []string{}
+	for envVar := range workspace.env {
+		value := workspace.env[envVar]
+		s := strings.Join([]string{envVar, value}, "=")
+		envVars = append(envVars, s)
+	}
+	return envVars
+}
+
+func (c *Workspace) DumpMounts() []string {
+	mounts := []string{}
+	for mount := range workspace.mounts {
+		value := workspace.mounts[mount]
+		s := strings.Join([]string{mount, value}, "=")
+		mounts = append(mounts, s)
+	}
+	return mounts
+}
+
 func (c *Workspace) bootstrapEnvVars() {
 	// Prepare env map
 	c.env = map[string]string{}
@@ -489,16 +517,16 @@ func (c *Workspace) bootstrapEnvVars() {
 	c.registerEnvVar("ANSIBLE_VERBOSITY", logLevel)
 	c.registerEnvVar("ANSIBLE_CALLBACKS_ENABLED", "timer,profile_tasks,profile_roles")
 	c.registerEnvVar("POLYCRATE_CLI_VERSION", version)
-	c.registerEnvVar("POLYCRATE_IMAGE_VERSION", imageVersion)
-	c.registerEnvVar("POLYCRATE_IMAGE_REFERENCE", imageRef)
+	c.registerEnvVar("POLYCRATE_IMAGE_REFERENCE", workspace.Config.Image.Reference)
+	c.registerEnvVar("POLYCRATE_IMAGE_VERSION", workspace.Config.Image.Version)
 	c.registerEnvVar("POLYCRATE_FORCE", _force)
-	c.registerEnvVar("POLYCRATE_VERSION", polycrateVersion)
+	c.registerEnvVar("POLYCRATE_VERSION", version)
 	c.registerEnvVar("IN_CI", "true")
 	c.registerEnvVar("TERM", "xterm-256color")
 
 	if local {
 		// Not in container
-		c.registerEnvVar("POLYCRATE_WORKSPACE", workspaceDir)
+		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.path)
 		c.registerEnvVar("POLYCRATE_STACKFILE", workspaceConfigFilePath)
 	} else {
 		// In container

@@ -62,14 +62,14 @@ func getHash() string {
 
 func commitContext(message string) error {
 	// Opens an already existing repository.
-	log.Debug("Opening git repository at ", workspaceDir)
-	r, err := git.PlainOpen(workspaceDir)
+	log.Debug("Opening git repository at ", workspace.path)
+	r, err := git.PlainOpen(workspace.path)
 
 	if err != nil {
 		// we assume the repository does not exist
-		log.Debug("Initalizing git repository at ", workspaceDir)
-		fs := osfs.New(workspaceDir)
-		gitfs := osfs.New(path.Join(workspaceDir, ".git"))
+		log.Debug("Initalizing git repository at ", workspace.path)
+		fs := osfs.New(workspace.path)
+		gitfs := osfs.New(path.Join(workspace.path, ".git"))
 		storer := filesystem.NewStorage(gitfs, cache.NewObjectLRUDefault())
 		r, err = git.Init(storer, fs)
 		CheckErr(err)

@@ -34,16 +34,16 @@ var initCmd = &cobra.Command{
 	Long:  `Initalize a stack`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create context directory if not exists
-		contextDir := workspaceDir
+		contextDir := workspace.path
 		err := os.MkdirAll(contextDir, os.ModePerm)
 		CheckErr(err)
 
-		pluginsDir := filepath.Join(workspaceDir, "plugins")
+		pluginsDir := filepath.Join(workspace.path, "plugins")
 		err = os.MkdirAll(pluginsDir, os.ModePerm)
 		CheckErr(err)
 
 		// Create Stackfile if not exists
-		configPath := getConfigPath(workspaceDir)
+		configPath := getConfigPath(workspace.path)
 		if configPath == "" {
 			// Load from basic example
 			// download to /tmp-asdasdasd
@@ -71,8 +71,8 @@ var initCmd = &cobra.Command{
 			err = exampleConfig.MergeInConfig()
 			CheckErr(err)
 
-			exampleConfig.WriteConfigAs(workspaceDir + "/Stackfile")
-			log.Info("Created config from " + fileUrl + " at " + workspaceDir + "/Stackfile")
+			exampleConfig.WriteConfigAs(workspace.path + "/Stackfile")
+			log.Info("Created config from " + fileUrl + " at " + workspace.path + "/Stackfile")
 
 			err = os.Remove(donwloadTempPath)
 			CheckErr(err)

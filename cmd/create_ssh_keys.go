@@ -88,8 +88,8 @@ func generateKey() (string, string, error) {
 
 func CreateSSHKeys() error {
 
-	privKeyPath := filepath.Join(workspaceDir, workspace.Config.SshPrivateKey)
-	pubKeyPath := filepath.Join(workspaceDir, workspace.Config.SshPublicKey)
+	privKeyPath := filepath.Join(workspace.path, workspace.Config.SshPrivateKey)
+	pubKeyPath := filepath.Join(workspace.path, workspace.Config.SshPublicKey)
 
 	log.Debug("Asserting private ssh key at ", privKeyPath)
 	log.Debug("Asserting public ssh key at ", pubKeyPath)

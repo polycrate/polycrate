@@ -83,37 +83,41 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "Force execution")
 
-	rootCmd.PersistentFlags().StringSliceVarP(&overrides, "set", "s", []string{}, "Workspace ovrrides")
-
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output-format", "o", "yaml", "Output format")
 
 	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "Interactive container session")
 
 	rootCmd.PersistentFlags().BoolVarP(&snapshot, "snapshot", "", false, "Only dump the snapshot, do not run anything")
 
-	rootCmd.PersistentFlags().StringVarP(&workspaceDir, "workspace", "w", cwd, "Polycrate Workspace directory")
+	// Workspace
+	rootCmd.PersistentFlags().StringVarP(&workspace.path, "workspace", "w", cwd, "Polycrate Workspace directory")
 
-	rootCmd.PersistentFlags().StringVar(&imageRef, "image-ref", "ghcr.io/polycrate/polycrate", "image reference")
+	rootCmd.PersistentFlags().StringSliceVarP(&workspace.overrides, "set", "s", []string{}, "Workspace ovrrides")
 
-	rootCmd.PersistentFlags().StringVar(&imageVersion, "image-version", version, "image version")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.Image.Reference, "image-ref", "ghcr.io/polycrate/polycrate", "image reference")
 
-	rootCmd.PersistentFlags().StringVar(&blocksRoot, "blocks-root", "blocks", "Blocks root directory")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.Image.Version, "image-version", version, "image version")
 
-	rootCmd.PersistentFlags().StringVar(&workflowsRoot, "workflows-root", "workflows", "Workflows root directory")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.BlocksRoot, "blocks-root", "blocks", "Blocks root directory")
 
-	rootCmd.PersistentFlags().StringVar(&artifactsRoot, "artifacts-root", "artifacts", "State root directory")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.WorkflowsRoot, "workflows-root", "workflows", "Workflows root directory")
 
-	rootCmd.PersistentFlags().StringVar(&workspaceContainerDir, "container-root", "/workspace", "Workspace container root directory")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.ArtifactsRoot, "artifacts-root", "artifacts", "State root directory")
 
-	rootCmd.PersistentFlags().StringVar(&sshPrivateKey, "ssh-private-key", "id_rsa", "Workspace ssh private key")
+	rootCmd.PersistentFlags().StringVar(&workspace.containerPath, "container-root", "/workspace", "Workspace container root directory")
 
-	rootCmd.PersistentFlags().StringVar(&sshPublicKey, "ssh-public-key", "id_rsa.pub", "Workspace ssh public key")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.SshPrivateKey, "ssh-private-key", "id_rsa", "Workspace ssh private key")
 
-	rootCmd.PersistentFlags().StringVar(&remoteRoot, "remote-root", "/polycrate", "Remote root")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.SshPublicKey, "ssh-public-key", "id_rsa.pub", "Workspace ssh public key")
 
-	rootCmd.PersistentFlags().StringSliceVarP(&extraEnv, "env", "e", []string{}, "Additional env vars in the format 'KEY=value'")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.Dockerfile, "dockerfile", "Dockerfile.poly", "Workspace Dockerfile")
 
-	rootCmd.PersistentFlags().StringSliceVarP(&extraMounts, "mount", "m", []string{}, "Additional mounts for the container in the format '/host:/container'")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.RemoteRoot, "remote-root", "/polycrate", "Remote root")
+
+	rootCmd.PersistentFlags().StringSliceVarP(&workspace.extraEnv, "env", "e", []string{}, "Additional env vars in the format 'KEY=value'")
+
+	rootCmd.PersistentFlags().StringSliceVarP(&workspace.extraMounts, "mount", "m", []string{}, "Additional mounts for the container in the format '/host:/container'")
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -137,11 +141,9 @@ func initConfig() {
 	// set global log level
 	log.SetLevel(ll)
 
-	polycrateVersion = version
-
-	if imageVersion == "development" {
-		imageVersion = "latest"
-		log.Debug("Setting image version to latest")
+	if version == "development" {
+		workspace.Config.Image.Version = "latest"
+		log.Debug("Setting image version to latest (development mode)")
 	}
 
 }

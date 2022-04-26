@@ -70,7 +70,7 @@ func RunCommand(name string, args ...string) (exitCode int, err error) {
 	cmd = exec.Command(name, args...)
 
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, envVars...)
+	cmd.Env = append(cmd.Env, workspace.DumpEnv()...)
 
 	if !interactive {
 
@@ -126,7 +126,7 @@ func RunContainer(imageReference string, imageVersion string, command []string) 
 	runCmd = append(runCmd, []string{"run", "--rm", "-t"}...)
 
 	// Env
-	for _, envVar := range envVars {
+	for _, envVar := range workspace.DumpEnv() {
 		runCmd = append(runCmd, []string{"-e", envVar}...)
 	}
 
@@ -210,10 +210,10 @@ func discoverKubeconfig() error {
 		log.Debug("Setting kubeconfig from KUBECONFIG env var to ", kubeconfigEnv)
 	}
 
-	log.Debug("Trying to find a kubeconfig in ", workspaceDir)
+	log.Debug("Trying to find a kubeconfig in ", workspace.path)
 
 	// Get stack kubeconfig
-	stackKubeConfigPath := getKubeconfigPath(workspaceDir)
+	stackKubeConfigPath := getKubeconfigPath(workspace.path)
 
 	// Overwrite config if kubeconfig has been found in stack_dir
 	if stackKubeConfigPath != "" {
@@ -368,7 +368,7 @@ func loadWorkspace() error {
 
 	// Load plugin configs
 	var blockDirContent []fs.FileInfo
-	blockDirPath := filepath.Join(workspaceDir, blocksRoot)
+	blockDirPath := filepath.Join(workspace.path, blocksRoot)
 	if _, err := os.Stat(blockDirPath); !os.IsNotExist(err) {
 		if blockDirContent, err = ioutil.ReadDir(blockDirPath); err != nil {
 			return err
@@ -428,13 +428,13 @@ func loadWorkspace() error {
 	workspaceConfig.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	workspaceConfig.AutomaticEnv()
 
-	log.Debug("Trying to load ", workspaceConfigFile, " from ", workspaceDir)
+	log.Debug("Trying to load ", workspaceConfigFile, " from ", workspace.path)
 	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
 
 	// Config file not found
 	if err := workspaceConfig.MergeInConfig(); err != nil {
 		// Return a warning
-		log.Warn(workspaceConfigFile, " not found in ", workspaceDir)
+		log.Warn(workspaceConfigFile, " not found in ", workspace.path)
 
 		// Set workspace.Metadata.Name to basename of $PWD
 		workspaceConfig.SetDefault("name", filepath.Base(cwd))
@@ -531,7 +531,7 @@ func loadInventory() {
 
 	// Check if inventory.yml exists
 
-	_inventoryPath := filepath.Join(workspaceDir, "inventory.yml")
+	_inventoryPath := filepath.Join(workspace.path, "inventory.yml")
 	if _, err := os.Stat(_inventoryPath); os.IsNotExist(err) {
 		log.Fatal("inventory.yml not found. Please add an inventory.")
 	} else {
@@ -727,7 +727,7 @@ func unmarshalStackfile2(format string) string {
 
 func callPlugin(block string, action string) (int, error) {
 	log.Info("Calling plugin " + block + ", command " + action)
-	var localPluginPath string = filepath.Join(workspaceDir, blocksRoot, block)
+	var localPluginPath string = filepath.Join(workspace.path, blocksRoot, block)
 	var containerPluginPath string = filepath.Join("/context", blocksRoot, block)
 
 	// Load plugin and command config
