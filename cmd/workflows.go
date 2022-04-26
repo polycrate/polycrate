@@ -16,34 +16,43 @@ limitations under the License.
 package cmd
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 // installCmd represents the install command
-var pipelinesCmd = &cobra.Command{
-	Use:   "pipelines",
-	Short: "Control Cloudstack pipelines",
+var workflowsCmd = &cobra.Command{
+	Use:   "workflows",
+	Short: "Control Polycrate Workflows",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		loadWorkspace()
-		// List pipelines
+		workspace.load()
+		if workspace.Flush() != nil {
+			log.Fatal(workspace.Flush)
+		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(pipelinesCmd)
+	rootCmd.AddCommand(workflowsCmd)
 }
 
 type Step struct {
-	Display string   `mapstructure:"display" json:"display" validate:"required"`
-	Block   string   `mapstructure:"block" json:"block" validate:"required"`
-	Action  string   `mapstructure:"action" json:"action" validate:"required"`
-	Trigger string   `mapstructure:"trigger" json:"trigger"`
-	Scope   string   `mapstructure:"scope" json:"scope"`
-	Labels  []string `mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Metadata Metadata `mapstructure:"metadata" json:"metadata" validate:"required"`
+	Block    string   `mapstructure:"block" json:"block" validate:"required"`
+	Action   string   `mapstructure:"action" json:"action" validate:"required"`
+	workflow *Workflow
+	address  string
+	err      error
 }
 
 type Workflow struct {
 	Metadata Metadata `mapstructure:"metadata" json:"metadata" validate:"required"`
 	Steps    []Step   `mapstructure:"steps,omitempty" json:"steps,omitempty"`
+	address  string
+	err      error
+}
+
+func (c *Workflow) Inspect() {
+	printObject(c)
 }

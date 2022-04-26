@@ -18,6 +18,7 @@ package cmd
 import (
 	goErrors "errors"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/InVisionApp/conjungo"
@@ -67,15 +68,105 @@ func init() {
 	rootCmd.AddCommand(blocksCmd)
 }
 
+type BlockWorkdir struct {
+	exists        bool
+	localPath     string
+	containerPath string
+}
+type BlockKubeconfig struct {
+	from          string
+	exists        bool
+	localPath     string
+	containerPath string
+}
+type BlockInventory struct {
+	from          string
+	exists        bool
+	localPath     string
+	containerPath string
+}
+type BlockArtifacts struct {
+	localPath     string
+	containerPath string
+}
+
 type Block struct {
-	Metadata Metadata               `mapstructure:"metadata" json:"metadata" validate:"required"`
-	Actions  []Action               `mapstructure:"actions,omitempty" json:"actions,omitempty"`
-	Config   map[string]interface{} `mapstructure:"config,omitempty,remain" json:"config,omitempty,remain"`
-	From     string                 `mapstructure:"from,omitempty" json:"from,omitempty"`
-	Template bool                   `mapstructure:"template,omitempty" json:"template,omitempty"`
-	Version  string                 `mapstructure:"version" json:"version"`
-	resolved bool
-	parent   *Block
+	Metadata   Metadata               `mapstructure:"metadata" json:"metadata" validate:"required"`
+	Actions    []Action               `mapstructure:"actions,omitempty" json:"actions,omitempty"`
+	Config     map[string]interface{} `mapstructure:"config,omitempty,remain" json:"config,omitempty,remain"`
+	From       string                 `mapstructure:"from,omitempty" json:"from,omitempty"`
+	Template   bool                   `mapstructure:"template,omitempty" json:"template,omitempty"`
+	Version    string                 `mapstructure:"version" json:"version"`
+	resolved   bool
+	parent     *Block
+	workdir    BlockWorkdir
+	inventory  BlockInventory
+	kubeconfig BlockKubeconfig
+	artifacts  BlockArtifacts
+	address    string
+	err        error
+}
+
+func (c *Block) getInventoryPath() string {
+	if c.inventory.from != "" {
+		// Take the inventory from another Block
+		inventorySourceBlock := workspace.getBlockByName(c.inventory.from)
+		if inventorySourceBlock != nil {
+			if inventorySourceBlock.inventory.exists {
+				if local {
+					return inventorySourceBlock.inventory.localPath
+				} else {
+					return inventorySourceBlock.inventory.containerPath
+				}
+			}
+		}
+	} else {
+		if c.inventory.exists {
+			if local {
+				return c.inventory.localPath
+			} else {
+				return c.inventory.containerPath
+			}
+		}
+	}
+	return ""
+}
+
+func (c *Block) getKubeconfigPath() string {
+	if c.kubeconfig.from != "" {
+		// Take the inventory from another Block
+		kubeconfigSourceBlock := workspace.getBlockByName(c.kubeconfig.from)
+		if kubeconfigSourceBlock != nil {
+			if kubeconfigSourceBlock.kubeconfig.exists {
+				if local {
+					return kubeconfigSourceBlock.kubeconfig.localPath
+				} else {
+					return kubeconfigSourceBlock.kubeconfig.containerPath
+				}
+			}
+		}
+	} else {
+		if c.kubeconfig.exists {
+			if local {
+				return c.kubeconfig.localPath
+			} else {
+				return c.kubeconfig.containerPath
+			}
+		}
+	}
+	return ""
+}
+
+func (c *Block) getActionByName(actionName string) *Action {
+
+	//for _, block := range c.Blocks {
+	for i := 0; i < len(c.Actions); i++ {
+		action := &c.Actions[i]
+		if action.Metadata.Name == actionName {
+			return action
+		}
+	}
+	return nil
 }
 
 func (c *Block) Validate() error {
@@ -129,6 +220,34 @@ func (c *Block) MergeIn(block *Block) error {
 
 func (c *Block) Inspect() {
 	printObject(c)
+}
+
+func (c *Block) LoadInventory() {
+	// Locate "inventory.json" in blockArtifactsDir
+	blockInventoryFile := filepath.Join(c.artifacts.localPath, "inventory.json")
+
+	if _, err := os.Stat(blockInventoryFile); !os.IsNotExist(err) {
+		// File exists
+		c.inventory.exists = true
+		c.inventory.localPath = blockInventoryFile
+		c.inventory.containerPath = filepath.Join(c.artifacts.containerPath, "inventory.json")
+		log.Debug("Found Block Inventory at " + blockInventoryFile)
+	}
+
+}
+
+func (c *Block) LoadKubeconfig() {
+	// Locate "kubeconfig.yml" in blockArtifactsDir
+	blockKubeconfigFile := filepath.Join(c.artifacts.localPath, "kubeconfig.yml")
+
+	if _, err := os.Stat(blockKubeconfigFile); !os.IsNotExist(err) {
+		// File exists
+		c.kubeconfig.exists = true
+		c.kubeconfig.localPath = blockKubeconfigFile
+		c.kubeconfig.containerPath = filepath.Join(c.artifacts.containerPath, "kubeconfig.yml")
+		log.Debug("Found Block Kubeconfig at " + blockKubeconfigFile)
+	}
+
 }
 
 // func (c *Block) Download(pluginName string) error {

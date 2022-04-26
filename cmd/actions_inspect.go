@@ -16,14 +16,15 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
+	"log"
+
 	"github.com/spf13/cobra"
 )
 
 // installCmd represents the install command
-var blocksInspectCmd = &cobra.Command{
+var actionsInspectCmd = &cobra.Command{
 	Use:   "inspect",
-	Short: "Inspect a Block",
+	Short: "Inspect an Action",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load()
@@ -31,11 +32,11 @@ var blocksInspectCmd = &cobra.Command{
 			log.Fatal(workspace.Flush)
 		}
 
-		block := workspace.getBlockByName(args[0])
-		block.Inspect()
+		action := workspace.getActionByPath(args[0])
+		action.Inspect()
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksInspectCmd)
+	actionsCmd.AddCommand(actionsInspectCmd)
 }

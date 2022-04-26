@@ -16,22 +16,26 @@ limitations under the License.
 package cmd
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-var triggerCmd = &cobra.Command{
-	Use:   "trigger",
-	Short: "Trigger Action",
-	Long:  `Trigger Action`,
+// installCmd represents the install command
+var workflowsInspectCmd = &cobra.Command{
+	Use:   "inspect",
+	Short: "Inspect a Workflow",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		bootstrapEnvVars()
-		bootstrapMounts()
+		workspace.load()
+		if workspace.Flush() != nil {
+			log.Fatal(workspace.Flush)
+		}
 
-		_, err := trigger(args[0])
-		CheckErr(err)
+		workflow := workspace.getWorkflowByName(args[0])
+		workflow.Inspect()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(triggerCmd)
+	workflowsCmd.AddCommand(workflowsInspectCmd)
 }

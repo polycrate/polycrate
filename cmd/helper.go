@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strings"
 	"syscall"
-	"time"
 
 	goErrors "errors"
 
@@ -62,175 +61,6 @@ func saveExecutionScript(script []string) (error, string) {
 	// It's probably safer to close the fd anyways
 	f.Close()
 	return nil, f.Name()
-}
-
-func getMounts(extraMounts []string) []string {
-	mounts := []string{
-		strings.Join([]string{workspaceDir, "/workspace"}, ":"),
-		strings.Join([]string{kubeconfig, "/root/.kube/config"}, ":"),
-		strings.Join([]string{"RUNTIMESTACKFILE", "/tmp/Stackfile"}, ":"),
-	}
-	if extraMounts != nil {
-		mounts = append(mounts, extraMounts...)
-	}
-	// if devDir != "" {
-	// 	mounts = append(mounts, strings.Join([]string{devDir, "/polycrate"}, ":"))
-	// }
-	return mounts
-}
-
-// func getEnvironment(extraEnvironments []string) []string {
-// 	var _force string
-// 	if force {
-// 		_force = "1"
-// 	} else {
-// 		_force = "0"
-// 	}
-// 	env := []string{
-// 		strings.Join([]string{"ANSIBLE_DISPLAY_SKIPPED_HOSTS", "no"}, "="),
-// 		strings.Join([]string{"ANSIBLE_DISPLAY_OK_HOSTS", "yes"}, "="),
-// 		strings.Join([]string{"ANSIBLE_HOST_KEY_CHECKING", "False"}, "="),
-// 		strings.Join([]string{"ANSIBLE_INVENTORY", "/context/inventory.yml"}, "="),
-// 		strings.Join([]string{"ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:/cloudstack/roles"}, "="),
-// 		strings.Join([]string{"ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections"}, "="),
-// 		strings.Join([]string{"ANSIBLE_VERBOSITY", logLevel}, "="),
-// 		strings.Join([]string{"ANSIBLE_CALLBACKS_ENABLED", "timer,profile_tasks,profile_roles"}, "="),
-// 		strings.Join([]string{"CLOUDSTACK_CLI_VERSION", version}, "="),
-// 		strings.Join([]string{"CLOUDSTACK_IMAGE_VERSION", imageVersion}, "="),
-// 		strings.Join([]string{"CLOUDSTACK_IMAGE_REFERENCE", imageRef}, "="),
-// 		strings.Join([]string{"CLOUDSTACK_PLUGIN", blockName}, "="),
-// 		strings.Join([]string{"CLOUDSTACK_PLUGINS", blockName}, "="),
-// 		strings.Join([]string{"CLOUDSTACK_PLUGIN_COMMAND", action}, "="),
-// 		strings.Join([]string{"CLOUDSTACK_PLUGIN_COMMAND_FORCE", _force}, "="),
-// 		strings.Join([]string{"CLOUDSTACK_VERSION", polycrateVersion}, "="),
-// 		strings.Join([]string{"IN_CI", "True"}, "="),
-// 		strings.Join([]string{"TERM", "xterm-256color"}, "="),
-// 	}
-// 	if local {
-// 		// Not in container
-// 		additionalEnvs := []string{
-// 			strings.Join([]string{"CLOUDSTACK_CONTEXT", workspaceDir}, "="),
-// 			strings.Join([]string{"CLOUDSTACK_DIR", ""}, "="),
-// 			strings.Join([]string{"CLOUDSTACK_STACKFILE", workspaceConfigFile}, "="),
-// 			strings.Join([]string{"CLOUDSTACK_ORIGINAL_STACKFILE", workspaceConfigFile}, "="),
-// 		}
-// 		env = append(env, additionalEnvs...)
-// 	} else {
-// 		// In container
-// 		additionalEnvs := []string{
-// 			strings.Join([]string{"CLOUDSTACK_CONTEXT", "/context"}, "="),
-// 			strings.Join([]string{"CLOUDSTACK_DIR", "/cloudstack"}, "="),
-// 			strings.Join([]string{"CLOUDSTACK_STACKFILE", "/tmp/Stackfile"}, "="),
-// 			strings.Join([]string{"CLOUDSTACK_ORIGINAL_STACKFILE", workspaceConfigFile}, "="),
-// 		}
-// 		env = append(env, additionalEnvs...)
-// 	}
-
-// 	if extraEnvironments != nil {
-// 		env = append(env, extraEnvironments...)
-// 	}
-
-// 	return env
-// }
-
-func registerEnvVar(key string, value string) []string {
-
-	envVar := strings.Join([]string{key, value}, "=")
-
-	envVars = append(envVars, envVar)
-
-	return envVars
-}
-func registerPort(host string, container string) []string {
-
-	portMapping := strings.Join([]string{host, container}, ":")
-
-	ports = append(ports, portMapping)
-
-	return ports
-}
-func registerMount(host string, container string) []string {
-
-	mountMapping := strings.Join([]string{host, container}, ":")
-
-	mounts = append(mounts, mountMapping)
-
-	return mounts
-}
-
-func bootstrapMounts() []string {
-	mounts = registerMount(workspaceDir, workspaceContainerDir)
-	mounts = registerMount(kubeconfigPath, kubeconfigContainerPath)
-
-	// if extraMounts != nil {
-
-	// 	mounts = append(mounts, extraMounts...)
-	// }
-	// if devDir != "" {
-	// 	mounts = append(mounts, strings.Join([]string{devDir, "/polycrate"}, ":"))
-	// }
-	return mounts
-}
-
-func bootstrapEnvVars() []string {
-	var _force string
-	if force {
-		_force = "1"
-	} else {
-		_force = "0"
-	}
-	registerEnvVar("ANSIBLE_DISPLAY_SKIPPED_HOSTS", "no")
-	registerEnvVar("ANSIBLE_DISPLAY_OK_HOSTS", "yes")
-	registerEnvVar("ANSIBLE_HOST_KEY_CHECKING", "no")
-	registerEnvVar("ANSIBLE_INVENTORY", inventoryContainerPath)
-	registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
-	registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
-	registerEnvVar("ANSIBLE_VERBOSITY", logLevel)
-	registerEnvVar("ANSIBLE_CALLBACKS_ENABLED", "timer,profile_tasks,profile_roles")
-	registerEnvVar("POLYCRATE_CLI_VERSION", version)
-	registerEnvVar("POLYCRATE_IMAGE_VERSION", imageVersion)
-	registerEnvVar("POLYCRATE_IMAGE_REFERENCE", imageRef)
-	registerEnvVar("POLYCRATE_BLOCK", blockName)
-	registerEnvVar("POLYCRATE_ACTION", actionName)
-	registerEnvVar("POLYCRATE_FORCE", _force)
-	registerEnvVar("POLYCRATE_VERSION", polycrateVersion)
-	registerEnvVar("IN_CI", "true")
-	registerEnvVar("TERM", "xterm-256color")
-
-	// envVars = []string{
-	// 	strings.Join([]string{"ANSIBLE_DISPLAY_SKIPPED_HOSTS", "no"}, "="),
-	// 	strings.Join([]string{"ANSIBLE_DISPLAY_OK_HOSTS", "yes"}, "="),
-	// 	strings.Join([]string{"ANSIBLE_HOST_KEY_CHECKING", "False"}, "="),
-	// 	strings.Join([]string{"ANSIBLE_INVENTORY", inventoryContainerPath}, "="),
-	// 	strings.Join([]string{"ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles"}, "="),
-	// 	strings.Join([]string{"ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections"}, "="),
-	// 	strings.Join([]string{"ANSIBLE_VERBOSITY", logLevel}, "="),
-	// 	strings.Join([]string{"ANSIBLE_CALLBACKS_ENABLED", "timer,profile_tasks,profile_roles"}, "="),
-	// 	strings.Join([]string{"POLYCRATE_CLI_VERSION", version}, "="),
-	// 	strings.Join([]string{"POLYCRATE_IMAGE_VERSION", imageVersion}, "="),
-	// 	strings.Join([]string{"POLYCRATE_IMAGE_REFERENCE", imageRef}, "="),
-	// 	strings.Join([]string{"POLYCRATE_BLOCK", block}, "="),
-	// 	strings.Join([]string{"POLYCRATE_ACTION", action}, "="),
-	// 	strings.Join([]string{"POLYCRATE_FORCE", _force}, "="),
-	// 	strings.Join([]string{"POLYCRATE_VERSION", polycrateVersion}, "="),
-	// 	strings.Join([]string{"IN_CI", "True"}, "="),
-	// 	strings.Join([]string{"TERM", "xterm-256color"}, "="),
-	// }
-	if local {
-		// Not in container
-		registerEnvVar("POLYCRATE_WORKSPACE", workspaceDir)
-		registerEnvVar("POLYCRATE_STACKFILE", workspaceConfigFilePath)
-	} else {
-		// In container
-		registerEnvVar("POLYCRATE_WORKSPACE", workspaceContainerDir)
-		registerEnvVar("POLYCRATE_STACKFILE", workspaceContainerConfigFilePath)
-	}
-
-	// if extraEnvironments != nil {
-	// 	envVars = append(envVars, extraEnvironments...)
-	// }
-
-	return envVars
 }
 
 func RunCommand(name string, args ...string) (exitCode int, err error) {
@@ -716,88 +546,6 @@ func loadInventory() {
 	CheckErr(err)
 }
 
-func createStatefile() error {
-	statefile = filepath.Join(workspaceDir, stateRoot, "Statefile")
-	var err error
-
-	stateConfigObject.SetConfigType("yaml")
-	stateConfigObject.Set("history", []map[string]interface{}{})
-	stateConfigObject.Set("changed", time.Now().String())
-
-	err = CreateFile(statefile)
-	if err != nil {
-		return err
-	}
-
-	err = stateConfigObject.WriteConfigAs(statefile)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func initState() error {
-	stateDir := filepath.Join(workspaceDir, stateRoot)
-	statefile = filepath.Join(stateDir, "Statefile")
-
-	if _, err := os.Stat(stateDir); os.IsNotExist(err) {
-		// stateDir does not exist
-		// Create it
-		log.Debug("Creating state directory at " + stateDir)
-		err := CreateDir(stateDir)
-		if err != nil {
-			return err
-		}
-	}
-
-	if _, err := os.Stat(statefile); os.IsNotExist(err) {
-		// Statefile does not exist
-		// Create it
-		log.Debug("Creating Statefile at " + statefile)
-		err := createStatefile()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func loadStatefile() error {
-	log.Debug("Loading Statefile")
-	if statefile == "" {
-		statefile = filepath.Join(workspaceDir, stateRoot, "Statefile")
-	}
-
-	if _, err := os.Stat(statefile); os.IsNotExist(err) {
-		// Statefile does not exist
-		// run initState
-		err := initState()
-		if err != nil {
-			return err
-		}
-	}
-
-	stateConfigObject.SetConfigFile(statefile)
-	stateConfigObject.SetConfigType("yaml")
-
-	if err := stateConfigObject.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return err
-		} else {
-			log.Debug(err)
-		}
-	}
-
-	if err := unmarshalStatefile(); err != nil {
-		return err
-	}
-
-	log.Debug("Statefile loaded")
-
-	return nil
-}
-
 func saveConfig() string {
 	// Get temp path
 	file, err := ioutil.TempFile("/tmp", "Stackfile."+workspaceConfig.GetString("stack.name")+"-*.yml")
@@ -824,15 +572,6 @@ func saveRuntimeStackfile() {
 
 	//cloudstackConfig.WriteConfigAs(file.Name())
 	//runtimeStackfile := file.Name()
-}
-func saveStatefile() error {
-	log.Debug("Saving Statefile: " + statefile)
-
-	fileData, _ := yaml.Marshal(state)
-
-	err := ioutil.WriteFile(statefile, fileData, 0644)
-
-	return err
 }
 
 func configToEnv() []string {
@@ -925,21 +664,6 @@ func unmarshalworkspaceConfig() error {
 
 	err = workspace.Validate()
 	return err
-}
-
-func unmarshalStatefile() error {
-	log.Debug("Unmarshalling Statefile")
-	err := stateConfigObject.UnmarshalExact(&state)
-	if err != nil {
-		return err
-	}
-
-	err = state.Validate()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func printObject(object interface{}) {

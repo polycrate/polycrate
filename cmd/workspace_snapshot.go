@@ -20,22 +20,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var historyClearCmd = &cobra.Command{
-	Use:   "clear",
-	Short: "Clear history",
-	Long:  `Clear history`,
+var workspaceSnapshotCmd = &cobra.Command{
+	Use:   "snapshot",
+	Short: "Show Workspace snapshot",
+	Long:  `Show Workspace snapshot`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if !force {
-			log.Fatal("Sorry, you need to use --force to erase history")
+		workspace.load()
+		if workspace.Flush() != nil {
+			log.Fatal(workspace.Flush())
 		}
-		state = Statefile{}
-		state.Save()
-	},
-	PreRun: func(cmd *cobra.Command, args []string) {
-		loadWorkspace()
+		workspace.Snapshot()
 	},
 }
 
 func init() {
-	historyCmd.AddCommand(historyClearCmd)
+	workspaceCmd.AddCommand(workspaceSnapshotCmd)
 }

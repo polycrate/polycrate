@@ -16,7 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/prometheus/common/log"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +28,7 @@ var sandboxCmd = &cobra.Command{
 		log.Info("Starting sandbox container at ", workspaceDir)
 		runCommand := []string{"/bin/bash"}
 		interactive = true
-		bootstrapEnvVars()
+		//bootstrapEnvVars()
 		RunContainer(
 			workspace.Config.Image.Reference,
 			workspace.Config.Image.Version,

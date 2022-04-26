@@ -20,22 +20,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// installCmd represents the install command
-var blocksInspectCmd = &cobra.Command{
-	Use:   "inspect",
-	Short: "Inspect a Block",
-	Long:  ``,
+var listActionsCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List Actions",
+	Long:  `List Actions`,
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load()
 		if workspace.Flush() != nil {
 			log.Fatal(workspace.Flush)
 		}
 
-		block := workspace.getBlockByName(args[0])
-		block.Inspect()
+		workspace.listActions()
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksInspectCmd)
+	actionsCmd.AddCommand(listActionsCmd)
 }

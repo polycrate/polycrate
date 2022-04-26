@@ -18,7 +18,6 @@ package cmd
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -33,13 +32,6 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initalize a stack",
 	Long:  `Initalize a stack`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		loadStatefile()
-	},
-	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-		currentHistoryItem.UpdateStatus(strconv.Itoa(pluginCallExitCode))
-		writeHistory()
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create context directory if not exists
 		contextDir := workspaceDir

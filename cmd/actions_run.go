@@ -21,9 +21,9 @@ import (
 )
 
 // installCmd represents the install command
-var blocksInspectCmd = &cobra.Command{
-	Use:   "inspect",
-	Short: "Inspect a Block",
+var actionsRunCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run an Action",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load()
@@ -31,11 +31,24 @@ var blocksInspectCmd = &cobra.Command{
 			log.Fatal(workspace.Flush)
 		}
 
-		block := workspace.getBlockByName(args[0])
-		block.Inspect()
+		// block, action, err := workspace.resolveActionAddress(args[0])
+
+		// if block != nil {
+		// 	workspace.setCurrentBlock(block)
+		// 	if action != nil {
+		// 		workspace.setCurrentAction(action)
+		// 		action.Run()
+		// 	} else {
+		// 		log.Fatal(err)
+		// 	}
+		// } else {
+		// 	log.Fatal(err)
+		// }
+		workspace.RunAction(args[0])
+
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksInspectCmd)
+	actionsCmd.AddCommand(actionsRunCmd)
 }

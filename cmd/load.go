@@ -16,7 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/prometheus/common/log"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -34,10 +34,9 @@ func init() {
 }
 
 func softLoadWorkspace() {
-	err := workspace.load()
-
-	if err != nil {
-		log.Error(err)
+	workspace.load()
+	if workspace.Flush() != nil {
+		log.Fatal(workspace.Flush)
 	}
 
 	workspace.print()

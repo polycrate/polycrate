@@ -70,19 +70,11 @@ func init() {
 		fmt.Println()
 		fmt.Println("CTRL-C command received. Exiting...")
 
-		currentHistoryItem.UpdateStatus("cancelled")
-		state.WriteHistory()
-
 		os.Exit(0)
 	}()
 
 	cobra.OnInitialize(initConfig)
 
-	//rootCmd.PersistentFlags().StringVar(&command, "command", "", "command")
-	//rootCmd.PersistentFlags().StringVar(&statefile, "statefile", "", "Polycrate state")
-	//rootCmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", filepath.Join(home, ".kube/config"), "kubeconfig")
-	//rootCmd.PersistentFlags().StringVar(&plugins, "plugins", "", "plugins")
-	//rootCmd.PersistentFlags().StringVar(&workspaceConfig, "workspace-config", "", "Polycrate Workspace Config")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "loglevel", "0", "loglevel")
 
 	rootCmd.PersistentFlags().BoolVarP(&pull, "pull", "p", true, "Pull images upfront")
@@ -91,11 +83,14 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "Force execution")
 
-	rootCmd.PersistentFlags().StringSliceVarP(&overrides, "set", "s", []string{}, "Development directory for this component")
+	rootCmd.PersistentFlags().StringSliceVarP(&overrides, "set", "s", []string{}, "Workspace ovrrides")
 
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output-format", "o", "yaml", "Output format")
 
 	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "Interactive container session")
+
+	rootCmd.PersistentFlags().BoolVarP(&snapshot, "snapshot", "", false, "Only dump the snapshot, do not run anything")
+
 	rootCmd.PersistentFlags().StringVarP(&workspaceDir, "workspace", "w", cwd, "Polycrate Workspace directory")
 
 	rootCmd.PersistentFlags().StringVar(&imageRef, "image-ref", "ghcr.io/polycrate/polycrate", "image reference")
@@ -106,7 +101,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&workflowsRoot, "workflows-root", "workflows", "Workflows root directory")
 
-	rootCmd.PersistentFlags().StringVar(&workflowsRoot, "state-root", "state", "State root directory")
+	rootCmd.PersistentFlags().StringVar(&artifactsRoot, "artifacts-root", "artifacts", "State root directory")
 
 	rootCmd.PersistentFlags().StringVar(&workspaceContainerDir, "container-root", "/workspace", "Workspace container root directory")
 
@@ -115,6 +110,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&sshPublicKey, "ssh-public-key", "id_rsa.pub", "Workspace ssh public key")
 
 	rootCmd.PersistentFlags().StringVar(&remoteRoot, "remote-root", "/polycrate", "Remote root")
+
+	rootCmd.PersistentFlags().StringSliceVarP(&extraEnv, "env", "e", []string{}, "Additional env vars in the format 'KEY=value'")
+
+	rootCmd.PersistentFlags().StringSliceVarP(&extraMounts, "mount", "m", []string{}, "Additional mounts for the container in the format '/host:/container'")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -134,33 +133,10 @@ func initConfig() {
 	if err != nil {
 		ll = logrus.InfoLevel
 	}
+
 	// set global log level
 	log.SetLevel(ll)
 
-	//discoverKubeconfig()
-
-	// // Additionally, check for KUBECONFIG env var
-	// kubeconfigEnv := os.Getenv("KUBECONFIG")
-
-	// if kubeconfigEnv != "" {
-	// 	kubeconfig = kubeconfigEnv
-	// 	log.Debug("Setting kubeconfig from KUBECONFIG env var to ", kubeconfigEnv)
-	// }
-
-	// log.Debug("Trying to find a kubeconfig in ", context)
-
-	// // Get stack kubeconfig
-	// stackKubeConfigPath := getKubeconfigPath(context)
-
-	// // Overwrite config if kubeconfig has been found in stack_dir
-	// if stackKubeConfigPath != "" {
-	// 	//viper.Set("kubeconfig", stackKubeConfigPath)
-	// 	kubeconfig = stackKubeConfigPath
-	// 	log.Debug("Setting kubeconfig to ", stackKubeConfigPath)
-	// }
-
-	// Check if dev-dir is set
-	// and set cloudstackVersion to "latest"
 	polycrateVersion = version
 
 	if imageVersion == "development" {
@@ -168,7 +144,4 @@ func initConfig() {
 		log.Debug("Setting image version to latest")
 	}
 
-	// Load Workspace
-	//loadWorkspace()
-	//_loadWorkspace()
 }

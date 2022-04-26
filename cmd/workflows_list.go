@@ -16,39 +16,24 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-var listPipelinesCmd = &cobra.Command{
+var listWorkflowsCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List pipelines",
-	Long:  `List pipelines`,
+	Short: "List Workflows",
+	Long:  `List Workflows`,
 	Run: func(cmd *cobra.Command, args []string) {
-		loadWorkspace()
+		workspace.load()
+		if workspace.Flush() != nil {
+			log.Fatal(workspace.Flush)
+		}
 
-		listPipelines()
+		workspace.listWorkflows()
 	},
 }
 
 func init() {
-	pipelinesCmd.AddCommand(listPipelinesCmd)
-}
-
-func listPipelines() {
-	pipelines := make([]string, 0, len(workspace.Workflows))
-	for _, v := range workspace.Workflows {
-		pipelines = append(pipelines, v.Metadata.Name)
-	}
-
-	if len(pipelines) > 0 {
-		for p := range pipelines {
-			fmt.Println(pipelines[p])
-		}
-	} else {
-		log.Warn("No pipelines found")
-	}
-
+	workflowsCmd.AddCommand(listWorkflowsCmd)
 }
