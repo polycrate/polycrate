@@ -94,5 +94,5 @@ docker_manifests:
       - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8
   - name_template: ghcr.io/polycrate/polycrate:latest
     image_templates:
-      - ghcr.io/polycrate/polycrate:latest-arm64
-      - ghcr.io/polycrate/polycrate:latest-amd64v8
+      - ghcr.io/polycrate/polycrate:latest-amd64
+      - ghcr.io/polycrate/polycrate:latest-arm64v8
