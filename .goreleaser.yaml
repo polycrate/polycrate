@@ -86,12 +86,12 @@ docker_manifests:
       - ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8
   - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}
     image_templates:
-      - ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64
-      - ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64v8
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8
   - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}
     image_templates:
-      - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64
-      - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64v8
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8
   - name_template: ghcr.io/polycrate/polycrate:latest
     image_templates:
       - ghcr.io/polycrate/polycrate:latest-arm64
