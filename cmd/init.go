@@ -29,9 +29,10 @@ var fileUrl string
 
 // installCmd represents the install command
 var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initalize a stack",
-	Long:  `Initalize a stack`,
+	Hidden: true,
+	Use:    "init",
+	Short:  "Initalize a stack",
+	Long:   `Initalize a stack`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create context directory if not exists
 		contextDir := workspace.path

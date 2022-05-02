@@ -21,9 +21,10 @@ import (
 )
 
 var sandboxCmd = &cobra.Command{
-	Use:   "sandbox",
-	Short: "Play with the Polycrate container",
-	Long:  ``,
+	Hidden: true,
+	Use:    "sandbox",
+	Short:  "Play with the Polycrate container",
+	Long:   ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info("Starting sandbox container at ", workspace.path)
 		runCommand := []string{"/bin/bash"}

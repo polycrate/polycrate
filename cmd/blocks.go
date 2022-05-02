@@ -27,41 +27,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var pluginCallExitCode int
-
 // installCmd represents the install command
 var blocksCmd = &cobra.Command{
-	Use:   "blocks",
+	Use:   "block",
 	Short: "Control Polycrate Blocks",
-	Long:  ``,
+	Aliases: []string{
+		"blocks",
+	},
+	Long: ``,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		// loadStatefile()
-		//discoverKubernetesDistro()
-		saveRuntimeStackfile()
-
-		// TODO: verifyPlugin(plugin, pluginCommand)
-		var err error
-		pluginCallExitCode, err = callPlugin(blockName, actionName)
-		CheckErr(err)
-	},
-	PreRun: func(cmd *cobra.Command, args []string) {
-		if err := loadWorkspace(); err != nil {
-			log.Fatal(err)
+		workspace.load()
+		if workspace.Flush() != nil {
+			log.Fatal(workspace.Flush)
 		}
-		blockName = args[0]
-		actionName = args[1]
+		workspace.listBlocks()
 	},
-	// PersistentPreRun: func(cmd *cobra.Command, args []string) {
-	// 	if err := loadStatefile(); err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	addHistoryItem(cmd, "in progress")
-	// },
-	// PersistentPostRun: func(cmd *cobra.Command, args []string) {
-	// 	updateHistoryItemStatus(strconv.Itoa(pluginCallExitCode))
-	// 	writeHistory()
-	// },
 }
 
 func init() {
@@ -91,20 +71,24 @@ type BlockArtifacts struct {
 }
 
 type Block struct {
-	Metadata   Metadata               `mapstructure:"metadata" json:"metadata" validate:"required"`
-	Actions    []Action               `mapstructure:"actions,omitempty" json:"actions,omitempty"`
-	Config     map[string]interface{} `mapstructure:"config,omitempty,remain" json:"config,omitempty,remain"`
-	From       string                 `mapstructure:"from,omitempty" json:"from,omitempty"`
-	Template   bool                   `mapstructure:"template,omitempty" json:"template,omitempty"`
-	Version    string                 `mapstructure:"version" json:"version"`
-	resolved   bool
-	parent     *Block
-	workdir    BlockWorkdir
-	inventory  BlockInventory
-	kubeconfig BlockKubeconfig
-	artifacts  BlockArtifacts
-	address    string
-	err        error
+	//Metadata    Metadata               `mapstructure:"metadata,squash" json:"metadata" validate:"required"`
+	Name        string                 `mapstructure:"name" json:"name" validate:"required"`
+	Description string                 `mapstructure:"description" json:"description"`
+	Labels      map[string]string      `mapstructure:"labels" json:"labels"`
+	Alias       []string               `mapstructure:"alias" json:"alias"`
+	Actions     []Action               `mapstructure:"actions,omitempty" json:"actions,omitempty"`
+	Config      map[string]interface{} `mapstructure:"config,omitempty,remain" json:"config,omitempty"`
+	From        string                 `mapstructure:"from,omitempty" json:"from,omitempty"`
+	Template    bool                   `mapstructure:"template,omitempty" json:"template,omitempty"`
+	Version     string                 `mapstructure:"version" json:"version"`
+	resolved    bool
+	parent      *Block
+	workdir     BlockWorkdir
+	inventory   BlockInventory
+	kubeconfig  BlockKubeconfig
+	artifacts   BlockArtifacts
+	address     string
+	err         error
 }
 
 func (c *Block) getInventoryPath() string {
@@ -162,7 +146,7 @@ func (c *Block) getActionByName(actionName string) *Action {
 	//for _, block := range c.Blocks {
 	for i := 0; i < len(c.Actions); i++ {
 		action := &c.Actions[i]
-		if action.Metadata.Name == actionName {
+		if action.Name == actionName {
 			return action
 		}
 	}

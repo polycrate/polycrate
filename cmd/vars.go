@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/mitchellh/go-homedir"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -16,14 +17,14 @@ var defaultsYml []byte
 
 // Globals
 var local bool = false
-var imageRef string
-var imageVersion string
+
 var logLevel string
 var pull bool
 var force bool
 var interactive bool
 var envPrefix string = "polycrate"
 var build bool
+var logrusLevel log.Level
 
 const defaultFailedCode = 1
 
@@ -90,13 +91,10 @@ var inventoryConfigObject = viper.New()
 
 // Kubernetes Kubeconfig
 var kubeconfig string
-var kubeconfigPath string = kubeconfig
-var kubeconfigContainerPath string = "/root/.kube/config"
 
 // Globals
 var blocksRoot string = "blocks"
 var artifactsRoot string = "artifacts"
-var workflowsRoot string = "workflows"
 var blockConfigFile string = "block.poly"
 var workspaceConfigFile string = "workspace.poly"
 var workspaceContainerDir string = "/workspace" // Container

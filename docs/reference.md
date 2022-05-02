@@ -39,7 +39,7 @@ A Polycrate Workspace is a modular system built out of so called **Blocks** that
 Blocks can be created on the fly by defining their **Block Configuration** and **Actions** in the **Workspace Configuration** directly. If the Block is composed of custom code, simply create a directory (the so-called **Block Dir**) with the Block's name in the **Blocks Root** (`mkdir blocks/custom-plugin`) and place your code there.
 
 !!! note
-    The name of the directory must be the same you defined in `metadata.name` for that Block.
+    The name of the directory must be the same you defined in `name` for that Block.
 
 When a custom Workdir for a Block exists, Polycrate will change to this Workdir when executing an Action of that Block.
 

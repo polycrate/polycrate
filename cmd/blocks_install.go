@@ -16,34 +16,20 @@ limitations under the License.
 package cmd
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // installCmd represents the install command
-var pluginsInstallCmd = &cobra.Command{
+var blocksInstallCmd = &cobra.Command{
 	Use:   "install",
-	Short: "Install Plugins",
+	Short: "Install Blocks",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		loadWorkspace()
-		if len(args) == 0 {
-			for _, plugin := range viper.GetStringSlice("stack.plugins") {
-				blocksCmd.Run(cmd, []string{plugin, "install"})
-			}
-		}
-		// log.Info("Installing Cloudstack Plugins")
-		// log.Info("Using Kubeconfig at ", kubeconfig)
-		// loadStackfile()
-		// pluginCommand = "install"
-		// if len(args) == 1 {
-		// 	installComponent(args[0])
-		// } else {
-		// 	installComponents()
-		// }
+		log.Warn("Comming soon! Check https://polycrate.io for more")
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(pluginsInstallCmd)
+	blocksCmd.AddCommand(blocksInstallCmd)
 }

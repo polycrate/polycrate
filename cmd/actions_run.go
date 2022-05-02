@@ -26,24 +26,13 @@ var actionsRunCmd = &cobra.Command{
 	Short: "Run an Action",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) != 1 {
+			log.Fatal("Need exactly one argument: Action address (e.g. 'Block.Action')")
+		}
 		workspace.load()
 		if workspace.Flush() != nil {
 			log.Fatal(workspace.Flush)
 		}
-
-		// block, action, err := workspace.resolveActionAddress(args[0])
-
-		// if block != nil {
-		// 	workspace.setCurrentBlock(block)
-		// 	if action != nil {
-		// 		workspace.setCurrentAction(action)
-		// 		action.Run()
-		// 	} else {
-		// 		log.Fatal(err)
-		// 	}
-		// } else {
-		// 	log.Fatal(err)
-		// }
 		workspace.RunAction(args[0])
 
 	},

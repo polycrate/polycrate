@@ -127,21 +127,26 @@ func initConfig() {
 	var logrusLogLevel string
 	switch logLevel {
 	case "0":
-		logrusLogLevel = "Info"
+		logrusLogLevel = "Warn"
 	case "1":
-		logrusLogLevel = "Debug"
+		logrusLogLevel = "Info"
 	case "2":
-		logrusLogLevel = "Trace"
+		logrusLogLevel = "Debug"
 	default:
 		logrusLogLevel = "Warn"
 	}
-	ll, err := logrus.ParseLevel(logrusLogLevel)
+	var err error
+	logrusLevel, err = logrus.ParseLevel(logrusLogLevel)
 	if err != nil {
-		ll = logrus.InfoLevel
+		logrusLevel = logrus.InfoLevel
 	}
 
 	// set global log level
-	log.SetLevel(ll)
+	log.SetLevel(logrusLevel)
+
+	//validate.RegisterValidation("metadata_name", validateMetadataName)
+
+	//log := log.WithFields(logrus.Fields{"workspace": workspace.Metadata.Name})
 
 	if version == "development" {
 		workspace.Config.Image.Version = "latest"

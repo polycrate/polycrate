@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 
+	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/manifoldco/promptui"
 	"github.com/mitchellh/mapstructure"
@@ -37,7 +39,7 @@ func saveExecutionScript(script []string) (error, string) {
 	}
 	script = append(scriptSlice, script...)
 
-	f, err := ioutil.TempFile("/tmp", "cloudstack."+workspace.Metadata.Name+"."+blockName+".script.*.sh")
+	f, err := ioutil.TempFile("/tmp", "cloudstack."+workspace.Name+"."+blockName+".script.*.sh")
 	if err != nil {
 		return err, ""
 	}
@@ -200,12 +202,12 @@ func RunContainer(imageReference string, imageVersion string, command []string) 
 	runCmd = append(runCmd, []string{"--workdir", workdirContainer}...)
 
 	// Hostname + Name
-	runCmd = append(runCmd, []string{"--hostname", workspace.Metadata.Name}...)
-	runCmd = append(runCmd, []string{"--name", strings.Join([]string{workspace.Metadata.Name, callUUID}, "-")}...)
+	runCmd = append(runCmd, []string{"--hostname", workspace.Name}...)
+	runCmd = append(runCmd, []string{"--name", strings.Join([]string{workspace.Name, callUUID}, "-")}...)
 
 	// Labels
 
-	runCmd = append(runCmd, []string{"--label", strings.Join([]string{"polycrate.workspace", workspace.Metadata.Name}, "=")}...)
+	runCmd = append(runCmd, []string{"--label", strings.Join([]string{"polycrate.workspace", workspace.Name}, "=")}...)
 	runCmd = append(runCmd, []string{"--label", strings.Join([]string{"polycrate.block", blockName}, "=")}...)
 	runCmd = append(runCmd, []string{"--label", strings.Join([]string{"polycrate.action", actionName}, "=")}...)
 	runCmd = append(runCmd, []string{"--label", strings.Join([]string{"polycrate.uuid", callUUID}, "=")}...)
@@ -255,30 +257,6 @@ func getKubeconfigPath(configDir string) string {
 	}
 	log.Debug("Couldn't find kubeconfig")
 	return ""
-}
-
-func discoverKubeconfig() error {
-	// Additionally, check for KUBECONFIG env var
-	kubeconfigEnv := os.Getenv("KUBECONFIG")
-
-	if kubeconfigEnv != "" {
-		kubeconfig = kubeconfigEnv
-		log.Debug("Setting kubeconfig from KUBECONFIG env var to ", kubeconfigEnv)
-	}
-
-	log.Debug("Trying to find a kubeconfig in ", workspace.path)
-
-	// Get stack kubeconfig
-	stackKubeConfigPath := getKubeconfigPath(workspace.path)
-
-	// Overwrite config if kubeconfig has been found in stack_dir
-	if stackKubeConfigPath != "" {
-		//viper.Set("kubeconfig", stackKubeConfigPath)
-		kubeconfig = stackKubeConfigPath
-		log.Debug("Setting kubeconfig to ", stackKubeConfigPath)
-	}
-
-	return nil
 }
 
 func getConfigPath(configDir string) string {
@@ -492,7 +470,7 @@ func loadWorkspace() error {
 		// Return a warning
 		log.Warn(workspaceConfigFile, " not found in ", workspace.path)
 
-		// Set workspace.Metadata.Name to basename of $PWD
+		// Set workspace.Name to basename of $PWD
 		workspaceConfig.SetDefault("name", filepath.Base(cwd))
 		workspaceConfig.SetDefault("display", "Ad-hoc Workspace in "+cwd)
 	}
@@ -617,7 +595,7 @@ func saveRuntimeStackfile() {
 	log.Debug("Setting runtime Stackfile: " + blockName)
 
 	// Get temp path
-	file, err := ioutil.TempFile("/tmp", "Stackfile."+workspace.Metadata.Name+"-*.yml")
+	file, err := ioutil.TempFile("/tmp", "Stackfile."+workspace.Name+"-*.yml")
 	CheckErr(err)
 
 	fileData, _ := yaml.Marshal(workspace)
@@ -1011,4 +989,21 @@ func loadConfigFile(fp string, t string) (*viper.Viper, error) {
 func getCallUUID() string {
 	id := uuid.New()
 	return id.String()
+}
+
+func validateMetadataName(fl validator.FieldLevel) bool {
+	name := fl.Field().String()
+
+	regex := regexp.MustCompile("^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$")
+	// (?!.*--.*)^(?!.*__.*)
+
+	if regex.MatchString(name) {
+		// check if there's any __ or -- or //
+		//r2 := regexp.MustCompile(string("(--|\\/\\/|__)+"))
+		log.Debug("Regex match")
+	} else {
+		log.Debugf("Regex doesnt match %s %s", name, regex.String())
+		return false
+	}
+	return true
 }

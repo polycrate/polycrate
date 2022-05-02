@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"io/ioutil"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -24,15 +23,5 @@ func CheckErr(msg interface{}) {
 	if msg != nil {
 		log.Fatal(msg)
 		os.Exit(1)
-	}
-}
-
-func getTempFile(suffix string) (*os.File, error) {
-	if suffix == "" {
-		file, err := ioutil.TempFile("/tmp", "cloudstack"+workspace.Metadata.Name+"-*."+suffix)
-		return file, err
-	} else {
-		file, err := ioutil.TempFile("/tmp", "cloudstack"+workspace.Metadata.Name+"-*.yml")
-		return file, err
 	}
 }

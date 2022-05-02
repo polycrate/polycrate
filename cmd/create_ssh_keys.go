@@ -33,10 +33,11 @@ import (
 
 // releaseCmd represents the release command
 var CreateSSHKeyCmd = &cobra.Command{
-	Use:   "ssh-keys",
-	Args:  cobra.ExactArgs(0),
-	Short: "Generate SSH Keys for a stack",
-	Long:  `Generate SSH Keys for a stack`,
+	Hidden: true,
+	Use:    "ssh-keys",
+	Args:   cobra.ExactArgs(0),
+	Short:  "Generate SSH Keys for a stack",
+	Long:   `Generate SSH Keys for a stack`,
 	Run: func(cmd *cobra.Command, args []string) {
 		loadWorkspace()
 		err := CreateSSHKeys()

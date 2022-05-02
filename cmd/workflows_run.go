@@ -25,25 +25,26 @@ var runWorkflowCmd = &cobra.Command{
 	Short: "Run Workflow",
 	Long:  `Run Workflow`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var workflow string
 		workspace.load()
 		if workspace.Flush() != nil {
 			log.Fatal(workspace.Flush)
 		}
+		log.Warn("Comming soon! Check https://polycrate.io for more")
 
-		if len(args) > 0 && args[0] != "" {
-			workflow = args[0]
-		} else {
-			log.Fatal("You need to specify a Workflow to run")
-		}
-		currentWorkflow = workspace.getWorkflowByName(workflow)
-		//workflow.Run()
-		if currentWorkflow != nil {
-			log.Infof("Running Workflow '%s'", currentWorkflow.Metadata.Name)
-			currentWorkflow.Inspect()
-		} else {
-			log.Fatalf("Workflow '%s' not found", workflow)
-		}
+		//var workflow string
+		// if len(args) > 0 && args[0] != "" {
+		// 	workflow = args[0]
+		// } else {
+		// 	log.Fatal("You need to specify a Workflow to run")
+		// }
+		// currentWorkflow = workspace.getWorkflowByName(workflow)
+		// //workflow.Run()
+		// if currentWorkflow != nil {
+		// 	log.Infof("Running Workflow '%s'", currentWorkflow.Name)
+		// 	currentWorkflow.Inspect()
+		// } else {
+		// 	log.Fatalf("Workflow '%s' not found", workflow)
+		// }
 	},
 }
 
@@ -56,9 +57,9 @@ func runWorkflow(pipeline string) {
 	log.Info("Running pipeline ", pipeline)
 	if workspace.Workflows[0].Steps != nil {
 		for _, step := range workspace.Workflows[0].Steps {
-			log.Info("Running step ", step.Metadata.Name)
+			log.Info("Running step ", step.Name)
 			var err error
-			pluginCallExitCode, err = callPlugin(step.Block, step.Action)
+			//pluginCallExitCode, err = callPlugin(step.Block, step.Action)
 			CheckErr(err)
 		}
 	} else {

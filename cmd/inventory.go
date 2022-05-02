@@ -25,9 +25,10 @@ import (
 
 // installCmd represents the install command
 var inventoryCmd = &cobra.Command{
-	Use:   "inventory",
-	Short: "Inventory",
-	Long:  `Inventory`,
+	Hidden: true,
+	Use:    "inventory",
+	Short:  "Inventory",
+	Long:   `Inventory`,
 	Run: func(cmd *cobra.Command, args []string) {
 		showInventory()
 	},

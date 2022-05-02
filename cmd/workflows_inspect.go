@@ -31,8 +31,9 @@ var workflowsInspectCmd = &cobra.Command{
 			log.Fatal(workspace.Flush)
 		}
 
-		workflow := workspace.getWorkflowByName(args[0])
-		workflow.Inspect()
+		// workflow := workspace.getWorkflowByName(args[0])
+		// workflow.Inspect()
+		log.Warn("Comming soon! Check https://polycrate.io for more")
 	},
 }
 

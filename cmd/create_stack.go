@@ -18,7 +18,8 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
@@ -40,7 +41,8 @@ var CreateStackCmd = &cobra.Command{
 	Aliases: []string{"s"},
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		setupStack(cmd, args[0])
+		//setupStack(cmd, args[0])
+		log.Warn("Comming soon! Check https://polycrate.io for more")
 	},
 }
 

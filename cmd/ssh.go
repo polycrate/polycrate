@@ -61,7 +61,7 @@ func connectWithSSH(node string) {
 	nodePath = "all.hosts." + node
 	if !inventoryConfigObject.IsSet(nodePath) {
 		// compile new node ID
-		nodeLong := strings.Join([]string{workspace.Metadata.Name, node}, "-")
+		nodeLong := strings.Join([]string{workspace.Name, node}, "-")
 		nodePath = "all.hosts." + nodeLong
 		if !inventoryConfigObject.IsSet("all.hosts." + nodeLong) {
 			log.Fatal("Node " + node + " and " + nodeLong + " not found")

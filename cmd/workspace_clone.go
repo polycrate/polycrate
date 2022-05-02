@@ -16,34 +16,21 @@ limitations under the License.
 package cmd
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 // createCmd represents the create command
-var cloneCmd = &cobra.Command{
+var cloneWorkspaceCmd = &cobra.Command{
 	Use:   "clone",
 	Short: "clone",
-	Long:  `Clone an existing cloudstack`,
+	Long:  `Clone an existing Workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
-		repository := args[0]
-		var path string
-		if len(args) > 1 {
-			path = args[1]
-		} else {
-			path = ""
-		}
-		var branch string
-		if len(args) > 2 {
-			branch = args[2]
-		} else {
-			branch = ""
-		}
-		err := cloneRepository(repository, path, branch, "")
-		CheckErr(err)
+		log.Warn("Comming soon! Check https://polycrate.io for more")
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(cloneCmd)
+	workspaceCmd.AddCommand(cloneWorkspaceCmd)
 
 }

@@ -32,7 +32,9 @@ var versionCmd = &cobra.Command{
 		fmt.Println(version)
 
 		if !short {
-			fmt.Printf("Commit %s from %s", commit, date)
+			if commit != "" && date != "" {
+				fmt.Printf("Commit %s from %s", commit, date)
+			}
 		}
 	},
 }
