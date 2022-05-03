@@ -199,7 +199,7 @@ func (c *Workspace) RunStep(name string) error {
 			}
 		}
 	} else {
-		return goErrors.New("cannot find step %s" + name)
+		return goErrors.New("cannot find step " + name)
 	}
 	return nil
 }
