@@ -50,42 +50,42 @@ func init() {
 
 type BlockWorkdir struct {
 	exists        bool
-	LocalPath     string `mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
-	ContainerPath string `mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
+	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockKubeconfig struct {
 	from          string
 	exists        bool
-	LocalPath     string
-	ContainerPath string
+	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockInventory struct {
 	from          string
 	exists        bool
-	LocalPath     string
-	ContainerPath string
+	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockArtifacts struct {
-	LocalPath     string
-	ContainerPath string
+	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 
 type Block struct {
-	Name        string                 `mapstructure:"name" json:"name" validate:"required,metadata_name"`
-	Description string                 `mapstructure:"description" json:"description"`
-	Labels      map[string]string      `mapstructure:"labels" json:"labels"`
-	Alias       []string               `mapstructure:"alias" json:"alias"`
-	Actions     []Action               `mapstructure:"actions,omitempty" json:"actions,omitempty"`
-	Config      map[string]interface{} `mapstructure:"config,omitempty,remain" json:"config,omitempty"`
-	From        string                 `mapstructure:"from,omitempty" json:"from,omitempty"`
-	Template    bool                   `mapstructure:"template,omitempty" json:"template,omitempty"`
-	Version     string                 `mapstructure:"version" json:"version"`
+	Name        string                 `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description string                 `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels      map[string]string      `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias       []string               `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Actions     []Action               `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
+	Config      map[string]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty,remain" json:"config,omitempty"`
+	From        string                 `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
+	Template    bool                   `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`
+	Version     string                 `yaml:"version,omitempty" mapstructure:"version" json:"version"`
 	resolved    bool
 	Parent      *Block
-	Workdir     BlockWorkdir `mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
+	Workdir     BlockWorkdir `yaml:"workdir,omitempty" mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
 	inventory   BlockInventory
 	kubeconfig  BlockKubeconfig
-	Artifacts   BlockArtifacts
+	Artifacts   BlockArtifacts `yaml:"artifacts,omitempty" mapstructure:"artifacts,omitempty" json:"artifacts,omitempty"`
 	address     string
 	//err         error
 }

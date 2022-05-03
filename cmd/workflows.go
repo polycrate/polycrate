@@ -46,24 +46,24 @@ func init() {
 
 type Step struct {
 	//Metadata    Metadata          `mapstructure:"metadata" json:"metadata" validate:"required"`
-	Name        string            `mapstructure:"name" json:"name" validate:"required,metadata_name"`
-	Description string            `mapstructure:"description" json:"description"`
-	Labels      map[string]string `mapstructure:"labels" json:"labels"`
-	Alias       []string          `mapstructure:"alias" json:"alias"`
-	Block       string            `mapstructure:"block" json:"block" validate:"required"`
-	Action      string            `mapstructure:"action" json:"action" validate:"required"`
-	Workflow    Workflow          `mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
+	Name        string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Block       string            `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty" validate:"required"`
+	Action      string            `yaml:"action,omitempty" mapstructure:"action,omitempty" json:"action,omitempty" validate:"required"`
+	Workflow    Workflow          `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
 	address     string
 	//err         error
 }
 
 type Workflow struct {
 	//Metadata    Metadata          `mapstructure:"metadata" json:"metadata" validate:"required"`
-	Name        string            `mapstructure:"name" json:"name" validate:"required,metadata_name"`
-	Description string            `mapstructure:"description" json:"description"`
-	Labels      map[string]string `mapstructure:"labels" json:"labels"`
-	Alias       []string          `mapstructure:"alias" json:"alias"`
-	Steps       []Step            `mapstructure:"steps,omitempty" json:"steps,omitempty"`
+	Name        string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Steps       []Step            `yaml:"steps,omitempty" mapstructure:"steps,omitempty" json:"steps,omitempty"`
 	address     string
 	//err         error
 }
@@ -101,7 +101,7 @@ func (c *Workflow) Run() error {
 func (c *Step) Run() error {
 	//printObject(c)
 
-	log.Infof("Running Step '%s' of workflow ", c.Name, c.Workflow.Name)
+	log.Infof("Running step '%s' of workflow '%s'", c.Name, c.Workflow.Name)
 
 	// Check if an a block and an action have been configured
 	if c.Block == "" {

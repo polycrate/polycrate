@@ -32,8 +32,8 @@ import (
 
 var workspaceCmd = &cobra.Command{
 	Use:   "workspace",
-	Short: "Manage the Workspace",
-	Long:  `Manage the Workspace`,
+	Short: "Manage the workspace",
+	Long:  `Manage the workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load()
 		if workspace.Flush() != nil {
@@ -78,13 +78,13 @@ type WorkspaceConfig struct {
 type Workspace struct {
 	//Metadata        Metadata          `mapstructure:"metadata,squash" json:"metadata" validate:"required"`
 	// alphanum,unique,startsnotwith='/',startsnotwith='-',startsnotwith='.',excludesall=!@#?
-	Name            string            `mapstructure:"name" json:"name" validate:"required,metadata_name"`
-	Description     string            `mapstructure:"description" json:"description"`
-	Labels          map[string]string `mapstructure:"labels" json:"labels"`
-	Alias           []string          `mapstructure:"alias" json:"alias"`
-	Config          WorkspaceConfig   `mapstructure:"config" json:"config"`
-	Blocks          []Block           `mapstructure:"blocks" json:"blocks" validate:"dive,required"`
-	Workflows       []Workflow        `mapstructure:"workflows,omitempty" json:"workflows,omitempty"`
+	Name            string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description     string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels          map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias           []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Config          WorkspaceConfig   `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
+	Blocks          []Block           `yaml:"blocks,omitempty" mapstructure:"blocks,omitempty" json:"blocks,omitempty" validate:"dive,required"`
+	Workflows       []Workflow        `yaml:"workflows,omitempty" mapstructure:"workflows,omitempty" json:"workflows,omitempty"`
 	currentBlock    *Block
 	currentAction   *Action
 	currentWorkflow *Workflow
@@ -95,9 +95,10 @@ type Workspace struct {
 	err             error
 	Path            string
 	//overrides       []string
-	ExtraEnv      []string `mapstructure:"extraenv" json:"extraenv"`
-	ExtraMounts   []string `mapstructure:"extramounts" json:"extramounts"`
-	ContainerPath string
+	ExtraEnv      []string `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
+	ExtraMounts   []string `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
+	ContainerPath string   `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
+	containerID   string
 }
 
 type WorkspaceIndex struct {
@@ -250,7 +251,7 @@ func (c *Workspace) LookupStep(address string) *Step {
 
 func (c *Workspace) loadWorkspaceConfig() error {
 	workspaceConfig.SetConfigType("yaml")
-	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
+	workspaceConfig.SetConfigFile(filepath.Join(workspace.Path, workspace.Config.WorkspaceConfig))
 
 	err := workspaceConfig.MergeInConfig()
 	if err != nil {
@@ -278,11 +279,6 @@ func (c *Workspace) unmarshalWorkspaceConfig() error {
 func (c *Workspace) load() {
 	log.Infof("Loading Workspace")
 
-	workspaceConfigFilePath = filepath.Join(workspace.Path, workspace.Config.WorkspaceConfig)
-	workspaceContainerConfigFilePath = filepath.Join(workspace.ContainerPath, workspace.Config.WorkspaceConfig)
-
-	blocksDir = filepath.Join(workspace.Path, workspace.Config.BlocksRoot)
-
 	workspaceConfig.BindPFlag("config.image.version", rootCmd.Flags().Lookup("image-version"))
 	workspaceConfig.BindPFlag("config.image.reference", rootCmd.Flags().Lookup("image-ref"))
 	workspaceConfig.BindPFlag("config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
@@ -296,7 +292,7 @@ func (c *Workspace) load() {
 	workspaceConfig.BindPFlag("config.sshpublickey", rootCmd.Flags().Lookup("ssh-public-key"))
 	workspaceConfig.BindPFlag("config.dockerfile", rootCmd.Flags().Lookup("dockerfile"))
 
-	workspaceConfig.SetEnvPrefix(envPrefix)
+	workspaceConfig.SetEnvPrefix(EnvPrefix)
 	workspaceConfig.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	workspaceConfig.AutomaticEnv()
 
@@ -644,11 +640,9 @@ func (c *Workspace) bootstrapEnvVars() {
 	if local {
 		// Not in container
 		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.Path)
-		c.registerEnvVar("POLYCRATE_WORKSPACE_CONFIG", workspaceConfigFilePath)
 	} else {
 		// In container
 		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.ContainerPath)
-		c.registerEnvVar("POLYCRATE_WORKSPACE_CONFIG", workspaceContainerConfigFilePath)
 	}
 
 	for _, envVar := range c.ExtraEnv {
@@ -766,7 +760,7 @@ func (c *Workspace) loadBlockConfigs() error {
 	log.Debugf("Loading Blocks")
 
 	for _, blockPath := range blockPaths {
-		blockConfigFilePath := filepath.Join(blockPath, blockConfigFile)
+		blockConfigFilePath := filepath.Join(blockPath, c.Config.BlocksConfig)
 
 		blockConfigObject := viper.New()
 		blockConfigObject.SetConfigType("yaml")
@@ -833,6 +827,7 @@ func (c *Workspace) loadBlockConfigs() error {
 }
 
 func (c *Workspace) discoverBlocks() error {
+	blocksDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot)
 	log.Debugf("Starting Block Discovery at %s", blocksDir)
 
 	// This function adds all valid Blocks to the list of

@@ -39,12 +39,14 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 		return "", err
 	}
 
+	log.Debugf("Assembling docker context")
 	buildOpts := types.ImageBuildOptions{
 		Dockerfile: dockerfilePath,
 		Tags:       tags,
 	}
 	buildCtx, _ := archive.TarWithOptions(workspace.Path, &archive.TarOptions{})
 
+	log.Debugf("Building image")
 	resp, err := cli.ImageBuild(ctx, buildCtx, buildOpts)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -52,9 +54,15 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	// We're using a special logger here that can be used as an io.Writer
+	// As such it can be used by the docker log reader to dump logs directly
+	// to our logger
 	buildLogger := log.New()
+
+	// Set the current loglevel
 	buildLogger.SetLevel(logrusLevel)
 
+	// The log write writes with loglevel debug
 	w := buildLogger.WriterLevel(log.DebugLevel)
 	defer w.Close()
 
@@ -66,6 +74,26 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 	return tags[0], nil
 }
 
+func pruneContainer(cli *client.Client, id string) error {
+	ctx := context.Background()
+	// var timeout time.Duration = 1 * time.Second
+	// if err := cli.ContainerStop(ctx, id, &timeout); err != nil {
+	// 	return fmt.Errorf("unable to stop container %s: %s", id, err)
+	// }
+	// log.Debugf("Stopped container with ID %s", id)
+
+	removeOptions := types.ContainerRemoveOptions{
+		RemoveVolumes: false,
+		Force:         true,
+	}
+
+	if err := cli.ContainerRemove(ctx, id, removeOptions); err != nil {
+		return fmt.Errorf("unable to remove container: %s", err)
+	}
+	log.Debugf("Removed container with id %s", id)
+	return nil
+}
+
 func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig) error {
 	ctx := context.Background()
 	inout := make(chan []byte)
@@ -75,6 +103,9 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 		return err
 	}
 	log.Debugf("Created container with ID %s", resp.ID)
+
+	// Save container id to the workspace
+	workspace.containerID = resp.ID
 
 	if !interactive {
 		// statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
@@ -181,7 +212,7 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return err
 	}
-	log.Debugf("Started container with ID %s", resp.ID)
+	log.Debugf("Started container with id %s", resp.ID)
 
 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
@@ -192,20 +223,25 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 	case <-statusCh:
 	}
 
-	if err := cli.ContainerStop(ctx, resp.ID, nil); err != nil {
-		return fmt.Errorf("unable to stop container %s: %s", resp.ID, err)
-	}
-	log.Debugf("Stopped container with ID %s", resp.ID)
-
-	removeOptions := types.ContainerRemoveOptions{
-		RemoveVolumes: false,
-		Force:         true,
+	// Stop and remove the container
+	if err := pruneContainer(cli, resp.ID); err != nil {
+		return err
 	}
 
-	if err := cli.ContainerRemove(ctx, resp.ID, removeOptions); err != nil {
-		return fmt.Errorf("unable to remove container: %s", err)
-	}
-	log.Debugf("Removed container with ID %s", resp.ID)
+	// if err := cli.ContainerStop(ctx, resp.ID, nil); err != nil {
+	// 	return fmt.Errorf("unable to stop container %s: %s", resp.ID, err)
+	// }
+	// log.Debugf("Stopped container with ID %s", resp.ID)
+
+	// removeOptions := types.ContainerRemoveOptions{
+	// 	RemoveVolumes: false,
+	// 	Force:         true,
+	// }
+
+	// if err := cli.ContainerRemove(ctx, resp.ID, removeOptions); err != nil {
+	// 	return fmt.Errorf("unable to remove container: %s", err)
+	// }
+	// log.Debugf("Removed container with ID %s", resp.ID)
 
 	//stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 	return nil

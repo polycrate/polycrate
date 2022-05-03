@@ -55,27 +55,27 @@ func init() {
 }
 
 type ActionAnsibleConfig struct {
-	Inventory string `mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
-	Hosts     string `mapstructure:"hosts,omitempty" json:"hosts,omitempty"`
+	Inventory string `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
+	Hosts     string `yaml:"hosts,omitempty" mapstructure:"hosts,omitempty" json:"hosts,omitempty"`
 }
 
 type ActionKubernetesConfig struct {
-	Kubeconfig string `mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
-	Context    string `mapstructure:"context,omitempty" json:"context,omitempty"`
+	Kubeconfig string `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
+	Context    string `yaml:"context,omitempty" mapstructure:"context,omitempty" json:"context,omitempty"`
 }
 type Action struct {
 	//Metadata            Metadata               `mapstructure:"metadata,squash" json:"metadata" validate:"required"`
-	Name                string                 `mapstructure:"name" json:"name" validate:"required,metadata_name"`
-	Description         string                 `mapstructure:"description" json:"description"`
-	Labels              map[string]string      `mapstructure:"labels" json:"labels"`
-	Alias               []string               `mapstructure:"alias" json:"alias"`
-	Interactive         bool                   `mapstructure:"interactive,omitempty" json:"interactive,omitempty"`
-	Script              []string               `mapstructure:"script,omitempty" json:"script,omitempty" validate:"required_if=Action"`
-	Ansible             ActionAnsibleConfig    `mapstructure:"ansible,omitempty" json:"ansible,omitempty"`
-	Kubernetes          ActionKubernetesConfig `mapstructure:"kubernetes,omitempty" json:"kubernetes,omitempty"`
+	Name                string                 `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description         string                 `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels              map[string]string      `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias               []string               `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Interactive         bool                   `yaml:"interactive,omitempty" mapstructure:"interactive,omitempty" json:"interactive,omitempty"`
+	Script              []string               `yaml:"script,omitempty" mapstructure:"script,omitempty" json:"script,omitempty" validate:"required_if=Action"`
+	Ansible             ActionAnsibleConfig    `yaml:"ansible,omitempty" mapstructure:"ansible,omitempty" json:"ansible,omitempty"`
+	Kubernetes          ActionKubernetesConfig `yaml:"kubernetes,omitempty" mapstructure:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	executionScriptPath string
 	address             string
-	Block               Block `mapstructure:"block,omitempty" json:"block,omitempty"`
+	Block               Block `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
 }
 
 func (c *Action) MergeIn(action *Action) error {
@@ -116,7 +116,7 @@ func (c *Action) RunContainer() error {
 					return err
 				}
 			} else {
-				return goErrors.New("Could not find Dockerfile at " + workspace.Config.Dockerfile)
+				return goErrors.New("Could not find " + workspace.Config.Dockerfile + " in the workspace")
 			}
 		} else {
 			if pull {
@@ -190,7 +190,7 @@ func (c *Action) RunContainer() error {
 }
 
 func (c *Action) Run() error {
-	log.Infof("Running Action '%s' of Block '%s'", c.Name, workspace.currentBlock.Name)
+	log.Infof("Running action '%s' of block '%s'", c.Name, workspace.currentBlock.Name)
 
 	// 3. Determine inventory path
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", workspace.currentBlock.getInventoryPath())
