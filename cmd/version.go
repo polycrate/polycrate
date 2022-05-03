@@ -26,8 +26,9 @@ var short bool
 // installCmd represents the install command
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Show CLI version",
-	Long:  `Show CLI version`,
+	Short: "Show version info",
+	Long:  `Show version info`,
+	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(version)
 

@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"bufio"
-	"errors"
 	goErrors "errors"
 	"fmt"
 	"io/ioutil"
@@ -47,7 +46,7 @@ var actionsCmd = &cobra.Command{
 			log.Fatal(workspace.Flush)
 		}
 
-		workspace.listActions()
+		workspace.ListActions()
 	},
 }
 
@@ -66,7 +65,7 @@ type ActionKubernetesConfig struct {
 }
 type Action struct {
 	//Metadata            Metadata               `mapstructure:"metadata,squash" json:"metadata" validate:"required"`
-	Name                string                 `mapstructure:"name" json:"name" validate:"required"`
+	Name                string                 `mapstructure:"name" json:"name" validate:"required,metadata_name"`
 	Description         string                 `mapstructure:"description" json:"description"`
 	Labels              map[string]string      `mapstructure:"labels" json:"labels"`
 	Alias               []string               `mapstructure:"alias" json:"alias"`
@@ -76,18 +75,7 @@ type Action struct {
 	Kubernetes          ActionKubernetesConfig `mapstructure:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	executionScriptPath string
 	address             string
-	block               *Block
-}
-
-type ActionRun struct {
-	Env          []string
-	Mounts       []string
-	ContainerCmd []string
-	Local        bool
-	ID           string
-	Action       *Action
-	//Container    ContainerConfig
-	err error
+	Block               Block `mapstructure:"block,omitempty" json:"block,omitempty"`
 }
 
 func (c *Action) MergeIn(action *Action) error {
@@ -112,7 +100,7 @@ func (c *Action) RunContainer() error {
 		if build {
 
 			// Create the filepath
-			dockerfilePath := filepath.Join(workspace.path, workspace.Config.Dockerfile)
+			dockerfilePath := filepath.Join(workspace.Path, workspace.Config.Dockerfile)
 
 			// Check if the file exists
 			if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
@@ -128,7 +116,7 @@ func (c *Action) RunContainer() error {
 					return err
 				}
 			} else {
-				return errors.New("Could not find Dockerfile at " + workspace.Config.Dockerfile)
+				return goErrors.New("Could not find Dockerfile at " + workspace.Config.Dockerfile)
 			}
 		} else {
 			if pull {
@@ -179,7 +167,7 @@ func (c *Action) RunContainer() error {
 		StdinOnce:    interactive,
 		OpenStdin:    interactive,
 		Env:          workspace.DumpEnv(),
-		WorkingDir:   workspace.currentBlock.workdir.containerPath,
+		WorkingDir:   workspace.currentBlock.Workdir.ContainerPath,
 	}
 
 	// Setup mounts
@@ -203,17 +191,6 @@ func (c *Action) RunContainer() error {
 
 func (c *Action) Run() error {
 	log.Infof("Running Action '%s' of Block '%s'", c.Name, workspace.currentBlock.Name)
-
-	// 1. Determine the correct workdir
-	if workspace.currentBlock.workdir.localPath == "" {
-		workdir = workspace.path
-		workdirContainer = workspace.containerPath
-	} else {
-		workdir = workspace.currentBlock.workdir.localPath
-		workdirContainer = workspace.currentBlock.workdir.containerPath
-	}
-	log.Debugf("Workdir Local: %s", workdir)
-	log.Debugf("Workdir Container: %s", workdirContainer)
 
 	// 3. Determine inventory path
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", workspace.currentBlock.getInventoryPath())
@@ -304,14 +281,14 @@ func (c *Action) GetExecutionScript() []string {
 
 func (c *Action) Validate() error {
 	if c.Script == nil {
-		return goErrors.New("No script found for Action")
+		return goErrors.New("no script found for Action")
 	}
 	return nil
 }
 
 func (c *Action) ValidateScript() error {
 	if c.Script == nil {
-		return goErrors.New("No script found for command")
+		return goErrors.New("no script found for Action")
 	}
 	return nil
 }
@@ -355,33 +332,33 @@ func (c *Action) ValidateScript() error {
 // 	return 0, nil
 // }
 
-func (c *Action) SaveExecutionScript() (error, string) {
-	f, err := ioutil.TempFile("/tmp", "cloudstack."+workspace.Name+".run.*.sh")
-	if err != nil {
-		return err, ""
-	}
-	datawriter := bufio.NewWriter(f)
+// func (c *Action) SaveExecutionScript() (string, error) {
+// 	f, err := ioutil.TempFile("/tmp", "cloudstack."+workspace.Name+".run.*.sh")
+// 	if err != nil {
+// 		return err, ""
+// 	}
+// 	datawriter := bufio.NewWriter(f)
 
-	for _, data := range c.GetExecutionScript() {
-		_, _ = datawriter.WriteString(data + "\n")
-	}
-	datawriter.Flush()
-	log.Debug("Saved script to " + f.Name())
+// 	for _, data := range c.GetExecutionScript() {
+// 		_, _ = datawriter.WriteString(data + "\n")
+// 	}
+// 	datawriter.Flush()
+// 	log.Debug("Saved script to " + f.Name())
 
-	err = os.Chmod(f.Name(), 0755)
-	if err != nil {
-		return err, ""
-	}
+// 	err = os.Chmod(f.Name(), 0755)
+// 	if err != nil {
+// 		return err, ""
+// 	}
 
-	// Closing file descriptor
-	// Getting fatal errors on windows WSL2 when accessing
-	// the mounted script file from inside the container if
-	// the file descriptor is still open
-	// Works flawlessly with open file descriptor on M1 Mac though
-	// It's probably safer to close the fd anyways
-	f.Close()
-	return nil, f.Name()
-}
+// 	// Closing file descriptor
+// 	// Getting fatal errors on windows WSL2 when accessing
+// 	// the mounted script file from inside the container if
+// 	// the file descriptor is still open
+// 	// Works flawlessly with open file descriptor on M1 Mac though
+// 	// It's probably safer to close the fd anyways
+// 	f.Close()
+// 	return nil, f.Name()
+// }
 
 func (c *Action) Inspect() {
 	printObject(c)

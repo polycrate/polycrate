@@ -29,9 +29,8 @@ var listWorkflowsCmd = &cobra.Command{
 		if workspace.Flush() != nil {
 			log.Fatal(workspace.Flush)
 		}
-		log.Warn("Comming soon! Check https://polycrate.io for more")
 
-		//workspace.listWorkflows()
+		workspace.ListWorkflows()
 	},
 }
 

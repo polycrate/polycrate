@@ -31,9 +31,12 @@ var workflowsInspectCmd = &cobra.Command{
 			log.Fatal(workspace.Flush)
 		}
 
-		// workflow := workspace.getWorkflowByName(args[0])
-		// workflow.Inspect()
-		log.Warn("Comming soon! Check https://polycrate.io for more")
+		workflow := workspace.GetWorkflowFromIndex(args[0])
+		if workflow != nil {
+			workflow.Inspect()
+		} else {
+			log.Fatalf("Workflow not found: %s", args[0])
+		}
 	},
 }
 

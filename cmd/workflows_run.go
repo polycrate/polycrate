@@ -16,20 +16,36 @@ limitations under the License.
 package cmd
 
 import (
+	"strings"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
+
+var stepName string
+var stepIndex int
 
 var runWorkflowCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run Workflow",
 	Long:  `Run Workflow`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load()
 		if workspace.Flush() != nil {
 			log.Fatal(workspace.Flush)
 		}
-		log.Warn("Comming soon! Check https://polycrate.io for more")
+		// Check stepName
+		if stepName != "" && stepIndex == -1 {
+			err := workspace.RunStep(strings.Join([]string{args[0], stepName}, "."))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		err := workspace.RunWorkflow(args[0])
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		//var workflow string
 		// if len(args) > 0 && args[0] != "" {
@@ -49,20 +65,23 @@ var runWorkflowCmd = &cobra.Command{
 }
 
 func init() {
+	runWorkflowCmd.Flags().StringVar(&stepName, "step", "", "The name of the step to be run")
+	runWorkflowCmd.Flags().IntVar(&stepIndex, "step-index", -1, "The index of the step to be executed. Currently no-op")
+
 	workflowsCmd.AddCommand(runWorkflowCmd)
 }
 
-func runWorkflow(pipeline string) {
-	// Check if pipeline exists
-	log.Info("Running pipeline ", pipeline)
-	if workspace.Workflows[0].Steps != nil {
-		for _, step := range workspace.Workflows[0].Steps {
-			log.Info("Running step ", step.Name)
-			var err error
-			//pluginCallExitCode, err = callPlugin(step.Block, step.Action)
-			CheckErr(err)
-		}
-	} else {
-		log.Fatal("No steps defined")
-	}
-}
+// func runWorkflow(pipeline string) {
+// 	// Check if pipeline exists
+// 	log.Info("Running pipeline ", pipeline)
+// 	if workspace.Workflows[0].Steps != nil {
+// 		for _, step := range workspace.Workflows[0].Steps {
+// 			log.Info("Running step ", step.Name)
+// 			var err error
+// 			//pluginCallExitCode, err = callPlugin(step.Block, step.Action)
+// 			CheckErr(err)
+// 		}
+// 	} else {
+// 		log.Fatal("No steps defined")
+// 	}
+// }

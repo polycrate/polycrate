@@ -40,7 +40,7 @@ var blocksCmd = &cobra.Command{
 		if workspace.Flush() != nil {
 			log.Fatal(workspace.Flush)
 		}
-		workspace.listBlocks()
+		workspace.ListBlocks()
 	},
 }
 
@@ -50,29 +50,28 @@ func init() {
 
 type BlockWorkdir struct {
 	exists        bool
-	localPath     string
-	containerPath string
+	LocalPath     string `mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath string `mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockKubeconfig struct {
 	from          string
 	exists        bool
-	localPath     string
-	containerPath string
+	LocalPath     string
+	ContainerPath string
 }
 type BlockInventory struct {
 	from          string
 	exists        bool
-	localPath     string
-	containerPath string
+	LocalPath     string
+	ContainerPath string
 }
 type BlockArtifacts struct {
-	localPath     string
-	containerPath string
+	LocalPath     string
+	ContainerPath string
 }
 
 type Block struct {
-	//Metadata    Metadata               `mapstructure:"metadata,squash" json:"metadata" validate:"required"`
-	Name        string                 `mapstructure:"name" json:"name" validate:"required"`
+	Name        string                 `mapstructure:"name" json:"name" validate:"required,metadata_name"`
 	Description string                 `mapstructure:"description" json:"description"`
 	Labels      map[string]string      `mapstructure:"labels" json:"labels"`
 	Alias       []string               `mapstructure:"alias" json:"alias"`
@@ -82,13 +81,13 @@ type Block struct {
 	Template    bool                   `mapstructure:"template,omitempty" json:"template,omitempty"`
 	Version     string                 `mapstructure:"version" json:"version"`
 	resolved    bool
-	parent      *Block
-	workdir     BlockWorkdir
+	Parent      *Block
+	Workdir     BlockWorkdir `mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
 	inventory   BlockInventory
 	kubeconfig  BlockKubeconfig
-	artifacts   BlockArtifacts
+	Artifacts   BlockArtifacts
 	address     string
-	err         error
+	//err         error
 }
 
 func (c *Block) getInventoryPath() string {
@@ -98,18 +97,18 @@ func (c *Block) getInventoryPath() string {
 		if inventorySourceBlock != nil {
 			if inventorySourceBlock.inventory.exists {
 				if local {
-					return inventorySourceBlock.inventory.localPath
+					return inventorySourceBlock.inventory.LocalPath
 				} else {
-					return inventorySourceBlock.inventory.containerPath
+					return inventorySourceBlock.inventory.ContainerPath
 				}
 			}
 		}
 	} else {
 		if c.inventory.exists {
 			if local {
-				return c.inventory.localPath
+				return c.inventory.LocalPath
 			} else {
-				return c.inventory.containerPath
+				return c.inventory.ContainerPath
 			}
 		}
 	}
@@ -123,18 +122,18 @@ func (c *Block) getKubeconfigPath() string {
 		if kubeconfigSourceBlock != nil {
 			if kubeconfigSourceBlock.kubeconfig.exists {
 				if local {
-					return kubeconfigSourceBlock.kubeconfig.localPath
+					return kubeconfigSourceBlock.kubeconfig.LocalPath
 				} else {
-					return kubeconfigSourceBlock.kubeconfig.containerPath
+					return kubeconfigSourceBlock.kubeconfig.ContainerPath
 				}
 			}
 		}
 	} else {
 		if c.kubeconfig.exists {
 			if local {
-				return c.kubeconfig.localPath
+				return c.kubeconfig.LocalPath
 			} else {
-				return c.kubeconfig.containerPath
+				return c.kubeconfig.ContainerPath
 			}
 		}
 	}
@@ -154,8 +153,6 @@ func (c *Block) getActionByName(actionName string) *Action {
 }
 
 func (c *Block) Validate() error {
-	validate := validator.New()
-
 	err := validate.Struct(c)
 
 	if err != nil {
@@ -173,22 +170,13 @@ func (c *Block) Validate() error {
 		}
 
 		// from here you can create your own error messages in whatever language you wish
-		return goErrors.New("Error validating Block")
+		return goErrors.New("error validating Block")
 	}
 
 	// if _, err := os.Stat(blockDir); os.IsNotExist(err) {
 	// 	return goErrors.New("Block not found at: " + blockDir)
 	// }
 	// log.Debug("Found Block at " + blockDir)
-
-	return nil
-}
-
-func (c *Block) _Validate() error {
-	if _, err := os.Stat(blockDir); os.IsNotExist(err) {
-		return goErrors.New("Block not found at: " + blockDir)
-	}
-	log.Debug("Found Block at " + blockDir)
 
 	return nil
 }
@@ -208,29 +196,52 @@ func (c *Block) Inspect() {
 
 func (c *Block) LoadInventory() {
 	// Locate "inventory.json" in blockArtifactsDir
-	blockInventoryFile := filepath.Join(c.artifacts.localPath, "inventory.json")
+	blockInventoryFile := filepath.Join(c.Artifacts.LocalPath, "inventory.json")
 
 	if _, err := os.Stat(blockInventoryFile); !os.IsNotExist(err) {
 		// File exists
 		c.inventory.exists = true
-		c.inventory.localPath = blockInventoryFile
-		c.inventory.containerPath = filepath.Join(c.artifacts.containerPath, "inventory.json")
+		c.inventory.LocalPath = blockInventoryFile
+		c.inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.json")
 		log.Debug("Found Block Inventory at " + blockInventoryFile)
+	} else {
+		c.inventory.exists = false
 	}
 
 }
 
 func (c *Block) LoadKubeconfig() {
 	// Locate "kubeconfig.yml" in blockArtifactsDir
-	blockKubeconfigFile := filepath.Join(c.artifacts.localPath, "kubeconfig.yml")
+	blockKubeconfigFile := filepath.Join(c.Artifacts.LocalPath, "kubeconfig.yml")
 
 	if _, err := os.Stat(blockKubeconfigFile); !os.IsNotExist(err) {
 		// File exists
 		c.kubeconfig.exists = true
-		c.kubeconfig.localPath = blockKubeconfigFile
-		c.kubeconfig.containerPath = filepath.Join(c.artifacts.containerPath, "kubeconfig.yml")
+		c.kubeconfig.LocalPath = blockKubeconfigFile
+		c.kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
 		log.Debug("Found Block Kubeconfig at " + blockKubeconfigFile)
+	} else {
+		c.kubeconfig.exists = false
 	}
+
+}
+
+func (c *Block) LoadArtifacts() error {
+	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
+	c.Artifacts.LocalPath = filepath.Join(workspace.Path, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, c.Name)
+	// e.g. /workspace/artifacts/blocks/block-1
+	c.Artifacts.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, c.Name)
+
+	// Check if the local artifacts directory for this Block exists
+	if _, err := os.Stat(c.Artifacts.LocalPath); os.IsNotExist(err) {
+		// Directory does not exist
+		// We create it
+		if err := os.MkdirAll(c.Artifacts.LocalPath, os.ModePerm); err != nil {
+			return err
+		}
+		log.Debugf("Created artifacts directory for block %s at %s", c.Name, c.Artifacts.LocalPath)
+	}
+	return nil
 
 }
 
@@ -276,7 +287,7 @@ func (c *Block) LoadKubeconfig() {
 // 					return err
 // 				}
 
-// 				// Copy contents of dependency.path to /context/dependency.name
+// 				// Copy contents of dependency.Path to /context/dependency.name
 // 				copyArgs := []string{"-r", filepath.Join(downloadDir, c.Source.Git.Path) + "/.", pluginDir}
 // 				log.Debug("Running command: cp ", strings.Join(copyArgs, " "))
 // 				_, err = exec.Command("cp", copyArgs...).Output()

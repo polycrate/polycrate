@@ -16,7 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 )
@@ -26,14 +26,19 @@ var actionsInspectCmd = &cobra.Command{
 	Use:   "inspect",
 	Short: "Inspect an Action",
 	Long:  ``,
+	Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load()
 		if workspace.Flush() != nil {
 			log.Fatal(workspace.Flush)
 		}
 
-		action := workspace.getActionByPath(args[0])
-		action.Inspect()
+		action := workspace.GetActionFromIndex(args[0])
+		if action != nil {
+			action.Inspect()
+		} else {
+			log.Fatalf("Action not found: %s", args[0])
+		}
 	},
 }
 

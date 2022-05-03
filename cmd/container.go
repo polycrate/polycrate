@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/moby/term"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/docker/docker/api/types"
@@ -32,21 +31,6 @@ func getDockerCLI() (*client.Client, error) {
 	return cli, err
 }
 
-func pullContainerImage(image string) error {
-	ctx := context.Background()
-	cli, err := getDockerCLI()
-	if err != nil {
-		return err
-	}
-
-	_, err = cli.ImagePull(ctx, image, types.ImagePullOptions{})
-	if err != nil {
-		return err
-	}
-	log.Debugf("Pulled image %s", image)
-	return nil
-}
-
 func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 	ctx := context.Background()
 	cli, err := getDockerCLI()
@@ -59,7 +43,7 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 		Dockerfile: dockerfilePath,
 		Tags:       tags,
 	}
-	buildCtx, _ := archive.TarWithOptions(workspace.path, &archive.TarOptions{})
+	buildCtx, _ := archive.TarWithOptions(workspace.Path, &archive.TarOptions{})
 
 	resp, err := cli.ImageBuild(ctx, buildCtx, buildOpts)
 	if err != nil {
@@ -71,7 +55,7 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 	buildLogger := log.New()
 	buildLogger.SetLevel(logrusLevel)
 
-	w := buildLogger.WriterLevel(logrus.DebugLevel)
+	w := buildLogger.WriterLevel(log.DebugLevel)
 	defer w.Close()
 
 	termFd, isTerm := term.GetFdInfo(w)

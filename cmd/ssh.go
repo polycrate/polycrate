@@ -26,11 +26,12 @@ import (
 
 // installCmd represents the install command
 var sshCmd = &cobra.Command{
-	Use:   "ssh",
-	Short: "SSH into a node",
-	Long:  ``,
+	Use:    "ssh",
+	Short:  "SSH into a node",
+	Hidden: true,
+	Long:   ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		loadWorkspace()
+		//loadWorkspace()
 		var node string
 		if len(args) == 0 {
 			node = "master-0"
@@ -97,7 +98,7 @@ func connectWithSSH(node string) {
 		log.Fatal("ansible_host not set")
 	}
 
-	sshPrivateKey := filepath.Join(workspace.path, "id_rsa")
+	sshPrivateKey := filepath.Join(workspace.Path, "id_rsa")
 
 	args := []string{
 		"-l",

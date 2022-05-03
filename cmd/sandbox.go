@@ -26,15 +26,15 @@ var sandboxCmd = &cobra.Command{
 	Short:  "Play with the Polycrate container",
 	Long:   ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info("Starting sandbox container at ", workspace.path)
-		runCommand := []string{"/bin/bash"}
-		interactive = true
+		log.Info("Starting sandbox container at ", workspace.Path)
+		// runCommand := []string{"/bin/bash"}
+		// interactive = true
 		//bootstrapEnvVars()
-		RunContainer(
-			workspace.Config.Image.Reference,
-			workspace.Config.Image.Version,
-			runCommand,
-		)
+		// RunContainer(
+		// 	workspace.Config.Image.Reference,
+		// 	workspace.Config.Image.Version,
+		// 	runCommand,
+		// )
 
 		// if err != nil {
 		// 	log.Error("Plugin ", block, " failed with exit code ", exitCode, ": ", err.Error())

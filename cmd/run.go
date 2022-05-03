@@ -16,24 +16,39 @@ limitations under the License.
 package cmd
 
 import (
+	"strings"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 // installCmd represents the install command
-var blocksListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List Blocks",
-	Long:  ``,
+var runCmd = &cobra.Command{
+	Use:   "run block|workflow [action]",
+	Short: "Run a Workflow or an Action",
+	Long: `
+To run a Workflow, use this command with 1 argument - the Workflow name. 
+To run an Action, use this command with 2 arguments - the Block name and the Action name.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
+		if len(args) == 1 {
+			// Run a Worlflow
+			log.Warn("Comming soon! Check https://polycrate.io for more")
+		} else if len(args) == 2 {
+			workspace.load()
+			if workspace.Flush() != nil {
+				log.Fatal(workspace.Flush)
+			}
+
+			err := workspace.RunAction(strings.Join([]string{args[0], args[1]}, "."))
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
-		workspace.ListBlocks()
+
 	},
+	Args: cobra.RangeArgs(1, 2), // https://github.com/spf13/cobra/blob/master/user_guide.md
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksListCmd)
+	rootCmd.AddCommand(runCmd)
 }

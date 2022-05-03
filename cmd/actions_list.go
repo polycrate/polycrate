@@ -30,7 +30,7 @@ var listActionsCmd = &cobra.Command{
 			log.Fatal(workspace.Flush)
 		}
 
-		workspace.listActions()
+		workspace.ListActions()
 	},
 }
 

@@ -49,7 +49,7 @@ func showInventory() {
 	var inv2 Inventory
 	mainInventory := viper.New()
 	mainInventory.SetConfigType("yaml")
-	mainInventory.SetConfigFile(filepath.Join(workspace.path, "inventory.yml"))
+	mainInventory.SetConfigFile(filepath.Join(workspace.Path, "inventory.yml"))
 	if err := mainInventory.MergeInConfig(); err != nil {
 		log.Error(err)
 	}

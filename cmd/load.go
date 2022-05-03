@@ -21,9 +21,10 @@ import (
 )
 
 var loadCmd = &cobra.Command{
-	Use:   "load",
-	Short: "Show Workspace",
-	Long:  `Show Workspace`,
+	Use:    "load",
+	Hidden: true,
+	Short:  "Show Workspace",
+	Long:   `Show Workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
 		softLoadWorkspace()
 	},

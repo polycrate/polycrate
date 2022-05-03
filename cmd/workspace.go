@@ -35,7 +35,12 @@ var workspaceCmd = &cobra.Command{
 	Short: "Manage the Workspace",
 	Long:  `Manage the Workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
-		showWorkspace()
+		workspace.load()
+		if workspace.Flush() != nil {
+			log.Fatal(workspace.Flush)
+		}
+
+		workspace.Inspect()
 	},
 }
 
@@ -49,23 +54,25 @@ type ImageConfig struct {
 }
 
 type Metadata struct {
-	Name        string            `mapstructure:"name" json:"name" validate:"required"`
+	Name        string            `mapstructure:"name" json:"name" validate:"required,metadata_name"`
 	Description string            `mapstructure:"description" json:"description"`
 	Labels      map[string]string `mapstructure:"labels" json:"labels"`
 	Alias       []string          `mapstructure:"alias" json:"alias"`
 }
 
 type WorkspaceConfig struct {
-	Image         ImageConfig            `mapstructure:"image" json:"image" validate:"required"`
-	BlocksRoot    string                 `mapstructure:"blocksroot" json:"blocksroot" validate:"required"`
-	WorkflowsRoot string                 `mapstructure:"workflowsroot" json:"workflowsroot" validate:"required"`
-	ArtifactsRoot string                 `mapstructure:"artifactsroot" json:"artifactsroot" validate:"required"`
-	ContainerRoot string                 `mapstructure:"containerroot" json:"containerroot" validate:"required"`
-	SshPrivateKey string                 `mapstructure:"sshprivatekey" json:"sshprivatekey" validate:"required"`
-	SshPublicKey  string                 `mapstructure:"sshpublickey" json:"sshpublickey" validate:"required"`
-	RemoteRoot    string                 `mapstructure:"remoteroot" json:"remoteroot" validate:"required"`
-	Dockerfile    string                 `mapstructure:"dockerfile,omitempty" json:"dockerfile,omitempty"`
-	Globals       map[string]interface{} `mapstructure:"globals,remain" json:"globals"`
+	Image           ImageConfig            `mapstructure:"image" json:"image" validate:"required"`
+	BlocksRoot      string                 `mapstructure:"blocksroot" json:"blocksroot" validate:"required"`
+	BlocksConfig    string                 `mapstructure:"blocksconfig" json:"blocksconfig" validate:"required"`
+	WorkspaceConfig string                 `mapstructure:"workspaceconfig" json:"workspaceconfig" validate:"required"`
+	WorkflowsRoot   string                 `mapstructure:"workflowsroot" json:"workflowsroot" validate:"required"`
+	ArtifactsRoot   string                 `mapstructure:"artifactsroot" json:"artifactsroot" validate:"required"`
+	ContainerRoot   string                 `mapstructure:"containerroot" json:"containerroot" validate:"required"`
+	SshPrivateKey   string                 `mapstructure:"sshprivatekey" json:"sshprivatekey" validate:"required"`
+	SshPublicKey    string                 `mapstructure:"sshpublickey" json:"sshpublickey" validate:"required"`
+	RemoteRoot      string                 `mapstructure:"remoteroot" json:"remoteroot" validate:"required"`
+	Dockerfile      string                 `mapstructure:"dockerfile,omitempty" json:"dockerfile,omitempty"`
+	Globals         map[string]interface{} `mapstructure:"globals,remain" json:"globals"`
 }
 
 type Workspace struct {
@@ -86,11 +93,11 @@ type Workspace struct {
 	env             map[string]string
 	mounts          map[string]string
 	err             error
-	path            string
-	overrides       []string
-	extraEnv        []string
-	extraMounts     []string
-	containerPath   string
+	Path            string
+	//overrides       []string
+	ExtraEnv      []string `mapstructure:"extraenv" json:"extraenv"`
+	ExtraMounts   []string `mapstructure:"extramounts" json:"extramounts"`
+	ContainerPath string
 }
 
 type WorkspaceIndex struct {
@@ -106,8 +113,8 @@ type WorkspaceSnapshot struct {
 	Block     *Block
 	Workflow  *Workflow
 	Step      *Step
-	Env       *map[string]string
-	Mounts    *map[string]string
+	Env       map[string]string
+	Mounts    map[string]string
 }
 
 func (c *Workspace) Snapshot() {
@@ -117,11 +124,15 @@ func (c *Workspace) Snapshot() {
 		Block:     c.currentBlock,
 		Workflow:  c.currentWorkflow,
 		Step:      c.currentStep,
-		Env:       &c.env,
-		Mounts:    &c.mounts,
+		Env:       c.env,
+		Mounts:    c.mounts,
 	}
 	printObject(snapshot)
 	//convertToEnv(&snapshot)
+}
+
+func (c *Workspace) Inspect() {
+	printObject(c)
 }
 
 func (c *Workspace) Flush() error {
@@ -131,22 +142,66 @@ func (c *Workspace) Flush() error {
 	return nil
 }
 
-func (c *Workspace) RunAction(address string) {
+func (c *Workspace) RunAction(address string) error {
 	// Find action in index and report
 	action := c.LookupAction(address)
 
 	if action != nil {
 		workspace.registerCurrentAction(action)
-		workspace.registerCurrentBlock(action.block)
+		workspace.registerCurrentBlock(&action.Block)
 
 		if snapshot {
 			c.Snapshot()
 		} else {
-			action.Run()
+			err := action.Run()
+			if err != nil {
+				return err
+			}
 		}
 	} else {
-		log.Fatal("Cannot find Action with address " + address)
+		return goErrors.New("cannot find Action with address " + address)
 	}
+	return nil
+}
+
+func (c *Workspace) RunWorkflow(name string) error {
+	// Find action in index and report
+	workflow := c.LookupWorkflow(name)
+
+	if workflow != nil {
+		workspace.registerCurrentWorkflow(workflow)
+
+		if snapshot {
+			c.Snapshot()
+		} else {
+			err := workflow.Run()
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		return goErrors.New("cannot find Workflow " + name)
+	}
+	return nil
+}
+
+func (c *Workspace) RunStep(name string) error {
+	// Find action in index and report
+	step := c.LookupStep(name)
+
+	if step != nil {
+		if snapshot {
+			c.Snapshot()
+		} else {
+			err := step.Run()
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		return goErrors.New("cannot find step %s" + name)
+	}
+	return nil
 }
 
 func (c *Workspace) pullContainerImage(image string) error {
@@ -162,36 +217,6 @@ func (c *Workspace) pullContainerImage(image string) error {
 	}
 	log.Debugf("Successfully pulled image %s", image)
 	return nil
-}
-
-func (c *Workspace) resolveActionAddress(actionAddress string) (*Block, *Action, error) {
-	s := strings.Split(actionAddress, ".")
-
-	if len(s) < 2 {
-		err := goErrors.New("Action Address malformed: " + actionAddress)
-		return nil, nil, err
-	} else {
-		blockName := s[0]
-		actionName := s[1]
-
-		block := workspace.getBlockByName(blockName)
-
-		if block != nil {
-			action := block.getActionByName(actionName)
-
-			if action != nil {
-				return block, action, nil
-			} else {
-				err := goErrors.New("Action not found: " + actionName)
-				return nil, nil, err
-			}
-		} else {
-			err := goErrors.New("Block not found: " + blockName)
-			return nil, nil, err
-		}
-		err := goErrors.New("Can't resolve Action Address: " + actionAddress)
-		return nil, nil, err
-	}
 }
 
 func (c *Workspace) registerBlock(block *Block) {
@@ -239,6 +264,7 @@ func (c *Workspace) loadWorkspaceConfig() error {
 }
 
 func (c *Workspace) unmarshalWorkspaceConfig() error {
+	log.Debugf("Unmarshalling loaded config to internal struct")
 	err := workspaceConfig.Unmarshal(&c)
 
 	if err != nil {
@@ -252,19 +278,18 @@ func (c *Workspace) unmarshalWorkspaceConfig() error {
 func (c *Workspace) load() {
 	log.Infof("Loading Workspace")
 
-	workspaceConfigFilePath = filepath.Join(workspace.path, workspaceConfigFile)
-	workspaceContainerConfigFilePath = filepath.Join(workspaceContainerDir, workspaceConfigFile)
+	workspaceConfigFilePath = filepath.Join(workspace.Path, workspace.Config.WorkspaceConfig)
+	workspaceContainerConfigFilePath = filepath.Join(workspace.ContainerPath, workspace.Config.WorkspaceConfig)
 
-	blocksDir = filepath.Join(workspace.path, workspace.Config.BlocksRoot)
-	blocksContainerDir = filepath.Join(workspace.containerPath, workspace.Config.BlocksRoot)
-
-	blockContainerDir = filepath.Join(blocksContainerDir, blockName)
+	blocksDir = filepath.Join(workspace.Path, workspace.Config.BlocksRoot)
 
 	workspaceConfig.BindPFlag("config.image.version", rootCmd.Flags().Lookup("image-version"))
 	workspaceConfig.BindPFlag("config.image.reference", rootCmd.Flags().Lookup("image-ref"))
 	workspaceConfig.BindPFlag("config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
+	workspaceConfig.BindPFlag("config.blocksconfig", rootCmd.Flags().Lookup("blocks-config"))
 	workspaceConfig.BindPFlag("config.workflowsroot", rootCmd.Flags().Lookup("workflows-root"))
-	workspaceConfig.BindPFlag("config.stateroot", rootCmd.Flags().Lookup("artifacts-root"))
+	workspaceConfig.BindPFlag("config.workspaceconfig", rootCmd.Flags().Lookup("workspace-config"))
+	workspaceConfig.BindPFlag("config.artifactsroot", rootCmd.Flags().Lookup("artifacts-root"))
 	workspaceConfig.BindPFlag("config.containerroot", rootCmd.Flags().Lookup("container-root"))
 	workspaceConfig.BindPFlag("config.remoteroot", rootCmd.Flags().Lookup("remote-root"))
 	workspaceConfig.BindPFlag("config.sshprivatekey", rootCmd.Flags().Lookup("ssh-private-key"))
@@ -303,6 +328,43 @@ func (c *Workspace) load() {
 		log.Fatal(err)
 	}
 
+	// Update workflow and step addresses
+	for i := 0; i < len(c.Workflows); i++ {
+		loadedWorkflow := &c.Workflows[i]
+
+		loadedWorkflow.address = loadedWorkflow.Name
+		// Register the workflow to the Index
+		c.registerWorkflow(loadedWorkflow)
+
+		// Loop over the steps
+		for _, step := range loadedWorkflow.Steps {
+			loadedStep := loadedWorkflow.getStepByName(step.Name)
+
+			// Set step address
+			loadedStep.address = strings.Join([]string{loadedWorkflow.Name, loadedStep.Name}, ".")
+
+			workflowCopy := *loadedWorkflow
+			loadedStep.Workflow = workflowCopy
+
+			// Remove nested steps
+			loadedStep.Workflow.Steps = nil
+
+			log.Debugf("Validating step %s", loadedStep.Name)
+			if err := loadedStep.Validate(); err != nil {
+				log.Fatal(err)
+			}
+
+			log.Debugf("Registered step %s of workflow %s", loadedStep.Name, loadedWorkflow.Name)
+			c.registerStep(loadedStep)
+		}
+
+		log.Debugf("Validating workflow %s", loadedWorkflow.Name)
+		if err := loadedWorkflow.Validate(); err != nil {
+			log.Fatal(err)
+		}
+
+	}
+
 	// Bootstrap env vars
 	c.bootstrapEnvVars()
 
@@ -325,11 +387,14 @@ func (c *Workspace) resolveBlockDependencies() error {
 	for missing != 0 {
 		for i := 0; i < len(c.Blocks); i++ {
 			loadedBlock := &c.Blocks[i]
+
 			// Block has not been resolved yet
 			if !loadedBlock.resolved {
 
 				log.Debugf("Trying to resolve Block '%s'", loadedBlock.Name)
 
+				// Check if a "from:" stanza is given and not empty
+				// This means that the loadedBlock should inherit from another Block
 				if loadedBlock.From != "" {
 					// a "from:" stanza is given
 					log.Debugf("Block has dependency: '%s'", loadedBlock.From)
@@ -342,6 +407,8 @@ func (c *Workspace) resolveBlockDependencies() error {
 						return goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name)
 					}
 
+					// Check if the dependency Block has already been resolved
+					// If not, re-queue the loaded Block so it can be resolved in another iteration
 					if !dependency.resolved {
 						// Needed Block from 'from' stanza is not yet resolved
 						log.Debugf("Postponing Block '%s' because its dependency '%s' is not yet resolved", loadedBlock.Name, dependency.Name)
@@ -349,21 +416,32 @@ func (c *Workspace) resolveBlockDependencies() error {
 						continue
 					}
 
+					// Merge the dependency Block into the loaded Block
+					// We do NOT OVERWRITE existing values in the loaded Block because we must assume
+					// That this is configuration that has been explicitly set by the user
+					// The merge works like "loading defaults" for the loaded Block
 					err := loadedBlock.MergeIn(dependency)
 					if err != nil {
 						return err
 					}
 
+					// Handle Workdir
+					// If the dependency Block has a workdir, apply this workdir to the loaded block
+					if loadedBlock.Artifacts.LocalPath == "" {
+						loadedBlock.Workdir.LocalPath = dependency.Workdir.LocalPath
+						loadedBlock.Workdir.ContainerPath = dependency.Workdir.ContainerPath
+					}
+
 					// Handle Actions
 					// Iterate over the loaded Block's Actions
-					// and check if it exists in the existing Block
+					// and check if the Action exists in the dependency Block
 					// If not, add it
 					for _, loadedAction := range dependency.Actions {
-						log.Debugf("Analyzing Action '%s'", loadedAction.Name)
+						log.Debugf("Analyzing action '%s'", loadedAction.Name)
 						existingAction := loadedBlock.getActionByName(loadedAction.Name)
 
 						if existingAction != nil {
-							log.Debugf("Found existing Action '%s'", existingAction.Name)
+							log.Debugf("Found user-provided action '%s' in the workspace. Merging with loaded action", existingAction.Name)
 							// An Action with the same name exists
 							// We merge!
 							err := existingAction.MergeIn(&loadedAction)
@@ -371,7 +449,7 @@ func (c *Workspace) resolveBlockDependencies() error {
 								return err
 							}
 						} else {
-							log.Debugf("No existing Action found. Adding '%s'", loadedAction.Name)
+							log.Debugf("No user-provided action with that name found. Adding '%s' to the workspace.", loadedAction.Name)
 							loadedBlock.Actions = append(loadedBlock.Actions, loadedAction)
 						}
 					}
@@ -381,7 +459,7 @@ func (c *Workspace) resolveBlockDependencies() error {
 					// 	return err
 					// }
 					loadedBlock.resolved = true
-					loadedBlock.parent = dependency
+					loadedBlock.Parent = dependency
 					missing--
 					log.Debugf("Resolved Block '%s' from dependency '%s'", loadedBlock.Name, loadedBlock.From)
 				} else {
@@ -395,21 +473,33 @@ func (c *Workspace) resolveBlockDependencies() error {
 				c.registerBlock(loadedBlock)
 
 				// Update Artifacts, Kubeconfig & Inventory
-				loadedBlock.artifacts.localPath = filepath.Join(workspace.path, artifactsRoot, blocksRoot, loadedBlock.Name)
-				loadedBlock.artifacts.containerPath = filepath.Join(workspaceContainerDir, artifactsRoot, blocksRoot, loadedBlock.Name)
-
+				err := loadedBlock.LoadArtifacts()
+				if err != nil {
+					return err
+				}
 				loadedBlock.LoadInventory()
 				loadedBlock.LoadKubeconfig()
 
-				// Update Action addresses
+				// Update Actions
+				log.Debugf("Updating actions")
 				for _, action := range loadedBlock.Actions {
-					action.address = strings.Join([]string{loadedBlock.Name, action.Name}, ".")
-					action.block = loadedBlock
+					log.Debugf("Updating action %s of block %s", action.Name, loadedBlock.Name)
+
+					existingAction := loadedBlock.getActionByName(action.Name)
+					existingAction.address = strings.Join([]string{loadedBlock.Name, action.Name}, ".")
+
+					blockCopy := *loadedBlock
+
+					existingAction.Block = blockCopy
+
+					// Remove nested actions
+					existingAction.Block.Actions = nil
 
 					// Register the Action to the Index
-					c.registerAction(&action)
+					c.registerAction(existingAction)
 				}
 
+				// Update Workflow addresses
 				log.Debugf("%d Blocks left", missing)
 			}
 
@@ -419,10 +509,7 @@ func (c *Workspace) resolveBlockDependencies() error {
 }
 
 func (c *Workspace) Validate() error {
-	validate := validator.New()
-
-	validate.RegisterValidation("metadata_name", validateMetadataName)
-
+	log.Debugf("Validating workspace struct")
 	err := validate.Struct(c)
 
 	if err != nil {
@@ -440,28 +527,31 @@ func (c *Workspace) Validate() error {
 		}
 
 		// from here you can create your own error messages in whatever language you wish
-		return goErrors.New("Error validating Workspace")
+		return goErrors.New("error validating Workspace")
 	}
 	return nil
 }
 
-func (c *Workspace) listBlocks() {
+func (c *Workspace) ListBlocks() {
 	for _, block := range c.Blocks {
 		fmt.Println(block.Name)
 	}
 }
 
-func (c *Workspace) listWorkflows() {
-	for workflow := range c.Workflows {
+func (c *Workspace) ListWorkflows() {
+	for workflow := range c.index.Workflows {
 		fmt.Println(workflow)
 	}
 }
 
-func (c *Workspace) listActions() {
-	for _, block := range c.Blocks {
-		for _, action := range block.Actions {
-			fmt.Printf("%s.%s\n", block.Name, action.Name)
-		}
+func (c *Workspace) ListActions() {
+	// for _, block := range c.Blocks {
+	// 	for _, action := range block.Actions {
+	// 		fmt.Printf("%s.%s\n", block.Name, action.Name)
+	// 	}
+	// }
+	for action := range c.index.Actions {
+		fmt.Println(action)
 	}
 }
 
@@ -473,12 +563,12 @@ func (c *Workspace) bootstrapIndex() {
 	c.index.Steps = make(map[string]*Step)
 }
 
-func (c *Workspace) bootstrapMounts() []string {
+func (c *Workspace) bootstrapMounts() {
 	// Prepare mounts map
 	c.mounts = map[string]string{}
 
 	// Mount the Workspace
-	c.registerMount(workspace.path, workspaceContainerDir)
+	c.registerMount(c.Path, c.ContainerPath)
 
 	// Mount the Docker Socket if possible
 	dockerSocket := "/var/run/docker.sock"
@@ -493,7 +583,7 @@ func (c *Workspace) bootstrapMounts() []string {
 	// if devDir != "" {
 	// 	mounts = append(mounts, strings.Join([]string{devDir, "/polycrate"}, ":"))
 	// }
-	for _, extraMount := range extraMounts {
+	for _, extraMount := range c.ExtraMounts {
 		// Split by =
 		p := strings.Split(extraMount, ":")
 
@@ -504,7 +594,6 @@ func (c *Workspace) bootstrapMounts() []string {
 			break
 		}
 	}
-	return mounts
 }
 
 func (c *Workspace) DumpEnv() []string {
@@ -554,15 +643,15 @@ func (c *Workspace) bootstrapEnvVars() {
 
 	if local {
 		// Not in container
-		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.path)
-		c.registerEnvVar("POLYCRATE_STACKFILE", workspaceConfigFilePath)
+		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.Path)
+		c.registerEnvVar("POLYCRATE_WORKSPACE_CONFIG", workspaceConfigFilePath)
 	} else {
 		// In container
-		c.registerEnvVar("POLYCRATE_WORKSPACE", workspaceContainerDir)
-		c.registerEnvVar("POLYCRATE_STACKFILE", workspaceContainerConfigFilePath)
+		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.ContainerPath)
+		c.registerEnvVar("POLYCRATE_WORKSPACE_CONFIG", workspaceContainerConfigFilePath)
 	}
 
-	for _, envVar := range extraEnv {
+	for _, envVar := range c.ExtraEnv {
 		// Split by =
 		p := strings.Split(envVar, "=")
 
@@ -586,6 +675,10 @@ func (c *Workspace) registerMount(host string, container string) {
 func (c *Workspace) registerCurrentBlock(block *Block) {
 
 	c.registerEnvVar("POLYCRATE_BLOCK", block.Name)
+
+	if block.Workdir.exists {
+		c.registerEnvVar("POLYCRATE_BLOCK_WORKDIR", block.Workdir.ContainerPath)
+	}
 	c.currentBlock = block
 }
 func (c *Workspace) registerCurrentAction(action *Action) {
@@ -604,32 +697,33 @@ func (c *Workspace) registerCurrentStep(step *Step) {
 	c.currentStep = step
 }
 
-func (c *Workspace) getActionByPath(actionPath string) *Action {
-	// Validate actionPath
-	s := strings.Split(actionPath, ".")
-	blockName := s[0]
-	actionName := s[1]
-
-	block := workspace.getBlockByName(blockName)
-
-	if block != nil {
-		action := block.getActionByName(actionName)
-
-		if action != nil {
-			return action
-		}
+func (c *Workspace) GetActionFromIndex(name string) *Action {
+	if action, ok := c.index.Actions[name]; ok {
+		return action
 	}
 	return nil
 }
 
-func (c *Workspace) getBlockByPath(actionPath string) *Block {
-	// Validate actionPath
-	s := strings.Split(actionPath, ".")
-	blockName := s[0]
+// func (c *Workspace) getActionByPath(actionPath string) *Action {
+// 	// Validate actionPath
+// 	s := strings.Split(actionPath, ".")
+// 	blockName := s[0]
+// 	actionName := s[1]
 
-	block := workspace.getBlockByName(blockName)
+// 	block := workspace.getBlockByName(blockName)
 
-	if block != nil {
+// 	if block != nil {
+// 		action := block.getActionByName(actionName)
+
+// 		if action != nil {
+// 			return action
+// 		}
+// 	}
+// 	return nil
+// }
+
+func (c *Workspace) GetBlockFromIndex(name string) *Block {
+	if block, ok := c.index.Blocks[name]; ok {
 		return block
 	}
 	return nil
@@ -644,19 +738,28 @@ func (c *Workspace) getBlockByName(blockName string) *Block {
 	}
 	return nil
 }
-func (c *Workspace) getWorkflowByName(workflowName string) *Workflow {
 
-	for i := 0; i < len(c.Workflows); i++ {
-		workflow := &c.Workflows[i]
-		if workflow.Name == workflowName {
-			return workflow
-		}
+func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {
+	if workflow, ok := c.index.Workflows[name]; ok {
+		return workflow
 	}
 	return nil
 }
 
+// func (c *Workspace) getWorkflowByName(workflowName string) *Workflow {
+
+// 	for i := 0; i < len(c.Workflows); i++ {
+// 		workflow := &c.Workflows[i]
+// 		if workflow.Name == workflowName {
+// 			return workflow
+// 		}
+// 	}
+// 	return nil
+// }
+
 func (c *Workspace) print() {
-	printObject(&c)
+	//fmt.Printf("%#v\n", c)
+	printObject(c)
 }
 
 func (c *Workspace) loadBlockConfigs() error {
@@ -669,7 +772,7 @@ func (c *Workspace) loadBlockConfigs() error {
 		blockConfigObject.SetConfigType("yaml")
 		blockConfigObject.SetConfigFile(blockConfigFilePath)
 
-		log.Debug("Loading ", blockConfigFile, " from "+blockPath)
+		log.Debug("Loading ", c.Config.BlocksConfig, " from "+blockPath)
 		if err := blockConfigObject.MergeInConfig(); err != nil {
 			return err
 		}
@@ -684,8 +787,8 @@ func (c *Workspace) loadBlockConfigs() error {
 		log.Debugf("Loaded Block '%s'", loadedBlock.Name)
 
 		// Set Block vars
-		loadedBlock.workdir.localPath = blockPath
-		loadedBlock.workdir.containerPath = filepath.Join(workspaceContainerDir, blocksRoot, loadedBlock.Name)
+		loadedBlock.Workdir.LocalPath = blockPath
+		loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, loadedBlock.Name)
 
 		// Check if Block exists
 		existingBlock := c.getBlockByName(loadedBlock.Name)

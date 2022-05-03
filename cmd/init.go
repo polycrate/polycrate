@@ -35,16 +35,16 @@ var initCmd = &cobra.Command{
 	Long:   `Initalize a stack`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create context directory if not exists
-		contextDir := workspace.path
+		contextDir := workspace.Path
 		err := os.MkdirAll(contextDir, os.ModePerm)
 		CheckErr(err)
 
-		pluginsDir := filepath.Join(workspace.path, "plugins")
+		pluginsDir := filepath.Join(workspace.Path, "plugins")
 		err = os.MkdirAll(pluginsDir, os.ModePerm)
 		CheckErr(err)
 
 		// Create Stackfile if not exists
-		configPath := getConfigPath(workspace.path)
+		configPath := ""
 		if configPath == "" {
 			// Load from basic example
 			// download to /tmp-asdasdasd
@@ -54,11 +54,14 @@ var initCmd = &cobra.Command{
 			// remove tempfile
 			donwloadTempPath := filepath.Join("/tmp", "cloudstack-example-stackfile")
 			err := DownloadFile(fileUrl, donwloadTempPath)
+			if err != nil {
+				log.Fatal(err)
+			}
 			exampleConfig := viper.New()
 
 			// Check overrides
-			if len(overrides) > 0 {
-				for _, override := range overrides {
+			if len([]string{}) > 0 {
+				for _, override := range []string{} {
 					// Split string by =
 					kv := strings.Split(override, "=")
 
@@ -72,8 +75,8 @@ var initCmd = &cobra.Command{
 			err = exampleConfig.MergeInConfig()
 			CheckErr(err)
 
-			exampleConfig.WriteConfigAs(workspace.path + "/Stackfile")
-			log.Info("Created config from " + fileUrl + " at " + workspace.path + "/Stackfile")
+			exampleConfig.WriteConfigAs(workspace.Path + "/Stackfile")
+			log.Info("Created config from " + fileUrl + " at " + workspace.Path + "/Stackfile")
 
 			err = os.Remove(donwloadTempPath)
 			CheckErr(err)

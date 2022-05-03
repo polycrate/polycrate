@@ -22,9 +22,11 @@ import (
 
 // installCmd represents the install command
 var actionsRunCmd = &cobra.Command{
-	Use:   "run",
+	Use:   "run 'block.action'",
 	Short: "Run an Action",
-	Long:  ``,
+	Long: `
+To run an Action, use this command with 1 argument - the Action address.
+The action address is a combination of the Block name and the Action name, joined with a dot/period.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
 			log.Fatal("Need exactly one argument: Action address (e.g. 'Block.Action')")
@@ -33,9 +35,13 @@ var actionsRunCmd = &cobra.Command{
 		if workspace.Flush() != nil {
 			log.Fatal(workspace.Flush)
 		}
-		workspace.RunAction(args[0])
+		err := workspace.RunAction(args[0])
+		if err != nil {
+			log.Fatal(err)
+		}
 
 	},
+	Args: cobra.ExactArgs(1),
 }
 
 func init() {

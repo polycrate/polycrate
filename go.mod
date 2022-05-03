@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/InVisionApp/conjungo v1.1.0
 	github.com/antonfisher/nested-logrus-formatter v1.3.1 // indirect
+	github.com/codeclysm/extract/v3 v3.0.2 // indirect
 	github.com/containerd/containerd v1.6.2 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/docker v20.10.14+incompatible

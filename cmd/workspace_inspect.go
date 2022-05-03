@@ -17,23 +17,26 @@ package cmd
 
 import (
 	log "github.com/sirupsen/logrus"
+
 	"github.com/spf13/cobra"
 )
 
-var workspaceSnapshotCmd = &cobra.Command{
-	Use:   "snapshot",
-	Short: "Show Workspace snapshot",
-	Long:  `Show Workspace snapshot`,
+// installCmd represents the install command
+var workspaceInspectCmd = &cobra.Command{
+	Use:   "inspect",
+	Short: "Inspect an Action",
+	Long:  ``,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load()
 		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush())
+			log.Fatal(workspace.Flush)
 		}
-		workspace.Snapshot()
+
+		workspace.print()
 	},
 }
 
 func init() {
-	workspaceCmd.AddCommand(workspaceSnapshotCmd)
+	workspaceCmd.AddCommand(workspaceInspectCmd)
 }

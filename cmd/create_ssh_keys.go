@@ -39,7 +39,7 @@ var CreateSSHKeyCmd = &cobra.Command{
 	Short:  "Generate SSH Keys for a stack",
 	Long:   `Generate SSH Keys for a stack`,
 	Run: func(cmd *cobra.Command, args []string) {
-		loadWorkspace()
+		// loadWorkspace()
 		err := CreateSSHKeys()
 		//CheckErr(err)
 		if err != nil {
@@ -89,8 +89,8 @@ func generateKey() (string, string, error) {
 
 func CreateSSHKeys() error {
 
-	privKeyPath := filepath.Join(workspace.path, workspace.Config.SshPrivateKey)
-	pubKeyPath := filepath.Join(workspace.path, workspace.Config.SshPublicKey)
+	privKeyPath := filepath.Join(workspace.Path, workspace.Config.SshPrivateKey)
+	pubKeyPath := filepath.Join(workspace.Path, workspace.Config.SshPublicKey)
 
 	log.Debug("Asserting private ssh key at ", privKeyPath)
 	log.Debug("Asserting public ssh key at ", pubKeyPath)
