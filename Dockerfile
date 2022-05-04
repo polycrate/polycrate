@@ -48,35 +48,34 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/$TARGETOS/$TARGETARCH/kubectl" && \
   chmod +x /usr/local/bin/kubectl && \
-  wget "https://get.helm.sh/helm-v${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" -O - | tar -xzO $TARGETOS-$TARGETARCH/helm > /usr/local/bin/helm && \
+  wget -q "https://get.helm.sh/helm-v${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" -O - | tar -xzO $TARGETOS-$TARGETARCH/helm > /usr/local/bin/helm && \
   chmod +x /usr/local/bin/helm && \
   helm plugin install https://github.com/databus23/helm-diff  && \
-  wget "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${TARGETOS}_${TARGETARCH}.zip" && \
+  wget -q  "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${TARGETOS}_${TARGETARCH}.zip" && \
   unzip terraform_${TERRAFORM_VERSION}_${TARGETOS}_${TARGETARCH}.zip -d /usr/bin && \
-  wget "https://github.com/smallstep/cli/releases/download/v${STEP_VERSION}/step_${TARGETOS}_${STEP_VERSION}_${TARGETARCH}.tar.gz" && \
+  wget -q  "https://github.com/smallstep/cli/releases/download/v${STEP_VERSION}/step_${TARGETOS}_${STEP_VERSION}_${TARGETARCH}.tar.gz" && \
   tar xvzf step_${TARGETOS}_${STEP_VERSION}_${TARGETARCH}.tar.gz && \
   mv step_${STEP_VERSION}/bin/step /usr/local/bin/step && \
   chmod +x /usr/local/bin/step && \
-  wget "https://github.com/vmware-tanzu/velero/releases/download/v${VELERO_VERSION}/velero-v${VELERO_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" && \
+  wget -q  "https://github.com/vmware-tanzu/velero/releases/download/v${VELERO_VERSION}/velero-v${VELERO_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" && \
   tar xvzf velero-v${VELERO_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz && \
   mv velero-v${VELERO_VERSION}-${TARGETOS}-${TARGETARCH}/velero /usr/local/bin/velero && \
   chmod +x /usr/local/bin/velero && \
-  wget "https://github.com/caarlos0/svu/releases/download/v${SVU_VERSION}/svu_${SVU_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" && \
+  wget -q  "https://github.com/caarlos0/svu/releases/download/v${SVU_VERSION}/svu_${SVU_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" && \
   tar xvzf svu_${SVU_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz && \
   mv svu /usr/local/bin/svu && \
   chmod +x /usr/local/bin/svu && \
-  wget "https://github.com/argoproj/argo-cd/releases/download/v${ARGOCD_VERSION}/argocd-${TARGETOS}-${TARGETARCH}" -O /usr/local/bin/argocd && \
+  wget -q  "https://github.com/argoproj/argo-cd/releases/download/v${ARGOCD_VERSION}/argocd-${TARGETOS}-${TARGETARCH}" -O /usr/local/bin/argocd && \
   chmod +x /usr/local/bin/argocd && \
-  wget "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/yq && \
+  wget -q "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/yq && \
   chmod +x /usr/local/bin/yq && \
-  wget "https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_${GORELEASER_VERSION}_${TARGETARCH}.deb" && \
+  wget -q "https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_${GORELEASER_VERSION}_${TARGETARCH}.deb" && \
   dpkg -i goreleaser_${GORELEASER_VERSION}_${TARGETARCH}.deb && \
-  wget "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/yq && \
+  wget -q "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/yq && \
   chmod +x /usr/local/bin/yq && \
-  #wget -q "https://dl.min.io/client/mc/release/${TARGETOS}-${TARGETARCH}/mc" -O /usr/local/bin/mc && \
-  wget  "https://dl.min.io/client/mc/release/${TARGETOS}-${TARGETARCH}/archive/mc.${MINIO_CLI_VERSION}" -O /usr/local/bin/mc && \
+  wget  -q "https://dl.min.io/client/mc/release/${TARGETOS}-${TARGETARCH}/archive/mc.${MINIO_CLI_VERSION}" -O /usr/local/bin/mc && \
   chmod +x /usr/local/bin/mc  && \
-  wget https://github.com/cli/cli/releases/download/v${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb && \
+  wget -q "https://github.com/cli/cli/releases/download/v${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb" && \
   dpkg -i gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb && \
   rm -rf /tmp/*
 
@@ -97,7 +96,7 @@ RUN mkdir -p /etc/ansible/roles /etc/ansible/collections && \
 
 WORKDIR /polycrate
 
-COPY . /polycrate
+# COPY . /polycrate
 
 RUN mv cli/${GOOS}-${GOARCH}/polycrate-${GOOS}-${GOARCH} /usr/local/bin/polycrate && \
   chmod +x /usr/local/bin/polycrate && \

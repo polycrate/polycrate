@@ -4,21 +4,13 @@ go 1.16
 
 require (
 	github.com/InVisionApp/conjungo v1.1.0
-	github.com/antonfisher/nested-logrus-formatter v1.3.1 // indirect
-	github.com/codeclysm/extract/v3 v3.0.2 // indirect
 	github.com/containerd/containerd v1.6.2 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/docker v20.10.14+incompatible
-	github.com/go-git/go-billy/v5 v5.3.1
-	github.com/go-git/go-git/v5 v5.4.2
-	github.com/go-playground/validator v9.31.0+incompatible // indirect
 	github.com/go-playground/validator/v10 v10.9.0
-	github.com/google/uuid v1.2.0
 	github.com/manifoldco/promptui v0.8.0
-	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.1.2
 	github.com/moby/sys/mount v0.3.2 // indirect
-	github.com/moby/term v0.0.0-20210610120745-9d4ed1856297 // indirect
+	github.com/moby/term v0.0.0-20210610120745-9d4ed1856297
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.1.3
