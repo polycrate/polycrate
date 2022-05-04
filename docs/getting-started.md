@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install the Cloudstack
+description: Install polycrate
 ---
 
 # Getting Started
@@ -47,38 +47,42 @@ Using the [Cloudstack installer](Installer.md) automates the process of download
 
 ### Manual Download
 
-Install the [CLI](https://gitlab.com/ayedocloudsolutions/cloudstack/cli) by following the steps for your platform below:
+You can download any version of polycrate from our [GitHub Releases](https://github.com/polycrate/polycrate/releases) by following the steps for your platform below:
 
 === "Linux"
 
     ``` bash
-    curl -fsSLo ./cloudstack https://s3.ayedo.dev/packages/cloudstack/latest/cloudstack-linux-amd64
-    chmod +x cloudstack
-    ./cloudstack version
+    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_linux_amd64.tar.gz
+    tar xvzf polycrate.tar.gz
+    chmod +x polycrate
+    ./polycrate version
     ```
 
 === "Linux (ARM)"
 
     ``` bash
-    curl -fsSLo ./cloudstack https://s3.ayedo.dev/packages/cloudstack/latest/cloudstack-linux-arm64
-    chmod +x cloudstack
-    ./cloudstack version
+    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_linux_arm64.tar.gz
+    tar xvzf polycrate.tar.gz
+    chmod +x polycrate
+    ./polycrate version
     ```
 
 === "macOS"
 
     ``` bash
-    curl -fsSLo ./cloudstack https://s3.ayedo.dev/packages/cloudstack/latest/cloudstack-darwin-amd64
-    chmod +x cloudstack
-    ./cloudstack version
+    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_darwin_amd64.tar.gz
+    tar xvzf polycrate.tar.gz
+    chmod +x polycrate
+    ./polycrate version
     ```
 
 === "macOS (M1)"
 
     ``` bash
-    curl -fsSLo ./cloudstack https://s3.ayedo.dev/packages/cloudstack/latest/cloudstack-darwin-arm64
-    chmod +x cloudstack
-    ./cloudstack version
+    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_darwin_arm64.tar.gz
+    tar xvzf polycrate.tar.gz
+    chmod +x polycrate
+    ./polycrate version
     ```
 
 ## Configuration

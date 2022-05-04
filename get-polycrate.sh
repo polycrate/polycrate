@@ -101,7 +101,8 @@ verifySupported() {
 # checkDesiredVersion checks if the desired version is available.
 checkDesiredVersion() {
   if [ "x$DESIRED_VERSION" == "x" ]; then
-    TAG="latest"
+    TAG=$(curl -s https://api.github.com/repos/polycrate/polycrate/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    echo "Latest version is $TAG"
   else
     TAG=$DESIRED_VERSION
   fi
@@ -128,20 +129,21 @@ checkPolycrateInstalledVersion() {
 # for that binary.
 downloadFile() {
   DOWNLOAD_URL="https://s3.ayedo.de/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH"
+  DOWNLOAD_URL="https://github.com/polycrate/polycrate/releases/download/${TAG}/${BINARY_NAME}_${TAG:1}_${OS}_${ARCH}.tar.gz"
 
-  if [ "$OS" == "WINDOWS" ]; then
-    DOWNLOAD_URL="https://s3.ayedo.de/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH.exe"
-  fi
+  # if [ "$OS" == "WINDOWS" ]; then
+  #   DOWNLOAD_URL="https://s3.ayedo.de/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH.exe"
+  # fi
 
   CHECKSUM_URL="$DOWNLOAD_URL.sha256"
-  CLOUDSTACK_TMP_ROOT="$(mktemp -dt cloudstack-installer-XXXXXX)"
-  CLOUDSTACK_TMP_FILE="$CLOUDSTACK_TMP_ROOT/${BINARY_NAME}"
+  POLYCRATE_TMP_ROOT="$(mktemp -dt polycrate-installer-XXXXXX)"
+  POLYCRATE_TMP_FILE="$POLYCRATE_TMP_ROOT/${BINARY_NAME}.tar.gz"
   #CLOUDSTACK_SUM_FILE="$CLOUDSTACK_TMP_ROOT/$CLOUDSTACK_DIST.sha256"
   echo "Downloading $DOWNLOAD_URL"
   if [ "${HAS_CURL}" == "true" ]; then
-    curl -SsL "$DOWNLOAD_URL" -o "$CLOUDSTACK_TMP_FILE"
+    curl -SsL "$DOWNLOAD_URL" -o "$POLYCRATE_TMP_FILE"
   elif [ "${HAS_WGET}" == "true" ]; then
-    wget -q -O "$CLOUDSTACK_TMP_FILE" "$DOWNLOAD_URL"
+    wget -q -O "$POLYCRATE_TMP_FILE" "$DOWNLOAD_URL"
   fi
 }
 
@@ -159,13 +161,17 @@ verifyFile() {
 
 # installFile installs the Cloudstack binary.
 installFile() {
-  CLOUDSTACK_TMP_BIN="$CLOUDSTACK_TMP_ROOT/$BINARY_NAME"
+  POLYCRATE_TMP_BIN="$POLYCRATE_TMP_ROOT/$BINARY_NAME"
+  echo "Unpacking polycrate"
+
+  tar xzf ${POLYCRATE_TMP_FILE} -C $POLYCRATE_TMP_ROOT
+
   echo "Preparing to install $BINARY_NAME into ${POLYCRATE_INSTALL_DIR}"
   
   if [ -f "$POLYCRATE_INSTALL_DIR/$BINARY_NAME" ]; then
     runAsRoot rm "$POLYCRATE_INSTALL_DIR/$BINARY_NAME"
   fi
-  runAsRoot cp "$CLOUDSTACK_TMP_BIN" "$POLYCRATE_INSTALL_DIR/$BINARY_NAME"
+  runAsRoot cp "$POLYCRATE_TMP_BIN" "$POLYCRATE_INSTALL_DIR/$BINARY_NAME"
   runAsRoot chmod +x "$POLYCRATE_INSTALL_DIR/$BINARY_NAME"
   echo "$BINARY_NAME installed into $POLYCRATE_INSTALL_DIR/$BINARY_NAME"
 }
@@ -313,7 +319,7 @@ initArch
 initOS
 verifySupported
 checkDesiredVersion
-if ! checkCloudstackInstalledVersion; then
+if ! checkPolycrateInstalledVersion; then
   downloadFile
   verifyFile
   installFile
