@@ -128,17 +128,11 @@ checkPolycrateInstalledVersion() {
 # downloadFile downloads the latest binary package and also the checksum
 # for that binary.
 downloadFile() {
-  DOWNLOAD_URL="https://s3.ayedo.de/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH"
   DOWNLOAD_URL="https://github.com/polycrate/polycrate/releases/download/${TAG}/${BINARY_NAME}_${TAG:1}_${OS}_${ARCH}.tar.gz"
-
-  # if [ "$OS" == "WINDOWS" ]; then
-  #   DOWNLOAD_URL="https://s3.ayedo.de/packages/cloudstack/$TAG/$BINARY_NAME-$OS-$ARCH.exe"
-  # fi
 
   CHECKSUM_URL="$DOWNLOAD_URL.sha256"
   POLYCRATE_TMP_ROOT="$(mktemp -dt polycrate-installer-XXXXXX)"
   POLYCRATE_TMP_FILE="$POLYCRATE_TMP_ROOT/${BINARY_NAME}.tar.gz"
-  #CLOUDSTACK_SUM_FILE="$CLOUDSTACK_TMP_ROOT/$CLOUDSTACK_DIST.sha256"
   echo "Downloading $DOWNLOAD_URL"
   if [ "${HAS_CURL}" == "true" ]; then
     curl -SsL "$DOWNLOAD_URL" -o "$POLYCRATE_TMP_FILE"
@@ -159,12 +153,16 @@ verifyFile() {
   fi
 }
 
-# installFile installs the Cloudstack binary.
+# installFile installs the Polycrate binary.
 installFile() {
   POLYCRATE_TMP_BIN="$POLYCRATE_TMP_ROOT/$BINARY_NAME"
   echo "Unpacking polycrate"
 
   tar xzf ${POLYCRATE_TMP_FILE} -C $POLYCRATE_TMP_ROOT
+
+  if [ "$OS" == "WINDOWS" || "$OS" == "windows"]; then
+    BINARY_NAME=$BINARY_NAME.exe
+  fi
 
   echo "Preparing to install $BINARY_NAME into ${POLYCRATE_INSTALL_DIR}"
   
@@ -179,10 +177,10 @@ installFile() {
 # verifyChecksum verifies the SHA256 checksum of the binary package.
 verifyChecksum() {
   printf "Verifying checksum... "
-  local sum=$(openssl sha1 -sha256 ${CLOUDSTACK_TMP_FILE} | awk '{print $2}')
-  local expected_sum=$(cat ${CLOUDSTACK_SUM_FILE})
+  local sum=$(openssl sha1 -sha256 ${POLYCRATE_TMP_FILE} | awk '{print $2}')
+  local expected_sum=$(cat ${POLYCRATE_SUM_FILE})
   if [ "$sum" != "$expected_sum" ]; then
-    echo "SHA sum of ${CLOUDSTACK_TMP_FILE} does not match. Aborting."
+    echo "SHA sum of ${POLYCRATE_TMP_FILE} does not match. Aborting."
     exit 1
   fi
   echo "Done."
