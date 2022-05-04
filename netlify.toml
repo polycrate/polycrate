@@ -1,6 +1,5 @@
 [build]
 publish = "site"
 command = """
-pip3 install -q -r mkdocs-requirements.txt && \
 mkdocs build -d site
 """
