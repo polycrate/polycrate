@@ -160,7 +160,7 @@ func (c *Action) RunContainer() error {
 		//Cmd:        runCommand,
 		Entrypoint:   entrypoint,
 		Cmd:          runCommand,
-		Tty:          interactive,
+		Tty:          true,
 		AttachStderr: true,
 		AttachStdin:  interactive,
 		AttachStdout: true,

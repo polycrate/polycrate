@@ -17,15 +17,6 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 )
 
-// type ContainerConfig struct {
-// 	Name    string
-// 	Mounts  map[string]string
-// 	Image   string
-// 	Command []string
-// 	Env     *map[string]string
-// 	Flags   map[string]string // rm: "true"
-// }
-
 func getDockerCLI() (*client.Client, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	return cli, err
@@ -76,15 +67,10 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 
 func pruneContainer(cli *client.Client, id string) error {
 	ctx := context.Background()
-	// var timeout time.Duration = 1 * time.Second
-	// if err := cli.ContainerStop(ctx, id, &timeout); err != nil {
-	// 	return fmt.Errorf("unable to stop container %s: %s", id, err)
-	// }
-	// log.Debugf("Stopped container with ID %s", id)
 
 	removeOptions := types.ContainerRemoveOptions{
 		RemoveVolumes: false,
-		Force:         true,
+		Force:         true, // we're force-removing so we do not need to worry about timeouts
 	}
 
 	if err := cli.ContainerRemove(ctx, id, removeOptions); err != nil {
@@ -107,107 +93,50 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 	// Save container id to the workspace
 	workspace.containerID = resp.ID
 
-	if !interactive {
-		// statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-		// select {
-		// case err := <-errCh:
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// case status := <-statusCh:
-		// 	log.Debugf("Container exited with status code %d", status.StatusCode)
-		// }
-		// out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
-		// //reader, err = cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
-		// if err != nil {
-		// 	return err
-		// }
-		// stdcopy.StdCopy(os.Stdout, os.Stderr, out)
-		log.Debugf("Attaching in non-interactive mode")
-		waiter, err := cli.ContainerAttach(ctx, resp.ID, types.ContainerAttachOptions{
-			Stderr: true,
-			Stdout: true,
-			Stdin:  false,
-			Stream: true,
-		})
-
-		go io.Copy(os.Stdout, waiter.Reader)
-		go io.Copy(os.Stderr, waiter.Reader)
-
-		if err != nil {
-			return err
-		}
-
-		go func() {
-			scanner := bufio.NewScanner(os.Stdin)
-			for scanner.Scan() {
-				inout <- []byte(scanner.Text())
-			}
-		}()
-
-		// Write to docker container
-		go func(w io.WriteCloser) {
-			for {
-				data, ok := <-inout
-				//log.Println("Received to send to docker", string(data))
-				if !ok {
-					fmt.Println("!ok")
-					w.Close()
-					return
-				}
-
-				w.Write(append(data, '\n'))
-			}
-		}(waiter.Conn)
-
-		// statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-		// select {
-		// case err := <-errCh:
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// case <-statusCh:
-		// }
-	} else {
-		log.Debugf("Attaching in interactive mode")
-		log.Warnf("Container in interactive mode - input will be forwarded")
-		waiter, err := cli.ContainerAttach(ctx, resp.ID, types.ContainerAttachOptions{
-			Stderr: true,
-			Stdout: true,
-			Stdin:  true,
-			Stream: true,
-		})
-
-		go io.Copy(os.Stdout, waiter.Reader)
-		go io.Copy(os.Stderr, waiter.Reader)
-
-		if err != nil {
-			return err
-		}
-
-		go func() {
-			scanner := bufio.NewScanner(os.Stdin)
-			for scanner.Scan() {
-				inout <- []byte(scanner.Text())
-			}
-		}()
-
-		// Write to docker container
-		go func(w io.WriteCloser) {
-			for {
-				data, ok := <-inout
-				//log.Println("Received to send to docker", string(data))
-				if !ok {
-					fmt.Println("!ok")
-					w.Close()
-					return
-				}
-
-				w.Write(append(data, '\n'))
-			}
-		}(waiter.Conn)
-
+	containerAttachOptions := types.ContainerAttachOptions{
+		Stderr: true,
+		Stdout: true,
+		Stdin:  false,
+		Stream: true,
 	}
+
+	var waiter types.HijackedResponse
+
+	if !interactive {
+		log.Debugf("Attaching in non-interactive mode")
+		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
+	} else {
+		log.Warnf("Container in interactive mode - input will be forwarded")
+		containerAttachOptions.Stdin = true
+		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
+	}
+	go io.Copy(os.Stdout, waiter.Reader)
+	go io.Copy(os.Stderr, waiter.Reader)
+
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			inout <- []byte(scanner.Text())
+		}
+	}()
+
+	// Write to docker container
+	go func(w io.WriteCloser) {
+		for {
+			data, ok := <-inout
+			if !ok {
+				fmt.Println("!ok")
+				w.Close()
+				return
+			}
+
+			w.Write(append(data, '\n'))
+		}
+	}(waiter.Conn)
 
 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return err
@@ -227,22 +156,5 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 	if err := pruneContainer(cli, resp.ID); err != nil {
 		return err
 	}
-
-	// if err := cli.ContainerStop(ctx, resp.ID, nil); err != nil {
-	// 	return fmt.Errorf("unable to stop container %s: %s", resp.ID, err)
-	// }
-	// log.Debugf("Stopped container with ID %s", resp.ID)
-
-	// removeOptions := types.ContainerRemoveOptions{
-	// 	RemoveVolumes: false,
-	// 	Force:         true,
-	// }
-
-	// if err := cli.ContainerRemove(ctx, resp.ID, removeOptions); err != nil {
-	// 	return fmt.Errorf("unable to remove container: %s", err)
-	// }
-	// log.Debugf("Removed container with ID %s", resp.ID)
-
-	//stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 	return nil
 }
