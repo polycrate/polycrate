@@ -160,7 +160,7 @@ installFile() {
 
   tar xzf ${POLYCRATE_TMP_FILE} -C $POLYCRATE_TMP_ROOT
 
-  if [ "$OS" == "WINDOWS" || "$OS" == "windows"]; then
+  if [ "$OS" == "WINDOWS" ] || [ "$OS" == "windows" ]; then
     BINARY_NAME=$BINARY_NAME.exe
   fi
 

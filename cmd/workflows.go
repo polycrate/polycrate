@@ -52,7 +52,7 @@ type Step struct {
 	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
 	Block       string            `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty" validate:"required"`
 	Action      string            `yaml:"action,omitempty" mapstructure:"action,omitempty" json:"action,omitempty" validate:"required"`
-	Workflow    Workflow          `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
+	Workflow    string            `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
 	address     string
 	//err         error
 }
@@ -99,16 +99,17 @@ func (c *Workflow) Run() error {
 }
 
 func (c *Step) Run() error {
-	//printObject(c)
+	// Get workflow from step
+	workflow := workspace.GetWorkflowFromIndex(c.Workflow)
 
-	log.Infof("Running step '%s' of workflow '%s'", c.Name, c.Workflow.Name)
+	log.Infof("Running step '%s' of workflow '%s'", c.Name, workflow.Name)
 
 	// Check if an a block and an action have been configured
 	if c.Block == "" {
-		return goErrors.New("no block configured for step " + c.Name + " of workflow " + c.Workflow.Name)
+		return goErrors.New("no block configured for step " + c.Name + " of workflow " + workflow.Name)
 	}
 	if c.Action == "" {
-		return goErrors.New("no action configured for step " + c.Name + " of workflow " + c.Workflow.Name)
+		return goErrors.New("no action configured for step " + c.Name + " of workflow " + workflow.Name)
 	}
 
 	// Run the configured action

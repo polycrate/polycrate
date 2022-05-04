@@ -148,8 +148,10 @@ func (c *Workspace) RunAction(address string) error {
 	action := c.LookupAction(address)
 
 	if action != nil {
+		block := c.GetBlockFromIndex(action.Block)
+
 		workspace.registerCurrentAction(action)
-		workspace.registerCurrentBlock(&action.Block)
+		workspace.registerCurrentBlock(block)
 
 		if snapshot {
 			c.Snapshot()
@@ -338,12 +340,7 @@ func (c *Workspace) load() {
 
 			// Set step address
 			loadedStep.address = strings.Join([]string{loadedWorkflow.Name, loadedStep.Name}, ".")
-
-			workflowCopy := *loadedWorkflow
-			loadedStep.Workflow = workflowCopy
-
-			// Remove nested steps
-			loadedStep.Workflow.Steps = nil
+			loadedStep.Workflow = loadedWorkflow.Name
 
 			log.Debugf("Validating step %s", loadedStep.Name)
 			if err := loadedStep.Validate(); err != nil {
@@ -455,7 +452,7 @@ func (c *Workspace) resolveBlockDependencies() error {
 					// 	return err
 					// }
 					loadedBlock.resolved = true
-					loadedBlock.Parent = dependency
+
 					missing--
 					log.Debugf("Resolved Block '%s' from dependency '%s'", loadedBlock.Name, loadedBlock.From)
 				} else {
@@ -484,12 +481,7 @@ func (c *Workspace) resolveBlockDependencies() error {
 					existingAction := loadedBlock.getActionByName(action.Name)
 					existingAction.address = strings.Join([]string{loadedBlock.Name, action.Name}, ".")
 
-					blockCopy := *loadedBlock
-
-					existingAction.Block = blockCopy
-
-					// Remove nested actions
-					existingAction.Block.Actions = nil
+					existingAction.Block = loadedBlock.Name
 
 					// Register the Action to the Index
 					c.registerAction(existingAction)

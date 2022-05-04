@@ -81,7 +81,6 @@ type Block struct {
 	Template    bool                   `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`
 	Version     string                 `yaml:"version,omitempty" mapstructure:"version" json:"version"`
 	resolved    bool
-	Parent      *Block
 	Workdir     BlockWorkdir `yaml:"workdir,omitempty" mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
 	inventory   BlockInventory
 	kubeconfig  BlockKubeconfig

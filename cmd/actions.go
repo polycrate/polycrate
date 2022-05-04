@@ -75,7 +75,7 @@ type Action struct {
 	Kubernetes          ActionKubernetesConfig `yaml:"kubernetes,omitempty" mapstructure:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	executionScriptPath string
 	address             string
-	Block               Block `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
+	Block               string `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
 }
 
 func (c *Action) MergeIn(action *Action) error {
