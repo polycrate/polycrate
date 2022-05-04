@@ -16,16 +16,18 @@ Using the [Cloudstack installer](Installer.md) automates the process of download
     **real** quick:
 
     ```bash
-    curl https://docs.cloudstack.one/get-cloudstack.sh | bash
+    curl https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh | bash
+    polycrate version
     ```
 
     a bit safer:
 
     ```bash
-    curl -fsSL -o get-cloudstack.sh https://docs.cloudstack.one/get-cloudstack.sh
-    chmod 0700 get-cloudstack.sh
-    # Optionally: less get-cloudstack.sh
-    ./get-cloudstack.sh
+    curl -fsSL -o get-cloudstack.sh https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh
+    chmod 0700 get-polycrate.sh
+    # Optionally: less get-polycrate.sh
+    ./get-polycrate.sh
+    polycrate version
     ```
 
 === "wget"
@@ -33,16 +35,18 @@ Using the [Cloudstack installer](Installer.md) automates the process of download
      **real** quick:
 
     ```bash
-    wget -qO- https://docs.cloudstack.one/get-cloudstack.sh | bash
+    wget -qO- https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh | bash
+    polycrate version
     ```
 
     a bit safer:
 
     ```bash
-    wget -q -O get-cloudstack.sh https://docs.cloudstack.one/get-cloudstack.sh
-    chmod 0700 get-cloudstack.sh
-    # Optionally: less get-cloudstack.sh
-    ./get-cloudstack.sh
+    wget -q -O get-cloudstack.sh https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh
+    chmod 0700 get-polycrate.sh
+    # Optionally: less get-polycrate.sh
+    ./get-polycrate.sh
+    polycrate version
     ```
 
 ### Manual Download
@@ -79,7 +83,7 @@ You can download any version of polycrate from our [GitHub Releases](https://git
 === "macOS (M1)"
 
     ``` bash
-    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_darwin_arm64.tar.gz
+    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_darwin_amd64.tar.gz
     tar xvzf polycrate.tar.gz
     chmod +x polycrate
     ./polycrate version
