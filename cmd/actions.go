@@ -97,13 +97,12 @@ func (c *Action) RunContainer() error {
 
 	// Check if a Dockerfile is configured in the Workspace
 	if workspace.Config.Dockerfile != "" {
-		if build {
+		// Create the filepath
+		dockerfilePath := filepath.Join(workspace.Path, workspace.Config.Dockerfile)
 
-			// Create the filepath
-			dockerfilePath := filepath.Join(workspace.Path, workspace.Config.Dockerfile)
-
-			// Check if the file exists
-			if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
+		// Check if the file exists
+		if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
+			if build {
 				// We need to build and tag this
 				log.Debugf("Found %s in Workspace", workspace.Config.Dockerfile)
 

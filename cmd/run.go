@@ -32,17 +32,16 @@ To run an Action, use this command with 2 arguments - the Block name and the Act
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 1 {
 			// Run a Worlflow
-			log.Warn("Comming soon! Check https://polycrate.io for more")
+			runWorkflowCmd.Run(cmd, args)
 		} else if len(args) == 2 {
 			workspace.load()
 			if workspace.Flush() != nil {
 				log.Fatal(workspace.Flush)
 			}
 
-			err := workspace.RunAction(strings.Join([]string{args[0], args[1]}, "."))
-			if err != nil {
-				log.Fatal(err)
-			}
+			action := strings.Join([]string{args[0], args[1]}, ".")
+			actionsRunCmd.Run(cmd, []string{action})
+
 		}
 
 	},
