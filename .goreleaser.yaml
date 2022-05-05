@@ -62,6 +62,7 @@ dockers:
     extra_files:
       - python-requirements.txt
       - ansible-requirements.yml
+      - hack/ansible/plugins/vars/polycrate_vars.py
   - image_templates:
       - "ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8"
       - "ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8"
@@ -79,6 +80,7 @@ dockers:
     extra_files:
       - python-requirements.txt
       - ansible-requirements.yml
+      - hack/ansible/plugins/vars/polycrate_vars.py
 docker_manifests:
   - name_template: ghcr.io/polycrate/polycrate:{{ .Version }}
     image_templates:
