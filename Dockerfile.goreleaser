@@ -54,8 +54,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY python-requirements.txt python-requirements.txt
 COPY ansible-requirements.yml ansible-requirements.yml
+COPY hack/ansible/plugins/vars/polycrate_vars.py /usr/share/ansible/plugins/vars/polycrate_vars.py
 
-RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace && \
+RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace /polycrate /usr/share/ansible/plugins/vars && \
   pip install --no-cache-dir cffi==1.14.6 && \
   pip install --no-cache-dir -r python-requirements.txt && \
   ansible-galaxy collection install --collections-path /etc/ansible/collections community.general && \

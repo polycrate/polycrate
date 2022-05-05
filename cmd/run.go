@@ -18,7 +18,6 @@ package cmd
 import (
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -34,14 +33,8 @@ To run an Action, use this command with 2 arguments - the Block name and the Act
 			// Run a Worlflow
 			runWorkflowCmd.Run(cmd, args)
 		} else if len(args) == 2 {
-			workspace.load()
-			if workspace.Flush() != nil {
-				log.Fatal(workspace.Flush)
-			}
-
 			action := strings.Join([]string{args[0], args[1]}, ".")
 			actionsRunCmd.Run(cmd, []string{action})
-
 		}
 
 	},

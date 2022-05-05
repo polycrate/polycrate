@@ -16,9 +16,11 @@ limitations under the License.
 package cmd
 
 import (
+	"bytes"
 	"context"
 	goErrors "errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +30,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 var workspaceCmd = &cobra.Command{
@@ -99,6 +102,7 @@ type Workspace struct {
 	ExtraMounts   []string `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
 	ContainerPath string   `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 	containerID   string
+	loaded        bool
 }
 
 type WorkspaceIndex struct {
@@ -109,25 +113,17 @@ type WorkspaceIndex struct {
 }
 
 type WorkspaceSnapshot struct {
-	Workspace *Workspace
-	Action    *Action
-	Block     *Block
-	Workflow  *Workflow
-	Step      *Step
-	Env       map[string]string
-	Mounts    map[string]string
+	Workspace *Workspace        `yaml:"workspace,omitempty" mapstructure:"workspace,omitempty" json:"workspace,omitempty"`
+	Action    *Action           `yaml:"action,omitempty" mapstructure:"action,omitempty" json:"action,omitempty"`
+	Block     *Block            `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
+	Workflow  *Workflow         `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
+	Step      *Step             `yaml:"step,omitempty" mapstructure:"step,omitempty" json:"step,omitempty"`
+	Env       map[string]string `yaml:"env,omitempty" mapstructure:"env,omitempty" json:"env,omitempty"`
+	Mounts    map[string]string `yaml:"mounts,omitempty" mapstructure:"mounts,omitempty" json:"mounts,omitempty"`
 }
 
 func (c *Workspace) Snapshot() {
-	snapshot := WorkspaceSnapshot{
-		Workspace: c,
-		Action:    c.currentAction,
-		Block:     c.currentBlock,
-		Workflow:  c.currentWorkflow,
-		Step:      c.currentStep,
-		Env:       c.env,
-		Mounts:    c.mounts,
-	}
+	snapshot := c.GetSnapshot()
 	printObject(snapshot)
 	//convertToEnv(&snapshot)
 }
@@ -151,11 +147,18 @@ func (c *Workspace) RunAction(address string) error {
 		block := c.GetBlockFromIndex(action.Block)
 
 		workspace.registerCurrentAction(action)
+		log.Debugf("Registering current action: %s", action.Name)
 		workspace.registerCurrentBlock(block)
+		log.Debugf("Registering current block: %s", block.Name)
 
 		if snapshot {
 			c.Snapshot()
 		} else {
+			// Save snapshot before execution
+			if err := c.SaveSnapshot(); err != nil {
+				log.Fatal(err)
+			}
+
 			err := action.Run()
 			if err != nil {
 				return err
@@ -279,6 +282,10 @@ func (c *Workspace) unmarshalWorkspaceConfig() error {
 }
 
 func (c *Workspace) load() {
+	if c.loaded {
+		return
+	}
+
 	log.Infof("Loading Workspace")
 
 	workspaceConfig.BindPFlag("config.image.version", rootCmd.Flags().Lookup("image-version"))
@@ -368,6 +375,8 @@ func (c *Workspace) load() {
 
 	log.Debugf("Blocks: %d", len(workspace.Blocks))
 	log.Debugf("Workflows: %d", len(workspace.Workflows))
+
+	c.loaded = true
 }
 
 func (c *Workspace) resolveBlockDependencies() error {
@@ -620,6 +629,10 @@ func (c *Workspace) bootstrapEnvVars() {
 	c.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
 	c.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
 	c.registerEnvVar("ANSIBLE_VERBOSITY", logLevel)
+	c.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
+	c.registerEnvVar("ANSIBLE_RUN_VARS_PLUGINS", "start")
+	c.registerEnvVar("ANSIBLE_VARS_PLUGINS", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
+	c.registerEnvVar("DEFAULT_VARS_PLUGIN_PATH", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
 	c.registerEnvVar("ANSIBLE_CALLBACKS_ENABLED", "timer,profile_tasks,profile_roles")
 	c.registerEnvVar("POLYCRATE_CLI_VERSION", version)
 	c.registerEnvVar("POLYCRATE_IMAGE_REFERENCE", workspace.Config.Image.Reference)
@@ -648,6 +661,63 @@ func (c *Workspace) bootstrapEnvVars() {
 			break
 		}
 	}
+}
+
+func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
+	snapshot := WorkspaceSnapshot{
+		Workspace: c,
+		Action:    c.currentAction,
+		Block:     c.currentBlock,
+		Workflow:  c.currentWorkflow,
+		Step:      c.currentStep,
+		Env:       c.env,
+		Mounts:    c.mounts,
+	}
+	return snapshot
+}
+
+func (c *Workspace) SaveSnapshot() error {
+	snapshot := c.GetSnapshot()
+
+	// Marshal the snapshot to yaml
+	data, err := yaml.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+
+	if data != nil {
+		// Create a temp file
+		f, err := ioutil.TempFile("/tmp", "polycrate."+workspace.Name+".snapshot.*.yml")
+		if err != nil {
+			return err
+		}
+
+		// Create a viper config object
+		snapshotConfig := viper.New()
+		snapshotConfig.SetConfigType("yaml")
+		snapshotConfig.ReadConfig(bytes.NewBuffer(data))
+		err = snapshotConfig.WriteConfigAs(f.Name())
+		if err != nil {
+			return err
+		}
+		log.Debugf("Saved snapshot to %s", f.Name())
+
+		// Closing file descriptor
+		// Getting fatal errors on windows WSL2 when accessing
+		// the mounted script file from inside the container if
+		// the file descriptor is still open
+		// Works flawlessly with open file descriptor on M1 Mac though
+		// It's probably safer to close the fd anyways
+		f.Close()
+
+		c.registerEnvVar("POLYCRATE_WORKSPACE_SNAPSHOT_YAML", f.Name())
+		c.registerMount(f.Name(), f.Name())
+
+		return nil
+	} else {
+		return fmt.Errorf("Cannot save snapshot")
+	}
+
 }
 
 func (c *Workspace) registerEnvVar(key string, value string) {
