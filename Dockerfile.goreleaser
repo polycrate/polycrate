@@ -1,3 +1,4 @@
+FROM docker:dind as docker
 FROM python:3.10.4-slim-bullseye
 
 ARG TERRAFORM_VERSION=1.0.7
@@ -11,6 +12,7 @@ ARG MINIO_CLI_VERSION=RELEASE.2022-03-31T04-55-30Z
 ARG GITHUB_CLI_VERSION=2.8.0
 ARG SVU_VERSION=1.9.0
 ARG GORELEASER_VERSION=1.8.3
+ARG GOLANG_VERSION=1.18.1
 
 ARG TARGETPLATFORM
 ARG TARGETOS
@@ -18,6 +20,10 @@ ARG TARGETARCH
 
 ENV GOOS=${TARGETOS}
 ENV GOARCH=${TARGETARCH}
+ENV PATH=$PATH:/usr/local/go/bin
+
+# Copy Docker Client CLI from docker:dind
+COPY --from=docker /usr/local/bin/docker /usr/local/bin/
 
 RUN apt-get update &&\
   apt-get -y --no-install-recommends install \
@@ -26,7 +32,6 @@ RUN apt-get update &&\
   git=1:2.30.2-1 \
   jq=1.6-2.1 \
   gettext=0.21-4 \
-  python3-pip=20.3.4-4+deb11u1 \
   libssl-dev=1.1.1n-0+deb11u1 \
   libffi-dev=3.3-6 \
   python3-dev=3.9.2-3 \
@@ -36,30 +41,33 @@ RUN apt-get update &&\
   unzip=6.0-26 \
   wget=1.21-1+deb11u1 \
   less=551-2 \
-  mtr=0.94-1+deb11u1 \
-  build-essential=12.9 && \
+  build-essential=12.9 \
+  mtr=0.94-1+deb11u1 && \
   rm -rf /var/lib/apt/lists/* &&\
   apt-get clean
 
+# Switch to /tmp to download/install all the reuirements
+# That allows us to clean up easily
 WORKDIR /tmp
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY python-requirements.txt python-requirements.txt
-
-RUN pip install --no-cache-dir pip==22.0.4 cffi==1.14.6 && \
-  pip install --no-cache-dir -r python-requirements.txt && \
-  mkdir -p /workspace
-
 COPY ansible-requirements.yml ansible-requirements.yml
 
 RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace && \
-  echo 'localhost' > /etc/ansible/hosts && \
+  pip install --no-cache-dir cffi==1.14.6 && \
+  pip install --no-cache-dir -r python-requirements.txt && \
   ansible-galaxy collection install --collections-path /etc/ansible/collections community.general && \
-  ansible-galaxy install --roles-path /etc/ansible/roles -r ansible-requirements.yml
+  ansible-galaxy install --roles-path /etc/ansible/roles -r ansible-requirements.yml && \
+  echo 'localhost' > /etc/ansible/hosts
+
+# RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace && \
+  #echo 'localhost' > /etc/ansible/hosts
 
 RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/$TARGETOS/$TARGETARCH/kubectl" && \
   chmod +x /usr/local/bin/kubectl && \
+  chmod +x /usr/local/bin/docker && \
   wget -q "https://get.helm.sh/helm-v${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" -O - | tar -xzO $TARGETOS-$TARGETARCH/helm > /usr/local/bin/helm && \
   chmod +x /usr/local/bin/helm && \
   helm plugin install https://github.com/databus23/helm-diff  && \
@@ -90,18 +98,13 @@ RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernet
   chmod +x /usr/local/bin/mc  && \
   wget -q "https://github.com/cli/cli/releases/download/v${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb" && \
   dpkg -i gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb && \
+  wget -q "https://go.dev/dl/go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz" && \
+  rm -rf /usr/local/go && \ 
+  tar -C /usr/local -xzf go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz && \
   rm -rf /tmp/*
 
 WORKDIR /workspace
 
-COPY polycrate /
+COPY polycrate /usr/local/bin/polycrate
 
-#COPY dist/polycrate_${TARGETOS}_${TARGETARCH}/polycrate /polycrate
-#RUN chmod +x /polycrate
-
-# RUN mv cli/${GOOS}-${GOARCH}/polycrate-${GOOS}-${GOARCH} /usr/local/bin/polycrate && \
-#   chmod +x /usr/local/bin/polycrate && \
-#   rm -rf cli
-
-
-ENTRYPOINT ["/polycrate"]
+ENTRYPOINT ["polycrate"]

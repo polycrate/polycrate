@@ -1,5 +1,6 @@
 ---
 title: Polycrate
+template: home.html
 description: A framework to build platforms
 ---
 

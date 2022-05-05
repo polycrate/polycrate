@@ -1,4 +1,4 @@
-site_name: Cloudstack
+site_name: Polycrate
 site_description: A framework for hyperconverged infrastructure
 site_author: Ayedo Cloud Solutions GmbH
 site_dir: public
@@ -38,7 +38,7 @@ theme:
 repo_name: 'polycrate/polycrate'
 repo_url: https://github.com/polycrate/polycrate/
 edit_uri: 'edit/main/docs/'
-site_url: https://docs.cloudstack.one
+site_url: https://docs.polycrate.io
 extra:
   version: 1.21.0-rc-main.142a3c5a
 markdown_extensions:
@@ -70,14 +70,14 @@ markdown_extensions:
   - pymdownx.smartsymbols
   - pymdownx.snippets
   - pymdownx.superfences
-  - pymdownx.tabbed:
-      alternate_style: true 
+  - pymdownx.tabbed
+      #alternate_style: true 
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
   - meta
-terms_of_use: "/terms-of-use"
-privacy: "/privacy"
+#terms_of_use: "/terms-of-use"
+#privacy: "/privacy"
 # Copyright
 copyright: ' Copyright &copy; 2022 Ayedo Cloud Solutions GmbH
 

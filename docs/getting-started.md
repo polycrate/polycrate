@@ -9,7 +9,7 @@ description: Install polycrate
 
 ### Automated installer
 
-Using the [Cloudstack installer](Installer.md) automates the process of downloading and moving the `cloudstack` binary to your `$PATH`. The installer automatically detects your operating system and architecture.
+Using the polycrate installer automates the process of downloading and moving the `polycrate` binary to your `$PATH`. The installer automatically detects your operating system and architecture.
 
 === "curl"
 
@@ -23,7 +23,7 @@ Using the [Cloudstack installer](Installer.md) automates the process of download
     a bit safer:
 
     ```bash
-    curl -fsSL -o get-cloudstack.sh https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh
+    curl -fsSL -o get-polycrate.sh https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh
     chmod 0700 get-polycrate.sh
     # Optionally: less get-polycrate.sh
     ./get-polycrate.sh
@@ -42,7 +42,7 @@ Using the [Cloudstack installer](Installer.md) automates the process of download
     a bit safer:
 
     ```bash
-    wget -q -O get-cloudstack.sh https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh
+    wget -q -O get-polycrate.sh https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh
     chmod 0700 get-polycrate.sh
     # Optionally: less get-polycrate.sh
     ./get-polycrate.sh
@@ -88,9 +88,3 @@ You can download any version of polycrate from our [GitHub Releases](https://git
     chmod +x polycrate
     ./polycrate version
     ```
-
-## Configuration
-
-Cloudstack configuration is defined in a `Stackfile` in the context directory.
-
-To see the default configuration, use `cloudstack show defaults`.
