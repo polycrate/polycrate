@@ -931,7 +931,7 @@ func (c *Workspace) loadBlockConfigs() *Workspace {
 
 		// Set Block vars
 		loadedBlock.Workdir.LocalPath = blockPath
-		loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, loadedBlock.Name)
+		loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, filepath.Base(blockPath))
 
 		// Check if Block exists
 		existingBlock := c.getBlockByName(loadedBlock.Name)

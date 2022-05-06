@@ -18,14 +18,14 @@ import (
 
 // createCmd represents the create command
 var createCmd = &cobra.Command{
-	Hidden: true,
+	Hidden: false,
 	Use:    "create",
 	Short:  "Create",
-	Long:   `acs allows your to create different resources. Use the respective subcommands.`,
+	Long:   `Create certain resources around your workspace`,
 }
 
 func init() {
-	//rootCmd.AddCommand(createCmd)
+	rootCmd.AddCommand(createCmd)
 
 	// Here you will define your flags and configuration settings.
 

@@ -23,6 +23,7 @@ func getDockerCLI() (*client.Client, error) {
 }
 
 func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
+	log.Warnf("Building custom image")
 	ctx := context.Background()
 	cli, err := getDockerCLI()
 

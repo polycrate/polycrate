@@ -28,6 +28,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/imdario/mergo"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -78,8 +79,11 @@ type Action struct {
 func (c *Action) MergeIn(action *Action) error {
 	opts := conjungo.NewOptions()
 	opts.Overwrite = false // do not overwrite existing values in workspaceConfig
-	if err := conjungo.Merge(c, action, opts); err != nil {
-		return err
+	// if err := conjungo.Merge(c, action, opts); err != nil {
+	// 	return err
+	// }
+	if err := mergo.Merge(c, action); err != nil {
+		log.Fatal(err)
 	}
 	return nil
 }
@@ -189,6 +193,7 @@ func (c *Action) Run() error {
 	log.Infof("Running action '%s' of block '%s'", c.Name, workspace.currentBlock.Name)
 
 	// 3. Determine inventory path
+	log.Debugf("Setting ANSIBLE_INVENTORY to %s", workspace.currentBlock.getInventoryPath())
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", workspace.currentBlock.getInventoryPath())
 
 	// 4. Determine kubeconfig path

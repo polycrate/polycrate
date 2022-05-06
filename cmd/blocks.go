@@ -23,6 +23,7 @@ import (
 
 	"github.com/InVisionApp/conjungo"
 	"github.com/go-playground/validator/v10"
+	"github.com/imdario/mergo"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -51,13 +52,13 @@ type BlockWorkdir struct {
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockKubeconfig struct {
-	from          string
+	From          string `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
 	exists        bool
 	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockInventory struct {
-	from          string
+	From          string `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
 	exists        bool
 	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
@@ -78,33 +79,33 @@ type Block struct {
 	Template    bool                   `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`
 	Version     string                 `yaml:"version,omitempty" mapstructure:"version" json:"version"`
 	resolved    bool
-	Workdir     BlockWorkdir `yaml:"workdir,omitempty" mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
-	inventory   BlockInventory
-	kubeconfig  BlockKubeconfig
-	Artifacts   BlockArtifacts `yaml:"artifacts,omitempty" mapstructure:"artifacts,omitempty" json:"artifacts,omitempty"`
+	Workdir     BlockWorkdir    `yaml:"workdir,omitempty" mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
+	Inventory   BlockInventory  `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
+	Kubeconfig  BlockKubeconfig `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
+	Artifacts   BlockArtifacts  `yaml:"artifacts,omitempty" mapstructure:"artifacts,omitempty" json:"artifacts,omitempty"`
 	address     string
 	//err         error
 }
 
 func (c *Block) getInventoryPath() string {
-	if c.inventory.from != "" {
+	if c.Inventory.From != "" {
 		// Take the inventory from another Block
-		inventorySourceBlock := workspace.getBlockByName(c.inventory.from)
+		inventorySourceBlock := workspace.getBlockByName(c.Inventory.From)
 		if inventorySourceBlock != nil {
-			if inventorySourceBlock.inventory.exists {
+			if inventorySourceBlock.Inventory.exists {
 				if local {
-					return inventorySourceBlock.inventory.LocalPath
+					return inventorySourceBlock.Inventory.LocalPath
 				} else {
-					return inventorySourceBlock.inventory.ContainerPath
+					return inventorySourceBlock.Inventory.ContainerPath
 				}
 			}
 		}
 	} else {
-		if c.inventory.exists {
+		if c.Inventory.exists {
 			if local {
-				return c.inventory.LocalPath
+				return c.Inventory.LocalPath
 			} else {
-				return c.inventory.ContainerPath
+				return c.Inventory.ContainerPath
 			}
 		}
 	}
@@ -112,24 +113,24 @@ func (c *Block) getInventoryPath() string {
 }
 
 func (c *Block) getKubeconfigPath() string {
-	if c.kubeconfig.from != "" {
+	if c.Kubeconfig.From != "" {
 		// Take the inventory from another Block
-		kubeconfigSourceBlock := workspace.getBlockByName(c.kubeconfig.from)
+		kubeconfigSourceBlock := workspace.getBlockByName(c.Kubeconfig.From)
 		if kubeconfigSourceBlock != nil {
-			if kubeconfigSourceBlock.kubeconfig.exists {
+			if kubeconfigSourceBlock.Kubeconfig.exists {
 				if local {
-					return kubeconfigSourceBlock.kubeconfig.LocalPath
+					return kubeconfigSourceBlock.Kubeconfig.LocalPath
 				} else {
-					return kubeconfigSourceBlock.kubeconfig.ContainerPath
+					return kubeconfigSourceBlock.Kubeconfig.ContainerPath
 				}
 			}
 		}
 	} else {
-		if c.kubeconfig.exists {
+		if c.Kubeconfig.exists {
 			if local {
-				return c.kubeconfig.LocalPath
+				return c.Kubeconfig.LocalPath
 			} else {
-				return c.kubeconfig.ContainerPath
+				return c.Kubeconfig.ContainerPath
 			}
 		}
 	}
@@ -180,8 +181,12 @@ func (c *Block) validate() error {
 func (c *Block) MergeIn(block *Block) error {
 	opts := conjungo.NewOptions()
 	opts.Overwrite = false // do not overwrite existing values in workspaceConfig
-	if err := conjungo.Merge(c, block, opts); err != nil {
-		return err
+	// if err := conjungo.Merge(c, block, opts); err != nil {
+	// 	return err
+	// }
+
+	if err := mergo.Merge(c, block); err != nil {
+		log.Fatal(err)
 	}
 	return nil
 }
@@ -192,16 +197,18 @@ func (c *Block) Inspect() {
 
 func (c *Block) LoadInventory() {
 	// Locate "inventory.json" in blockArtifactsDir
-	blockInventoryFile := filepath.Join(c.Artifacts.LocalPath, "inventory.json")
+	blockInventoryFile := filepath.Join(c.Artifacts.LocalPath, "inventory.yml")
+
+	log.Debugf("Probing %s for an inventory file", blockInventoryFile)
 
 	if _, err := os.Stat(blockInventoryFile); !os.IsNotExist(err) {
 		// File exists
-		c.inventory.exists = true
-		c.inventory.LocalPath = blockInventoryFile
-		c.inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.json")
-		log.Debug("Found Block Inventory at " + blockInventoryFile)
+		c.Inventory.exists = true
+		c.Inventory.LocalPath = blockInventoryFile
+		c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.yml")
+		log.Debugf("Found Block Inventory at %s", blockInventoryFile)
 	} else {
-		c.inventory.exists = false
+		c.Inventory.exists = false
 	}
 
 }
@@ -212,12 +219,12 @@ func (c *Block) LoadKubeconfig() {
 
 	if _, err := os.Stat(blockKubeconfigFile); !os.IsNotExist(err) {
 		// File exists
-		c.kubeconfig.exists = true
-		c.kubeconfig.LocalPath = blockKubeconfigFile
-		c.kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
+		c.Kubeconfig.exists = true
+		c.Kubeconfig.LocalPath = blockKubeconfigFile
+		c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
 		log.Debug("Found Block Kubeconfig at " + blockKubeconfigFile)
 	} else {
-		c.kubeconfig.exists = false
+		c.Kubeconfig.exists = false
 	}
 
 }
