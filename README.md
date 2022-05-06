@@ -1,6 +1,14 @@
 # Polycrate
 
-## Development
+Polycrate is a framework to build platforms. Read more in the [official docs](https://docs.polycrate.io).
+
+## Play with polycrate
+
+- [Installation](https://docs.polycrate.io/getting-started)
+- [Quick start](https://docs.polycrate.io/getting-started)
+- [Examples](https://docs.polycrate.io/examples)
+
+## Develop polycrate
 
 You need:
 

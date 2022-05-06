@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -26,11 +25,8 @@ var blocksListCmd = &cobra.Command{
 	Short: "List Blocks",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
-		workspace.ListBlocks()
+		workspace.load().Flush()
+		workspace.ListBlocks().Flush()
 	},
 }
 

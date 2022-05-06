@@ -36,11 +36,8 @@ var blocksCmd = &cobra.Command{
 	},
 	Long: ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
-		workspace.ListBlocks()
+		workspace.load().Flush()
+		workspace.ListBlocks().Flush()
 	},
 }
 
@@ -151,7 +148,7 @@ func (c *Block) getActionByName(actionName string) *Action {
 	return nil
 }
 
-func (c *Block) Validate() error {
+func (c *Block) validate() error {
 	err := validate.Struct(c)
 
 	if err != nil {

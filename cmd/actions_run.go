@@ -31,14 +31,9 @@ The action address is a combination of the Block name and the Action name, joine
 		if len(args) != 1 {
 			log.Fatal("Need exactly one argument: Action address (e.g. 'Block.Action')")
 		}
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
-		err := workspace.RunAction(args[0])
-		if err != nil {
-			log.Fatal(err)
-		}
+		workspace.load().Flush()
+
+		workspace.RunAction(args[0]).Flush()
 
 	},
 	Args: cobra.ExactArgs(1),

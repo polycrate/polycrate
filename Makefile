@@ -16,6 +16,7 @@ snapshot:
 	goreleaser release --snapshot --rm-dist --debug
 
 release:
+	git push origin main
 	goreleaser release --rm-dist
 
 check:

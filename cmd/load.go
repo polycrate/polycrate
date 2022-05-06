@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -35,11 +34,8 @@ func init() {
 }
 
 func softLoadWorkspace() {
-	workspace.load()
-	if workspace.Flush() != nil {
-		log.Fatal(workspace.Flush)
-	}
+	workspace.load().Flush()
 
-	workspace.print()
+	workspace.Inspect()
 
 }

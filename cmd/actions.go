@@ -41,12 +41,9 @@ var actionsCmd = &cobra.Command{
 	Short: "Control Polycrate actions",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
+		workspace.load().Flush()
 
-		workspace.ListActions()
+		workspace.ListActions().Flush()
 	},
 }
 
@@ -278,7 +275,7 @@ func (c *Action) GetExecutionScript() []string {
 	return nil
 }
 
-func (c *Action) Validate() error {
+func (c *Action) validate() error {
 	if c.Script == nil {
 		return goErrors.New("no script found for Action")
 	}

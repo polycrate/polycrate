@@ -27,10 +27,7 @@ var blocksInspectCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
+		workspace.load().Flush()
 
 		block := workspace.GetBlockFromIndex(args[0])
 		if block != nil {

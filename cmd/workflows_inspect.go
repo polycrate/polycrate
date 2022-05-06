@@ -27,10 +27,7 @@ var workflowsInspectCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
+		workspace.load().Flush()
 
 		workflow := workspace.GetWorkflowFromIndex(args[0])
 		if workflow != nil {

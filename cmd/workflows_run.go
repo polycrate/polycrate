@@ -18,7 +18,6 @@ package cmd
 import (
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -31,36 +30,14 @@ var runWorkflowCmd = &cobra.Command{
 	Long:  `Run Workflow`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
+		workspace.load().Flush()
+
 		// Check stepName
 		if stepName != "" && stepIndex == -1 {
-			err := workspace.RunStep(strings.Join([]string{args[0], stepName}, "."))
-			if err != nil {
-				log.Fatal(err)
-			}
+			stepAddress := strings.Join([]string{args[0], stepName}, ".")
+			workspace.RunStep(stepAddress).Flush()
 		}
-		err := workspace.RunWorkflow(args[0])
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		//var workflow string
-		// if len(args) > 0 && args[0] != "" {
-		// 	workflow = args[0]
-		// } else {
-		// 	log.Fatal("You need to specify a Workflow to run")
-		// }
-		// currentWorkflow = workspace.getWorkflowByName(workflow)
-		// //workflow.Run()
-		// if currentWorkflow != nil {
-		// 	log.Infof("Running Workflow '%s'", currentWorkflow.Name)
-		// 	currentWorkflow.Inspect()
-		// } else {
-		// 	log.Fatalf("Workflow '%s' not found", workflow)
-		// }
+		workspace.RunWorkflow(args[0]).Flush()
 	},
 }
 

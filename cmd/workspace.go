@@ -18,12 +18,15 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	goErrors "errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jeremywohl/flatten"
 
 	"github.com/docker/docker/api/types"
 	"github.com/go-playground/validator/v10"
@@ -38,10 +41,7 @@ var workspaceCmd = &cobra.Command{
 	Short: "Manage the workspace",
 	Long:  `Manage the workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
+		workspace.load().Flush()
 
 		workspace.Inspect()
 	},
@@ -96,7 +96,7 @@ type Workspace struct {
 	env             map[string]string
 	mounts          map[string]string
 	err             error
-	Path            string
+	Path            string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	//overrides       []string
 	ExtraEnv      []string `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
 	ExtraMounts   []string `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
@@ -122,6 +122,42 @@ type WorkspaceSnapshot struct {
 	Mounts    map[string]string `yaml:"mounts,omitempty" mapstructure:"mounts,omitempty" json:"mounts,omitempty"`
 }
 
+func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
+	// create empty map to hold the flattened keys
+	var jsonMap map[string]interface{}
+
+	// marshal the snapshot into json
+	jsonData, err := json.Marshal(snapshot)
+	if err != nil {
+		c.err = err
+		return c
+	}
+
+	// unmarshal the json into the previously created json map
+	// flatten needs this input format: map[string]interface
+	// which we achieve by first marshalling the struct (snapshot)
+	// and then unmarshalling the resulting bytes into our json structure
+	if err := json.Unmarshal(jsonData, &jsonMap); err != nil {
+		c.err = err
+		return c
+	}
+
+	// flatten to key_key_0_key=value
+	flat, err := flatten.Flatten(jsonMap, "", flatten.UnderscoreStyle)
+	if err != nil {
+		c.err = err
+		return c
+	}
+
+	for key := range flat {
+		keyString := fmt.Sprintf("%v", flat[key])
+		//fmt.Printf("%s=%s\n", strings.ToUpper(key), keyString)
+		workspace.registerEnvVar(strings.ToUpper(key), keyString)
+	}
+
+	return c
+}
+
 func (c *Workspace) Snapshot() {
 	snapshot := c.GetSnapshot()
 	printObject(snapshot)
@@ -132,14 +168,14 @@ func (c *Workspace) Inspect() {
 	printObject(c)
 }
 
-func (c *Workspace) Flush() error {
+func (c *Workspace) Flush() *Workspace {
 	if c.err != nil {
-		return c.err
+		log.Fatal(c.err)
 	}
-	return nil
+	return c
 }
 
-func (c *Workspace) RunAction(address string) error {
+func (c *Workspace) RunAction(address string) *Workspace {
 	// Find action in index and report
 	action := c.LookupAction(address)
 
@@ -147,30 +183,34 @@ func (c *Workspace) RunAction(address string) error {
 		block := c.GetBlockFromIndex(action.Block)
 
 		workspace.registerCurrentAction(action)
-		log.Debugf("Registering current action: %s", action.Name)
 		workspace.registerCurrentBlock(block)
+
 		log.Debugf("Registering current block: %s", block.Name)
+		log.Debugf("Registering current action: %s", action.Name)
 
 		if snapshot {
 			c.Snapshot()
 		} else {
-			// Save snapshot before execution
+			// Save snapshot before running the action
 			if err := c.SaveSnapshot(); err != nil {
-				log.Fatal(err)
+				c.err = err
+				return c
 			}
 
 			err := action.Run()
 			if err != nil {
-				return err
+				c.err = err
+				return c
 			}
 		}
 	} else {
-		return goErrors.New("cannot find Action with address " + address)
+		c.err = goErrors.New("cannot find Action with address " + address)
+		return c
 	}
-	return nil
+	return c
 }
 
-func (c *Workspace) RunWorkflow(name string) error {
+func (c *Workspace) RunWorkflow(name string) *Workspace {
 	// Find action in index and report
 	workflow := c.LookupWorkflow(name)
 
@@ -180,18 +220,20 @@ func (c *Workspace) RunWorkflow(name string) error {
 		if snapshot {
 			c.Snapshot()
 		} else {
-			err := workflow.Run()
+			err := workflow.run()
 			if err != nil {
-				return err
+				c.err = err
+				return c
 			}
 		}
 	} else {
-		return goErrors.New("cannot find Workflow " + name)
+		c.err = goErrors.New("cannot find Workflow " + name)
+		return c
 	}
-	return nil
+	return c
 }
 
-func (c *Workspace) RunStep(name string) error {
+func (c *Workspace) RunStep(name string) *Workspace {
 	// Find action in index and report
 	step := c.LookupStep(name)
 
@@ -199,15 +241,17 @@ func (c *Workspace) RunStep(name string) error {
 		if snapshot {
 			c.Snapshot()
 		} else {
-			err := step.Run()
+			err := step.run()
 			if err != nil {
-				return err
+				c.err = err
+				return c
 			}
 		}
 	} else {
-		return goErrors.New("cannot find step " + name)
+		c.err = goErrors.New("cannot find step " + name)
+		return c
 	}
-	return nil
+	return c
 }
 
 func (c *Workspace) pullContainerImage(image string) error {
@@ -254,40 +298,44 @@ func (c *Workspace) LookupStep(address string) *Step {
 	return c.index.Steps[address]
 }
 
-func (c *Workspace) loadWorkspaceConfig() error {
+func (c *Workspace) loadWorkspaceConfig() *Workspace {
+	workspaceConfigFilePath := filepath.Join(workspace.Path, workspace.Config.WorkspaceConfig)
 	workspaceConfig.SetConfigType("yaml")
-	workspaceConfig.SetConfigFile(filepath.Join(workspace.Path, workspace.Config.WorkspaceConfig))
+	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
 
 	err := workspaceConfig.MergeInConfig()
 	if err != nil {
-		log.Warn("Error loading workspaceConfig: " + err.Error())
+		log.Warnf("Couldn't find workspace config at %s: %s", workspaceConfigFilePath, err.Error())
+		log.Warnf("Creating ad-hoc workspace with name %s", filepath.Base(cwd))
 
 		workspaceConfig.SetDefault("name", filepath.Base(cwd))
 		workspaceConfig.SetDefault("description", "Ad-hoc Workspace in "+cwd)
 	}
 
-	return nil
+	return c
 }
 
-func (c *Workspace) unmarshalWorkspaceConfig() error {
+func (c *Workspace) unmarshalWorkspaceConfig() *Workspace {
 	log.Debugf("Unmarshalling loaded config to internal struct")
-	err := workspaceConfig.Unmarshal(&c)
-
-	if err != nil {
-		return err
+	if err := workspaceConfig.Unmarshal(&c); err != nil {
+		c.err = err
 	}
 
-	err = c.Validate()
-	return err
+	if err := c.validate(); err != nil {
+		c.err = err
+	}
+	return c
 }
 
-func (c *Workspace) load() {
+func (c *Workspace) load() *Workspace {
 	if c.loaded {
-		return
+		return c
 	}
 
 	log.Infof("Loading Workspace")
 
+	// Match CLI Flags with Config options
+	// CLI Flags have precedence
 	workspaceConfig.BindPFlag("config.image.version", rootCmd.Flags().Lookup("image-version"))
 	workspaceConfig.BindPFlag("config.image.reference", rootCmd.Flags().Lookup("image-ref"))
 	workspaceConfig.BindPFlag("config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
@@ -306,70 +354,65 @@ func (c *Workspace) load() {
 	workspaceConfig.AutomaticEnv()
 
 	// Load Workspace config (e.g. workspace.poly)
-	if err := c.loadWorkspaceConfig(); err != nil {
-		log.Fatal(err)
-	}
+	c.loadWorkspaceConfig().Flush()
 
 	// Unmarshal + Validate Workspace config
-	if err := c.unmarshalWorkspaceConfig(); err != nil {
-		log.Fatal(err)
-	}
+	c.unmarshalWorkspaceConfig().Flush()
 
-	// Bootstrap Index
-	c.bootstrapIndex()
+	// Bootstrap the workspace index
+	c.bootstrapIndex().Flush()
 
-	// Find all Blocks in the Workspace
-	if err := c.discoverBlocks(); err != nil {
-		log.Fatal(err)
-	}
+	// Find all blocks in the workspace
+	c.discoverBlocks().Flush()
 
-	// Load all discovered Blocks in the Workspace
-	if err := c.loadBlockConfigs(); err != nil {
-		log.Fatal(err)
-	}
+	// Load all discovered blocks in the workspace
+	c.loadBlockConfigs().Flush()
 
-	// Resolve Block dependencies
-	if err := c.resolveBlockDependencies(); err != nil {
-		log.Fatal(err)
-	}
+	// Resolve block dependencies
+	c.resolveBlockDependencies().Flush()
 
 	// Update workflow and step addresses
-	for i := 0; i < len(c.Workflows); i++ {
-		loadedWorkflow := &c.Workflows[i]
+	c.resolveWorkflows().Flush()
 
-		loadedWorkflow.address = loadedWorkflow.Name
-		// Register the workflow to the Index
-		c.registerWorkflow(loadedWorkflow)
+	// Update workflow and step addresses
+	// for i := 0; i < len(c.Workflows); i++ {
+	// 	loadedWorkflow := &c.Workflows[i]
 
-		// Loop over the steps
-		for _, step := range loadedWorkflow.Steps {
-			loadedStep := loadedWorkflow.getStepByName(step.Name)
+	// 	loadedWorkflow.address = loadedWorkflow.Name
+	// 	// Register the workflow to the Index
+	// 	c.registerWorkflow(loadedWorkflow)
 
-			// Set step address
-			loadedStep.address = strings.Join([]string{loadedWorkflow.Name, loadedStep.Name}, ".")
-			loadedStep.Workflow = loadedWorkflow.Name
+	// 	// Loop over the steps
+	// 	for _, step := range loadedWorkflow.Steps {
+	// 		loadedStep := loadedWorkflow.getStepByName(step.Name)
 
-			log.Debugf("Validating step %s", loadedStep.Name)
-			if err := loadedStep.Validate(); err != nil {
-				log.Fatal(err)
-			}
+	// 		// Set step address
+	// 		loadedStep.address = strings.Join([]string{loadedWorkflow.Name, loadedStep.Name}, ".")
+	// 		loadedStep.Workflow = loadedWorkflow.Name
 
-			log.Debugf("Registered step %s of workflow %s", loadedStep.Name, loadedWorkflow.Name)
-			c.registerStep(loadedStep)
-		}
+	// 		log.Debugf("Validating step %s", loadedStep.Name)
+	// 		if err := loadedStep.Validate(); err != nil {
+	// 			c.err = err
+	// 			return c
+	// 		}
 
-		log.Debugf("Validating workflow %s", loadedWorkflow.Name)
-		if err := loadedWorkflow.Validate(); err != nil {
-			log.Fatal(err)
-		}
+	// 		log.Debugf("Registered step %s of workflow %s", loadedStep.Name, loadedWorkflow.Name)
+	// 		c.registerStep(loadedStep)
+	// 	}
 
-	}
+	// 	log.Debugf("Validating workflow %s", loadedWorkflow.Name)
+	// 	if err := loadedWorkflow.Validate(); err != nil {
+	// 		c.err = err
+	// 		return c
+	// 	}
+
+	// }
 
 	// Bootstrap env vars
-	c.bootstrapEnvVars()
+	c.bootstrapEnvVars().Flush()
 
 	// Bootstrap container mounts
-	c.bootstrapMounts()
+	c.bootstrapMounts().Flush()
 
 	log.Infof("Workspace ready")
 
@@ -377,9 +420,11 @@ func (c *Workspace) load() {
 	log.Debugf("Workflows: %d", len(workspace.Workflows))
 
 	c.loaded = true
+
+	return c
 }
 
-func (c *Workspace) resolveBlockDependencies() error {
+func (c *Workspace) resolveBlockDependencies() *Workspace {
 	missing := len(c.Blocks)
 
 	log.Debug("Resolving Block dependencies")
@@ -406,7 +451,8 @@ func (c *Workspace) resolveBlockDependencies() error {
 
 					if dependency == nil {
 						// There's no Block to load from
-						return goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name)
+						c.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name)
+						return c
 					}
 
 					// Check if the dependency Block has already been resolved
@@ -424,7 +470,8 @@ func (c *Workspace) resolveBlockDependencies() error {
 					// The merge works like "loading defaults" for the loaded Block
 					err := loadedBlock.MergeIn(dependency)
 					if err != nil {
-						return err
+						c.err = err
+						return c
 					}
 
 					// Handle Workdir
@@ -448,7 +495,8 @@ func (c *Workspace) resolveBlockDependencies() error {
 							// We merge!
 							err := existingAction.MergeIn(&loadedAction)
 							if err != nil {
-								return err
+								c.err = err
+								return c
 							}
 						} else {
 							log.Debugf("No user-provided action with that name found. Adding '%s' to the workspace.", loadedAction.Name)
@@ -477,7 +525,8 @@ func (c *Workspace) resolveBlockDependencies() error {
 				// Update Artifacts, Kubeconfig & Inventory
 				err := loadedBlock.LoadArtifacts()
 				if err != nil {
-					return err
+					c.err = err
+					return c
 				}
 				loadedBlock.LoadInventory()
 				loadedBlock.LoadKubeconfig()
@@ -502,10 +551,47 @@ func (c *Workspace) resolveBlockDependencies() error {
 
 		}
 	}
-	return nil
+	return c
+}
+func (c *Workspace) resolveWorkflows() *Workspace {
+	log.Debug("Resolving workflows")
+
+	for i := 0; i < len(c.Workflows); i++ {
+		loadedWorkflow := &c.Workflows[i]
+
+		loadedWorkflow.address = loadedWorkflow.Name
+		// Register the workflow to the Index
+		c.registerWorkflow(loadedWorkflow)
+
+		// Loop over the steps
+		for _, step := range loadedWorkflow.Steps {
+			loadedStep := loadedWorkflow.getStepByName(step.Name)
+
+			// Set step address
+			loadedStep.address = strings.Join([]string{loadedWorkflow.Name, loadedStep.Name}, ".")
+			loadedStep.Workflow = loadedWorkflow.Name
+
+			log.Debugf("Validating step %s", loadedStep.Name)
+			if err := loadedStep.validate(); err != nil {
+				c.err = err
+				return c
+			}
+
+			log.Debugf("Registered step %s of workflow %s", loadedStep.Name, loadedWorkflow.Name)
+			c.registerStep(loadedStep)
+		}
+
+		log.Debugf("Validating workflow %s", loadedWorkflow.Name)
+		if err := loadedWorkflow.validate(); err != nil {
+			c.err = err
+			return c
+		}
+
+	}
+	return c
 }
 
-func (c *Workspace) Validate() error {
+func (c *Workspace) validate() error {
 	log.Debugf("Validating workspace struct")
 	err := validate.Struct(c)
 
@@ -529,38 +615,37 @@ func (c *Workspace) Validate() error {
 	return nil
 }
 
-func (c *Workspace) ListBlocks() {
+func (c *Workspace) ListBlocks() *Workspace {
 	for _, block := range c.Blocks {
 		fmt.Println(block.Name)
 	}
+	return c
 }
 
-func (c *Workspace) ListWorkflows() {
+func (c *Workspace) ListWorkflows() *Workspace {
 	for workflow := range c.index.Workflows {
 		fmt.Println(workflow)
 	}
+	return c
 }
 
-func (c *Workspace) ListActions() {
-	// for _, block := range c.Blocks {
-	// 	for _, action := range block.Actions {
-	// 		fmt.Printf("%s.%s\n", block.Name, action.Name)
-	// 	}
-	// }
+func (c *Workspace) ListActions() *Workspace {
 	for action := range c.index.Actions {
 		fmt.Println(action)
 	}
+	return c
 }
 
-func (c *Workspace) bootstrapIndex() {
+func (c *Workspace) bootstrapIndex() *Workspace {
 	c.index = &WorkspaceIndex{}
 	c.index.Actions = make(map[string]*Action)
 	c.index.Blocks = make(map[string]*Block)
 	c.index.Workflows = make(map[string]*Workflow)
 	c.index.Steps = make(map[string]*Step)
+	return c
 }
 
-func (c *Workspace) bootstrapMounts() {
+func (c *Workspace) bootstrapMounts() *Workspace {
 	// Prepare mounts map
 	c.mounts = map[string]string{}
 
@@ -573,24 +658,18 @@ func (c *Workspace) bootstrapMounts() {
 		c.registerMount(dockerSocket, dockerSocket)
 	}
 
-	// if extraMounts != nil {
-
-	// 	mounts = append(mounts, extraMounts...)
-	// }
-	// if devDir != "" {
-	// 	mounts = append(mounts, strings.Join([]string{devDir, "/polycrate"}, ":"))
-	// }
 	for _, extraMount := range c.ExtraMounts {
-		// Split by =
+		// Split by :
 		p := strings.Split(extraMount, ":")
 
 		if len(p) == 2 {
 			c.registerMount(p[0], p[1])
 		} else {
 			c.err = goErrors.New("Illegal value for mount found: " + extraMount)
-			break
+			return c
 		}
 	}
+	return c
 }
 
 func (c *Workspace) DumpEnv() []string {
@@ -613,7 +692,7 @@ func (c *Workspace) DumpMounts() []string {
 	return mounts
 }
 
-func (c *Workspace) bootstrapEnvVars() {
+func (c *Workspace) bootstrapEnvVars() *Workspace {
 	// Prepare env map
 	c.env = map[string]string{}
 
@@ -658,9 +737,11 @@ func (c *Workspace) bootstrapEnvVars() {
 			c.registerEnvVar(p[0], p[1])
 		} else {
 			c.err = goErrors.New("Illegal value for env var found: " + envVar)
-			break
+			return c
 		}
 	}
+
+	return c
 }
 
 func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
@@ -673,11 +754,14 @@ func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
 		Env:       c.env,
 		Mounts:    c.mounts,
 	}
+	c.RegisterSnapshotEnv(snapshot).Flush()
 	return snapshot
 }
 
 func (c *Workspace) SaveSnapshot() error {
 	snapshot := c.GetSnapshot()
+
+	//c.RegisterSnapshotEnv(snapshot).Flush()
 
 	// Marshal the snapshot to yaml
 	data, err := yaml.Marshal(snapshot)
@@ -818,7 +902,7 @@ func (c *Workspace) print() {
 	printObject(c)
 }
 
-func (c *Workspace) loadBlockConfigs() error {
+func (c *Workspace) loadBlockConfigs() *Workspace {
 	log.Debugf("Loading Blocks")
 
 	for _, blockPath := range blockPaths {
@@ -830,15 +914,18 @@ func (c *Workspace) loadBlockConfigs() error {
 
 		log.Debug("Loading ", c.Config.BlocksConfig, " from "+blockPath)
 		if err := blockConfigObject.MergeInConfig(); err != nil {
-			return err
+			c.err = err
+			return c
 		}
 
 		var loadedBlock Block
 		if err := blockConfigObject.UnmarshalExact(&loadedBlock); err != nil {
-			return err
+			c.err = err
+			return c
 		}
-		if err := loadedBlock.Validate(); err != nil {
-			return err
+		if err := loadedBlock.validate(); err != nil {
+			c.err = err
+			return c
 		}
 		log.Debugf("Loaded Block '%s'", loadedBlock.Name)
 
@@ -855,7 +942,8 @@ func (c *Workspace) loadBlockConfigs() error {
 
 			err := existingBlock.MergeIn(&loadedBlock)
 			if err != nil {
-				return err
+				c.err = err
+				return c
 			}
 
 			// Handle Actions
@@ -872,7 +960,8 @@ func (c *Workspace) loadBlockConfigs() error {
 					// We merge!
 					err := existingAction.MergeIn(&loadedAction)
 					if err != nil {
-						return err
+						c.err = err
+						return c
 					}
 				} else {
 					log.Debugf("No existing Action found. Adding '%s'", loadedAction.Name)
@@ -884,19 +973,19 @@ func (c *Workspace) loadBlockConfigs() error {
 			c.Blocks = append(c.Blocks, loadedBlock)
 		}
 	}
-	return nil
+	return c
 
 }
 
-func (c *Workspace) discoverBlocks() error {
+func (c *Workspace) discoverBlocks() *Workspace {
 	blocksDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot)
 	log.Debugf("Starting Block Discovery at %s", blocksDir)
 
 	// This function adds all valid Blocks to the list of
 	err := filepath.WalkDir(blocksDir, walkBlocksDir)
 	if err != nil {
-		return err
+		c.err = err
 	}
 
-	return nil
+	return c
 }

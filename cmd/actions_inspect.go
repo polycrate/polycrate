@@ -28,10 +28,7 @@ var actionsInspectCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
+		workspace.load().Flush()
 
 		action := workspace.GetActionFromIndex(args[0])
 		if action != nil {

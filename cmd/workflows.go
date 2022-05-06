@@ -33,10 +33,8 @@ var workflowsCmd = &cobra.Command{
 		"workflows",
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load()
-		if workspace.Flush() != nil {
-			log.Fatal(workspace.Flush)
-		}
+		workspace.load().Flush()
+		workspace.ListWorkflows().Flush()
 	},
 }
 
@@ -72,12 +70,7 @@ func (c *Workflow) Inspect() {
 	printObject(c)
 }
 
-func (c *Workflow) RunStep(address string) error {
-	//step := workspace.LookupStep(address)
-	return nil
-}
-
-func (c *Workflow) Run() error {
+func (c *Workflow) run() error {
 	log.Infof("Running Workflow '%s'", c.Name)
 
 	// Check if any steps are configured
@@ -89,7 +82,7 @@ func (c *Workflow) Run() error {
 	for index, step := range c.Steps {
 		log.Debugf("Running step %d (%s) of workflow %s", index, step.Name, c.Name)
 
-		err := step.Run()
+		err := step.run()
 		if err != nil {
 			return err
 		}
@@ -98,7 +91,7 @@ func (c *Workflow) Run() error {
 	return nil
 }
 
-func (c *Step) Run() error {
+func (c *Step) run() error {
 	// Get workflow from step
 	workflow := workspace.GetWorkflowFromIndex(c.Workflow)
 
@@ -117,15 +110,13 @@ func (c *Step) Run() error {
 
 	workspace.registerCurrentStep(c)
 
-	err := workspace.RunAction(strings.Join([]string{c.Block, c.Action}, "."))
-	if err != nil {
-		return err
-	}
+	actionAddress := strings.Join([]string{c.Block, c.Action}, ".")
+	workspace.RunAction(actionAddress).Flush()
 
 	return nil
 }
 
-func (c *Workflow) Validate() error {
+func (c *Workflow) validate() error {
 	err := validate.Struct(c)
 
 	if err != nil {
@@ -154,7 +145,7 @@ func (c *Workflow) Validate() error {
 	return nil
 }
 
-func (c *Step) Validate() error {
+func (c *Step) validate() error {
 	err := validate.Struct(c)
 
 	if err != nil {
