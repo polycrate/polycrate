@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	goErrors "errors"
 	"fmt"
@@ -28,7 +27,6 @@ import (
 
 	"github.com/jeremywohl/flatten"
 
-	"github.com/docker/docker/api/types"
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -252,21 +250,6 @@ func (c *Workspace) RunStep(name string) *Workspace {
 		return c
 	}
 	return c
-}
-
-func (c *Workspace) pullContainerImage(image string) error {
-	ctx := context.Background()
-	cli, err := getDockerCLI()
-	if err != nil {
-		return err
-	}
-
-	_, err = cli.ImagePull(ctx, image, types.ImagePullOptions{})
-	if err != nil {
-		return err
-	}
-	log.Debugf("Successfully pulled image %s", image)
-	return nil
 }
 
 func (c *Workspace) registerBlock(block *Block) {
@@ -979,12 +962,17 @@ func (c *Workspace) loadBlockConfigs() *Workspace {
 
 func (c *Workspace) discoverBlocks() *Workspace {
 	blocksDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot)
-	log.Debugf("Starting Block Discovery at %s", blocksDir)
 
-	// This function adds all valid Blocks to the list of
-	err := filepath.WalkDir(blocksDir, walkBlocksDir)
-	if err != nil {
-		c.err = err
+	if _, err := os.Stat(blocksDir); !os.IsNotExist(err) {
+		log.Debugf("Starting block discovery at %s", blocksDir)
+
+		// This function adds all valid Blocks to the list of
+		err := filepath.WalkDir(blocksDir, walkBlocksDir)
+		if err != nil {
+			c.err = err
+		}
+	} else {
+		log.Debugf("Skipping block discovery as %s does not exist", blocksDir)
 	}
 
 	return c

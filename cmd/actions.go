@@ -116,15 +116,24 @@ func (c *Action) RunContainer() error {
 					return err
 				}
 			} else {
-				return goErrors.New("Could not find " + workspace.Config.Dockerfile + " in the workspace")
+				if pull {
+					log.Debugf("Pulling image %s: --pull=%t, --build=%t", containerImage, pull, build)
+					err := pullContainerImage(containerImage)
+
+					if err != nil {
+						return err
+					}
+				} else {
+					log.Debugf("Not pulling/building image %s: --pull=%t, --build=%t", containerImage, pull, build)
+				}
 			}
 		} else {
 			if pull {
 				log.Debugf("Pulling image %s: --pull=%t, --build=%t", containerImage, pull, build)
-				err := workspace.pullContainerImage(containerImage)
+				err := pullContainerImage(containerImage)
 
 				if err != nil {
-					log.Fatal(err)
+					return err
 				}
 			} else {
 				log.Debugf("Not pulling/building image %s: --pull=%t, --build=%t", containerImage, pull, build)
@@ -133,10 +142,10 @@ func (c *Action) RunContainer() error {
 	} else {
 		if pull {
 			log.Debugf("Pulling image %s: --pull=%t, --build=%t", containerImage, pull, build)
-			err := workspace.pullContainerImage(containerImage)
+			err := pullContainerImage(containerImage)
 
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 		} else {
 			log.Debugf("Not pulling/building image %s: --pull=%t, --build=%t", containerImage, pull, build)

@@ -23,7 +23,7 @@ func getDockerCLI() (*client.Client, error) {
 }
 
 func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
-	log.Warnf("Building custom image")
+	log.Warnf("Building custom image %s", tags[0])
 	ctx := context.Background()
 	cli, err := getDockerCLI()
 
@@ -49,21 +49,55 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 	// We're using a special logger here that can be used as an io.Writer
 	// As such it can be used by the docker log reader to dump logs directly
 	// to our logger
-	buildLogger := log.New()
+	err = logDocker(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	log.Debug("Built " + tags[0])
+	return tags[0], nil
+}
+
+func pullContainerImage(image string) error {
+	ctx := context.Background()
+	cli, err := getDockerCLI()
+	if err != nil {
+		return err
+	}
+
+	reader, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	err = logDocker(reader)
+	if err != nil {
+		return err
+	}
+
+	//io.Copy(os.Stdout, reader)
+	log.Debugf("Successfully pulled image %s", image)
+	return nil
+}
+
+func logDocker(reader io.ReadCloser) error {
+	dockerLogger := log.New()
 
 	// Set the current loglevel
-	buildLogger.SetLevel(logrusLevel)
+	dockerLogger.SetLevel(logrusLevel)
 
 	// The log write writes with loglevel debug
-	w := buildLogger.WriterLevel(log.DebugLevel)
+	w := dockerLogger.WriterLevel(log.DebugLevel)
 	defer w.Close()
 
 	termFd, isTerm := term.GetFdInfo(w)
 
-	jsonmessage.DisplayJSONMessagesStream(resp.Body, w, termFd, isTerm, nil)
-
-	log.Debug("Built " + tags[0])
-	return tags[0], nil
+	err := jsonmessage.DisplayJSONMessagesStream(reader, w, termFd, isTerm, nil)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func pruneContainer(cli *client.Client, id string) error {
