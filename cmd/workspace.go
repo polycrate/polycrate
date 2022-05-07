@@ -186,20 +186,10 @@ func (c *Workspace) RunAction(address string) *Workspace {
 		log.Debugf("Registering current block: %s", block.Name)
 		log.Debugf("Registering current action: %s", action.Name)
 
-		if snapshot {
-			c.Snapshot()
-		} else {
-			// Save snapshot before running the action
-			if err := c.SaveSnapshot(); err != nil {
-				c.err = err
-				return c
-			}
-
-			err := action.Run()
-			if err != nil {
-				c.err = err
-				return c
-			}
+		err := action.Run()
+		if err != nil {
+			c.err = err
+			return c
 		}
 	} else {
 		c.err = goErrors.New("cannot find Action with address " + address)
@@ -782,7 +772,7 @@ func (c *Workspace) SaveSnapshot() error {
 
 		return nil
 	} else {
-		return fmt.Errorf("Cannot save snapshot")
+		return fmt.Errorf("cannot save snapshot")
 	}
 
 }

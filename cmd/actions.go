@@ -17,12 +17,14 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	goErrors "errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/InVisionApp/conjungo"
 	"github.com/docker/docker/api/types/container"
@@ -221,22 +223,30 @@ func (c *Action) Run() error {
 	workspace.registerMount(c.executionScriptPath, c.executionScriptPath)
 
 	// Wrapup
-
 	if c.Interactive {
 		// Set interactive=true globally
 		interactive = true
 	}
 
-	if !local {
-		err := c.RunContainer()
-		return err
+	if snapshot {
+		workspace.Snapshot()
+	} else {
+		// Save snapshot before running the action
+		if err := workspace.SaveSnapshot(); err != nil {
+			return err
+		} else {
+			if !local {
+				err := c.RunContainer()
+				return err
+			}
+		}
 	}
-
 	return nil
 }
 
 func (c *Action) saveExecutionScript() error {
 	script := c.GetExecutionScript()
+	snapshot := workspace.GetSnapshot()
 
 	if script != nil {
 		f, err := ioutil.TempFile("/tmp", "polycrate."+workspace.Name+".script.*.sh")
@@ -246,7 +256,21 @@ func (c *Action) saveExecutionScript() error {
 		datawriter := bufio.NewWriter(f)
 
 		for _, data := range script {
-			_, _ = datawriter.WriteString(data + "\n")
+			// Load the script line into a template object and parse it
+			// return an error if the parsing fails
+			t, err := template.New("script-line").Parse(data)
+			if err != nil {
+				return err
+			}
+
+			// Execute the template and save the substituted content to a var
+			var substitutedScriptLine bytes.Buffer
+			err = t.Execute(&substitutedScriptLine, snapshot)
+			if err != nil {
+				return err
+			}
+			// Append the substituted script line to the script
+			_, _ = datawriter.WriteString(substitutedScriptLine.String() + "\n")
 		}
 
 		datawriter.Flush()
@@ -283,7 +307,14 @@ func (c *Action) GetExecutionScript() []string {
 	}
 
 	if len(c.Script) > 0 {
-		script := append(scriptSlice, c.Script...)
+		// Loop over script slice, convert interface to string
+		scriptStrings := []string{}
+		for _, scriptLine := range c.Script {
+			scriptLineStr := fmt.Sprintf("%v", scriptLine)
+			scriptStrings = append(scriptStrings, scriptLineStr)
+			log.Debugf("scriptLine as String: %s", scriptLineStr)
+		}
+		script := append(scriptSlice, scriptStrings...)
 		return script
 	}
 	return nil
