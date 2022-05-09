@@ -20,17 +20,14 @@ blobs:
     # Implies s3ForcePathStyle and requires provider to be `s3`
     endpoint: s3.ayedo.de
 
-    # Disables SSL
-    # Requires provider to be `s3`
-    # Defaults to false
-    disableSSL: false
-
     # Template for the bucket name
     bucket: polycrate
 
     # Template for the path/name inside the bucket.
     # Default is `{{ .ProjectName }}/{{ .Tag }}`
     folder: "cli/{{ .Tag }}"
+
+    region: us-west-1
 
     # You can add extra pre-existing files to the bucket.
     # The filename on the release will be the last part of the path (base).

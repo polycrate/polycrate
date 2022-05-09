@@ -1,7 +1,7 @@
 tag:
 	git tag $(shell svu next)
 	git push origin $(shell svu)
-	echo $(shell svu) > latest.txt
+	#echo $(shell svu) > latest.txt
 
 delete-tag:
 	git tag -d $(shell svu)
