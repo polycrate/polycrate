@@ -28,16 +28,6 @@ blobs:
     folder: "cli/{{ .Tag }}"
 
     region: us-west-1
-
-    # You can add extra pre-existing files to the bucket.
-    # The filename on the release will be the last part of the path (base).
-    # If another file with the same name exists, the last one found will be used.
-    # These globs can also include templates.
-    #
-    # Defaults to empty.
-    # extra_files:
-    #   - glob: ./latest.txt
-    #     name_template: latest.txt # note that this only works if glob matches 1 file only
 builds:
   - env:
       - CGO_ENABLED=0
@@ -129,8 +119,7 @@ docker_manifests:
       - ghcr.io/polycrate/polycrate:latest-amd64
       - ghcr.io/polycrate/polycrate:latest-arm64v8
 brews:
-  -
-    # GitHub/GitLab repository to push the formula to
+  - # GitHub/GitLab repository to push the formula to
     tap:
       owner: polycrate
       name: homebrew-polycrate
@@ -168,16 +157,16 @@ announce:
 
     # Message template to use while publishing.
     # Defaults to `{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}`
-    message_template: 'Polycrate version {{.Tag}} is out!'
+    message_template: "Polycrate version {{.Tag}} is out!"
 
     # Set author of the embed.
     # Defaults to `GoReleaser`
-    author: 'derfabianpeter'
+    author: "derfabianpeter"
 
     # Color code of the embed. You have to use decimal numeral system, not hexadecimal.
     # Defaults to `3888754` - the grey-ish from goreleaser
-    color: ''
+    color: ""
 
     # URL to an image to use as the icon for the embed.
     # Defaults to `https://goreleaser.com/static/avatar.png`
-    icon_url: ''
+    icon_url: ""
