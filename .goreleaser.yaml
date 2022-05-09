@@ -75,59 +75,59 @@ changelog:
       order: 1
     - title: Others
       order: 999
-# dockers:
-#   - image_templates:
-#       - "ghcr.io/polycrate/polycrate:{{ .Version }}-amd64"
-#       - "ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64"
-#       - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64"
-#       - "ghcr.io/polycrate/polycrate:latest-amd64"
-#     use: buildx
-#     dockerfile: Dockerfile.goreleaser
-#     build_flag_templates:
-#       - "--platform=linux/amd64"
-#       - "--label=org.opencontainers.image.created={{.Date}}"
-#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
-#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-#       - "--label=org.opencontainers.image.version={{.Version}}"
-#     extra_files:
-#       - python-requirements.txt
-#       - ansible-requirements.yml
-#       - hack/ansible/plugins/vars/polycrate_vars.py
-#   - image_templates:
-#       - "ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8"
-#       - "ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8"
-#       - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8"
-#       - "ghcr.io/polycrate/polycrate:latest-arm64v8"
-#     use: buildx
-#     build_flag_templates:
-#       - "--label=org.opencontainers.image.created={{.Date}}"
-#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
-#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-#       - "--label=org.opencontainers.image.version={{.Version}}"
-#       - "--platform=linux/arm64/v8"
-#     goarch: arm64
-#     dockerfile: Dockerfile.goreleaser
-#     extra_files:
-#       - python-requirements.txt
-#       - ansible-requirements.yml
-#       - hack/ansible/plugins/vars/polycrate_vars.py
-# docker_manifests:
-#   - name_template: ghcr.io/polycrate/polycrate:{{ .Version }}
-#     image_templates:
-#       - ghcr.io/polycrate/polycrate:{{ .Version }}-amd64
-#       - ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8
-#   - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}
-#     image_templates:
-#       - ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64
-#       - ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8
-#   - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}
-#     image_templates:
-#       - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64
-#       - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8
-#   - name_template: ghcr.io/polycrate/polycrate:latest
-#     image_templates:
-#       - ghcr.io/polycrate/polycrate:latest-amd64
-#       - ghcr.io/polycrate/polycrate:latest-arm64v8
+dockers:
+  - image_templates:
+      - "ghcr.io/polycrate/polycrate:{{ .Version }}-amd64"
+      - "ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64"
+      - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64"
+      - "ghcr.io/polycrate/polycrate:latest-amd64"
+    use: buildx
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - python-requirements.txt
+      - ansible-requirements.yml
+      - hack/ansible/plugins/vars/polycrate_vars.py
+  - image_templates:
+      - "ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8"
+      - "ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8"
+      - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8"
+      - "ghcr.io/polycrate/polycrate:latest-arm64v8"
+    use: buildx
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/arm64/v8"
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    extra_files:
+      - python-requirements.txt
+      - ansible-requirements.yml
+      - hack/ansible/plugins/vars/polycrate_vars.py
+docker_manifests:
+  - name_template: ghcr.io/polycrate/polycrate:{{ .Version }}
+    image_templates:
+      - ghcr.io/polycrate/polycrate:{{ .Version }}-amd64
+      - ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8
+  - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}
+    image_templates:
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8
+  - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64
+      - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8
+  - name_template: ghcr.io/polycrate/polycrate:latest
+    image_templates:
+      - ghcr.io/polycrate/polycrate:latest-amd64
+      - ghcr.io/polycrate/polycrate:latest-arm64v8
 brews:
   -
     # GitHub/GitLab repository to push the formula to

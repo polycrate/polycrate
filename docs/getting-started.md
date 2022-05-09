@@ -16,14 +16,14 @@ Using the polycrate installer automates the process of downloading and moving th
     **real** quick:
 
     ```bash
-    curl https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh | bash
+    curl https://docs.polycrate.io/get-polycrate.sh | bash
     polycrate version
     ```
 
     a bit safer:
 
     ```bash
-    curl -fsSL -o get-polycrate.sh https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh
+    curl -fsSL -o get-polycrate.sh https://docs.polycrate.io/get-polycrate.sh
     chmod 0700 get-polycrate.sh
     # Optionally: less get-polycrate.sh
     ./get-polycrate.sh
@@ -35,14 +35,14 @@ Using the polycrate installer automates the process of downloading and moving th
      **real** quick:
 
     ```bash
-    wget -qO- https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh | bash
+    wget -qO- https://docs.polycrate.io/get-polycrate.sh | bash
     polycrate version
     ```
 
     a bit safer:
 
     ```bash
-    wget -q -O get-polycrate.sh https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh
+    wget -q -O get-polycrate.sh https://docs.polycrate.io/get-polycrate.sh
     chmod 0700 get-polycrate.sh
     # Optionally: less get-polycrate.sh
     ./get-polycrate.sh
@@ -51,12 +51,13 @@ Using the polycrate installer automates the process of downloading and moving th
 
 ### Manual Download
 
-You can download any version of polycrate from our [GitHub Releases](https://github.com/polycrate/polycrate/releases) by following the steps for your platform below:
+You can download any version of polycrate directly by following the steps for your platform below:
 
 === "Linux"
 
     ``` bash
-    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_linux_amd64.tar.gz
+    export VERSION=0.7.5
+    curl -fsSLo polycrate.tar.gz https://s3.ayedo.de/polycrate/cli/v$VERSION/polycrate_$VERSION_linux_amd64.tar.gz
     tar xvzf polycrate.tar.gz
     chmod +x polycrate
     ./polycrate version
@@ -65,7 +66,8 @@ You can download any version of polycrate from our [GitHub Releases](https://git
 === "Linux (ARM)"
 
     ``` bash
-    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_linux_arm64.tar.gz
+    export VERSION=0.7.5
+    curl -fsSLo polycrate.tar.gz https://s3.ayedo.de/polycrate/cli/v$VERSION/polycrate_$VERSION_linux_arm64.tar.gz
     tar xvzf polycrate.tar.gz
     chmod +x polycrate
     ./polycrate version
@@ -74,7 +76,8 @@ You can download any version of polycrate from our [GitHub Releases](https://git
 === "macOS"
 
     ``` bash
-    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_darwin_amd64.tar.gz
+    export VERSION=0.7.5
+    curl -fsSLo polycrate.tar.gz https://s3.ayedo.de/polycrate/cli/v$VERSION/polycrate_$VERSION_darwin_amd64.tar.gz
     tar xvzf polycrate.tar.gz
     chmod +x polycrate
     ./polycrate version
@@ -83,7 +86,8 @@ You can download any version of polycrate from our [GitHub Releases](https://git
 === "macOS (M1)"
 
     ``` bash
-    curl -fsSLo polycrate.tar.gz https://github.com/polycrate/polycrate/releases/download/v0.2.2/polycrate_0.2.2_darwin_amd64.tar.gz
+    export VERSION=0.7.5
+    curl -fsSLo polycrate.tar.gz https://s3.ayedo.de/polycrate/cli/v$VERSION/polycrate_$VERSION_darwin_amd64.tar.gz
     tar xvzf polycrate.tar.gz
     chmod +x polycrate
     ./polycrate version

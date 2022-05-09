@@ -101,7 +101,7 @@ verifySupported() {
 # checkDesiredVersion checks if the desired version is available.
 checkDesiredVersion() {
   if [ "x$DESIRED_VERSION" == "x" ]; then
-    TAG=$(curl -s https://api.github.com/repos/polycrate/polycrate/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    TAG=$(curl -s https://s3.ayedo.de/polycrate/cli/latest)
     echo "Latest version is $TAG"
   else
     TAG=$DESIRED_VERSION
@@ -128,7 +128,7 @@ checkPolycrateInstalledVersion() {
 # downloadFile downloads the latest binary package and also the checksum
 # for that binary.
 downloadFile() {
-  DOWNLOAD_URL="https://github.com/polycrate/polycrate/releases/download/${TAG}/${BINARY_NAME}_${TAG:1}_${OS}_${ARCH}.tar.gz"
+  DOWNLOAD_URL="https://s3.ayedo.de/polycrate/cli/v${TAG}/${BINARY_NAME}_${TAG}_${OS}_${ARCH}.tar.gz"
 
   CHECKSUM_URL="$DOWNLOAD_URL.sha256"
   POLYCRATE_TMP_ROOT="$(mktemp -dt polycrate-installer-XXXXXX)"
