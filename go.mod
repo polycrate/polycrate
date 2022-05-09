@@ -8,7 +8,7 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/docker v20.10.14+incompatible
 	github.com/go-playground/validator/v10 v10.9.0
-	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/imdario/mergo v0.3.12
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/manifoldco/promptui v0.8.0
 	github.com/moby/sys/mount v0.3.2 // indirect

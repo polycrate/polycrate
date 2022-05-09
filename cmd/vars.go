@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	_ "embed"
 	"os"
 
 	"github.com/go-playground/validator/v10"

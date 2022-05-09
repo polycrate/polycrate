@@ -31,7 +31,7 @@ Run `make snapshot` - this will create a `dist` dir that contains the bundled ar
 
 ### Troubleshooting
 
-####  error=git tag v0.2.0 was not made against commit $COMMIT
+#### error=git tag v0.2.0 was not made against commit $COMMIT
 
 This happens if you pushed a tag and then made new changes before running `make release`. This can be solved running the following commands after cleaning the workspace:
 

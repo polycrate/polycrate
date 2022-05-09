@@ -4,7 +4,7 @@ site_author: Ayedo Cloud Solutions GmbH
 site_dir: public
 theme:
   name: material
-  logo: logo.png
+  logo: logo.svg
   features:
     - navigation.instant
     - search.suggest
@@ -16,7 +16,7 @@ theme:
     # - navigation.tabs.sticky
     # - navigation.indexes
     #- toc.integrate
-  favicon: logo.png
+  favicon: logo.svg
   icon:
     repo: fontawesome/brands/github
   custom_dir: docs/overrides
