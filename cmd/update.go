@@ -20,10 +20,8 @@ import (
 
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,6 +38,7 @@ var dryRun bool
 var latestUrl string
 var downloadUrlTemplate string
 var tempDownloadPath string
+var packageRegistry string
 
 // releaseCmd represents the release command
 var updateCmd = &cobra.Command{
@@ -111,9 +110,11 @@ func init() {
 
 	updateCmd.PersistentFlags().BoolVarP(&consent, "yes", "y", false, "Consent to update")
 	updateCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "d", false, "Don't actually do anything")
-	updateCmd.PersistentFlags().StringVar(&downloadUrlTemplate, "download-url", "https://github.com/polycrate/polycrate/releases/download/v{{ .Version }}/polycrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}.tar.gz", "Download URL Template")
-	updateCmd.PersistentFlags().StringVar(&latestUrl, "latest-url", "https://api.github.com/repos/polycrate/polycrate/tags", "Latest URL")
+	updateCmd.PersistentFlags().StringVar(&latestUrl, "latest-url", "https://s3.ayedo.de/polycrate/cli/latest", "Latest URL")
 	updateCmd.PersistentFlags().StringVar(&tempDownloadPath, "temp-download-path", "/tmp/polycrate", "Temporary download path")
+	updateCmd.PersistentFlags().StringVar(&packageRegistry, "package-registry", "https://s3.ayedo.de/polycrate/cli", "Package Registry")
+	updateCmd.PersistentFlags().StringVar(&downloadUrlTemplate, "download-url", "{{ .PackageRegistry }}/v{{ .Version }}/polycrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}.tar.gz", "Download URL Template")
+
 }
 
 type GitHubTag struct {
@@ -128,36 +129,48 @@ type GitHubTag struct {
 }
 
 type CLIDownload struct {
-	Version string
-	Arch    string
-	Os      string
+	Version         string
+	Arch            string
+	Os              string
+	PackageRegistry string
 }
 
 func getStableVersion() string {
-	// Get Tags
-	resp, err := http.Get(latestUrl)
+	// Get content of stable version file
+	log.Debug("Determining stable version from " + latestUrl)
+	_stableVersion, err := getRemoteFileContent(latestUrl)
 	if err != nil {
-		return ""
+		log.Fatal(err)
 	}
 
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
+	stableVersion := strings.Trim(_stableVersion, "\n")
 
-	body, readErr := ioutil.ReadAll(resp.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
+	return stableVersion
 
-	tags := []GitHubTag{}
+	// // Get Tags
+	// resp, err := http.Get(latestUrl)
+	// if err != nil {
+	// 	return ""
+	// }
 
-	jsonErr := json.Unmarshal(body, &tags)
-	if jsonErr != nil {
-		log.Fatal(jsonErr)
-	}
-	log.Debug(tags)
+	// if resp.Body != nil {
+	// 	defer resp.Body.Close()
+	// }
 
-	return strings.Split(tags[0].Name, "v")[1]
+	// body, readErr := ioutil.ReadAll(resp.Body)
+	// if readErr != nil {
+	// 	log.Fatal(readErr)
+	// }
+
+	// tags := []GitHubTag{}
+
+	// jsonErr := json.Unmarshal(body, &tags)
+	// if jsonErr != nil {
+	// 	log.Fatal(jsonErr)
+	// }
+	// log.Debug(tags)
+
+	// return strings.Split(tags[0].Name, "v")[1]
 }
 
 func ExtractTarGz(gzipStream io.Reader) error {
@@ -249,9 +262,10 @@ func downloadPolycrateCLI(packageVersion string) error {
 	runtimeOS := runtime.GOOS
 
 	cd := CLIDownload{
-		Version: packageVersion,
-		Arch:    runtimeArch,
-		Os:      runtimeOS,
+		Version:         packageVersion,
+		Arch:            runtimeArch,
+		Os:              runtimeOS,
+		PackageRegistry: packageRegistry,
 	}
 
 	urlTemplate := template.New("CLI_Donwload_URL")

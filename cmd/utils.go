@@ -264,6 +264,23 @@ func promptGetInput(pc promptContent) string {
 	return result
 }
 
+func getRemoteFileContent(url string) (string, error) {
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	// b, err := ioutil.ReadAll(resp.Body)  Go.1.15 and earlier
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return string(b), err
+}
+
 func promptGetSelect(pc promptContent) string {
 	items := []string{"animal", "food", "person", "object"}
 	index := -1
