@@ -16,9 +16,9 @@ docker-login:
 snapshot:
 	goreleaser release --snapshot --rm-dist --debug
 
-release:
+release: tag
 	git push origin main
-	goreleaser release --rm-dist
+	goreleaser release --rm-dist --debug
 
 check:
 	goreleaser check

@@ -38,9 +38,9 @@ blobs:
     # These globs can also include templates.
     #
     # Defaults to empty.
-    extra_files:
-      - glob: ./latest.txt
-        name_template: latest.txt # note that this only works if glob matches 1 file only
+    # extra_files:
+    #   - glob: ./latest.txt
+    #     name_template: latest.txt # note that this only works if glob matches 1 file only
 builds:
   - env:
       - CGO_ENABLED=0
