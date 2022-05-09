@@ -1,4 +1,0 @@
-ARG POLYCRATE_VERSION
-FROM ghcr.io/polycrate/polycrate:${POLYCRATE_VERSION:-latest}
-
-RUN echo "HALLO"

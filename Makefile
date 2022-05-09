@@ -16,9 +16,16 @@ docker-login:
 snapshot:
 	goreleaser release --snapshot --rm-dist --debug
 
-release: tag
+release: latest
 	git push origin main
 	goreleaser release --rm-dist --debug
+	
+	
+latest: tag
+	echo "$(shell svu --strip-prefix)" > latest
+	cat latest
+	mc cp latest ayedo-s3/polycrate/cli
+	rm latest
 
 check:
 	goreleaser check
