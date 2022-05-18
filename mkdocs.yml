@@ -2,6 +2,9 @@ site_name: Polycrate
 site_description: A framework for hyperconverged infrastructure
 site_author: Ayedo Cloud Solutions GmbH
 site_dir: public
+extra:
+  analytics:
+    provider: custom
 theme:
   name: material
   logo: logo.svg
@@ -70,8 +73,8 @@ markdown_extensions:
   - pymdownx.smartsymbols
   - pymdownx.snippets
   - pymdownx.superfences
-  - pymdownx.tabbed
-      #alternate_style: true 
+  - pymdownx.tabbed:
+      alternate_style: true 
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde

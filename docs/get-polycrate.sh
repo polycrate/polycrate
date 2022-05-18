@@ -251,7 +251,7 @@ fail_trap() {
 # testVersion tests the installed client to make sure it is working.
 testVersion() {
   set +e
-  CLOUDSTACK="$(command -v $BINARY_NAME)"
+  POLYCRATE="$(command -v $BINARY_NAME)"
   if [ "$?" = "1" ]; then
     echo "$BINARY_NAME not found. Is $POLYCRATE_INSTALL_DIR on your "'$PATH?'
     exit 1

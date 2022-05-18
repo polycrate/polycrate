@@ -26,7 +26,7 @@ var listActionsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
 
-		workspace.ListActions()
+		workspace.ListActions().Flush()
 	},
 }
 

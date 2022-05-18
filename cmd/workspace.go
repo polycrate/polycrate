@@ -77,8 +77,6 @@ type WorkspaceConfig struct {
 }
 
 type Workspace struct {
-	//Metadata        Metadata          `mapstructure:"metadata,squash" json:"metadata" validate:"required"`
-	// alphanum,unique,startsnotwith='/',startsnotwith='-',startsnotwith='.',excludesall=!@#?
 	Name            string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
 	Description     string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
 	Labels          map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
