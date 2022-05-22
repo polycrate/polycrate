@@ -1,4 +1,4 @@
-tag:
+tag: changelog
 	git tag $(shell svu next)
 	git push origin $(shell svu)
 	#echo $(shell svu) > latest.txt
@@ -16,6 +16,7 @@ docker-login:
 snapshot:
 	goreleaser release --snapshot --rm-dist --debug
 
+unexport GITHUB_TOKEN
 release: latest
 	git push origin main
 	goreleaser release --rm-dist --debug
@@ -29,3 +30,11 @@ latest: tag
 
 check:
 	goreleaser check
+
+serve:
+	mkdocs serve
+
+changelog:
+	git-chglog --next-tag $(shell svu next) --output docs/changelog/$(shell svu next).md $(shell svu next)
+	git add .
+	git commit -am "release $(shell svu next)"

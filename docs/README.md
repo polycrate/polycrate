@@ -1,12 +1,16 @@
 ---
 title: Polycrate
-template: home.html
 description: A framework to build platforms
 ---
 
 # Polycrate
 
 Polycrate is a framework to build platforms. A platform can be anything from a bash script to automate your daily tasks, to a full-blown Kubernetes deployment.
+
+<figure markdown>
+  ![Polycrate](logo.png){: style="height:300px;width:300px;"}
+  <figcaption>Polycrate</figcaption>
+</figure>
 
 Polycrate revolves around a [Workspace](#) of [Blocks](#). [Blocks](#) have [Actions](#) that can be automated using [Workflows](#). This way you can build complex but flexible automations and platforms that you can easily share with your team. 
 
