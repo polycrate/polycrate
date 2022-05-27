@@ -1,0 +1,39 @@
+style: gitlab
+template: CHANGELOG.tpl.md
+info:
+  title: CHANGELOG
+  repository_url: https://gitlab.ayedo.de/polycrate/polycrate
+options:
+  commits:
+    filters:
+      Type:
+        - build
+        - ci
+        - docs
+        - feat
+        - fix
+        - perf
+        - refactor
+        - style
+        - test
+        - chore
+  commit_groups:
+    title_maps:
+      build: Build System
+      feat: Features
+      fix: Bug Fixes
+      ci: CI/CD Pipeline
+      docs: Documentation
+      perf: Performance Improvements
+      refactor: Code Refactoring
+      style: Style Improvements
+      test: Test Improvements
+  header:
+    pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
+    pattern_maps:
+      - Type
+      - Scope
+      - Subject
+  notes:
+    keywords:
+      - BREAKING CHANGE
