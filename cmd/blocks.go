@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/InVisionApp/conjungo"
 	"github.com/go-playground/validator/v10"
 	"github.com/imdario/mergo"
 	log "github.com/sirupsen/logrus"
@@ -74,7 +73,7 @@ type Block struct {
 	Labels      map[string]string      `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
 	Alias       []string               `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
 	Actions     []Action               `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
-	Config      map[string]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty,remain" json:"config,omitempty"`
+	Config      map[string]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	From        string                 `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
 	Template    bool                   `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`
 	Version     string                 `yaml:"version,omitempty" mapstructure:"version" json:"version"`
@@ -178,16 +177,107 @@ func (c *Block) validate() error {
 	return nil
 }
 
-func (c *Block) MergeIn(block *Block) error {
-	opts := conjungo.NewOptions()
-	opts.Overwrite = false // do not overwrite existing values in workspaceConfig
-	// if err := conjungo.Merge(c, block, opts); err != nil {
-	// 	return err
+func (c *Block) MergeIn(block Block) error {
+	// if err := mergo.Merge(c, block); err != nil {
+	// 	log.Fatal(err)
 	// }
+	// return nil
 
-	if err := mergo.Merge(c, block); err != nil {
-		log.Fatal(err)
+	// Name
+	if block.Name != "" && c.Name == "" {
+		c.Name = block.Name
 	}
+
+	// Description
+	if block.Description != "" && c.Description == "" {
+		c.Description = block.Description
+	}
+
+	// Labels
+	if block.Labels != nil {
+		if err := mergo.Merge(&c.Labels, block.Labels); err != nil {
+			return err
+		}
+	}
+
+	// Alias
+	if block.Alias != nil {
+		if err := mergo.Merge(&c.Alias, block.Alias); err != nil {
+			return err
+		}
+	}
+
+	// Actions
+	if block.Actions != nil {
+		for _, sourceAction := range block.Actions {
+			// get the corresponding action in the existing block
+			destinationAction := c.getActionByName(sourceAction.Name)
+
+			if destinationAction != nil {
+				if err := mergo.Merge(destinationAction, sourceAction); err != nil {
+					return err
+				}
+
+				destinationAction.address = strings.Join([]string{c.Name, sourceAction.Name}, ".")
+				destinationAction.Block = c.Name
+			} else {
+				sourceAction.address = strings.Join([]string{c.Name, sourceAction.Name}, ".")
+				sourceAction.Block = c.Name
+				c.Actions = append(c.Actions, sourceAction)
+			}
+		}
+	}
+
+	// Config
+	if block.Config != nil {
+		if err := mergo.Merge(&c.Config, block.Config); err != nil {
+			return err
+		}
+	}
+
+	// From
+	if block.From != "" && c.From == "" {
+		c.From = block.From
+	}
+
+	// Template
+	if !block.Template {
+		c.Template = block.Template
+	}
+
+	// Version
+	if block.Version != "" && c.Version == "" {
+		c.Version = block.Version
+	}
+
+	// Workdir
+	if (block.Workdir != BlockWorkdir{} && c.Workdir == BlockWorkdir{}) {
+		if err := mergo.Merge(&c.Workdir, block.Workdir); err != nil {
+			return err
+		}
+	}
+
+	// Inventory
+	if (block.Inventory != BlockInventory{} && c.Inventory == BlockInventory{}) {
+		if err := mergo.Merge(&c.Inventory, block.Inventory); err != nil {
+			return err
+		}
+	}
+
+	// Kubeconfig
+	if (block.Kubeconfig != BlockKubeconfig{} && c.Kubeconfig == BlockKubeconfig{}) {
+		if err := mergo.Merge(&c.Kubeconfig, block.Kubeconfig); err != nil {
+			return err
+		}
+	}
+
+	// Artifacts
+	if (block.Artifacts != BlockArtifacts{} && c.Artifacts == BlockArtifacts{}) {
+		if err := mergo.Merge(&c.Artifacts, block.Artifacts); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -196,17 +286,24 @@ func (c *Block) Inspect() {
 }
 
 func (c *Block) LoadInventory() {
-	// Locate "inventory.json" in blockArtifactsDir
+	// Locate "inventory.yml" in blockArtifactsDir
 	blockInventoryFile := filepath.Join(c.Artifacts.LocalPath, "inventory.yml")
-
-	log.Debugf("Probing %s for an inventory file", blockInventoryFile)
+	log.WithFields(log.Fields{
+		"path":      blockInventoryFile,
+		"block":     c.Name,
+		"workspace": workspace.Name,
+	}).Debugf("Loading inventory")
 
 	if _, err := os.Stat(blockInventoryFile); !os.IsNotExist(err) {
 		// File exists
 		c.Inventory.exists = true
 		c.Inventory.LocalPath = blockInventoryFile
 		c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.yml")
-		log.Debugf("Found Block Inventory at %s", blockInventoryFile)
+		log.WithFields(log.Fields{
+			"path":      blockInventoryFile,
+			"block":     c.Name,
+			"workspace": workspace.Name,
+		}).Debugf("Found block inventory")
 	} else {
 		c.Inventory.exists = false
 	}

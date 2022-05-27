@@ -10,7 +10,9 @@ require (
 	github.com/go-playground/validator/v10 v10.9.0
 	github.com/imdario/mergo v0.3.12
 	github.com/jeremywohl/flatten v1.0.1
+	github.com/json-iterator/go v1.1.12
 	github.com/manifoldco/promptui v0.8.0
+	github.com/mitchellh/mapstructure v1.1.2 // indirect
 	github.com/moby/sys/mount v0.3.2 // indirect
 	github.com/moby/term v0.0.0-20210610120745-9d4ed1856297
 	github.com/opencontainers/image-spec v1.0.2 // indirect

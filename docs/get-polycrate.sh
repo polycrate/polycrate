@@ -242,7 +242,7 @@ fail_trap() {
     else
       echo "Failed to install $BINARY_NAME"
     fi
-    echo -e "\tFor support, go to https://docs.cloudstack.one"
+    echo -e "\tFor support, go to https://docs.polycrate.io"
   fi
   cleanup
   exit $result
@@ -269,8 +269,8 @@ help () {
 }
 
 cleanup() {
-  if [[ -d "${CLOUDSTACK_TMP_ROOT:-}" ]]; then
-    rm -rf "$CLOUDSTACK_TMP_ROOT"
+  if [[ -d "${POLYCRATE_TMP_ROOT:-}" ]]; then
+    rm -rf "$POLYCRATE_TMP_ROOT"
   fi
 }
 

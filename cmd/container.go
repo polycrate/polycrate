@@ -23,7 +23,6 @@ func getDockerCLI() (*client.Client, error) {
 }
 
 func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
-	log.Warnf("Building custom image %s", tags[0])
 	ctx := context.Background()
 	cli, err := getDockerCLI()
 
@@ -31,14 +30,12 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 		return "", err
 	}
 
-	log.Debugf("Assembling docker context")
 	buildOpts := types.ImageBuildOptions{
 		Dockerfile: dockerfilePath,
 		Tags:       tags,
 	}
 	buildCtx, _ := archive.TarWithOptions(workspace.Path, &archive.TarOptions{})
 
-	log.Debugf("Building image")
 	resp, err := cli.ImageBuild(ctx, buildCtx, buildOpts)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -54,7 +51,6 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 		return "", err
 	}
 
-	log.Debug("Built " + tags[0])
 	return tags[0], nil
 }
 

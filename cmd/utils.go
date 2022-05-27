@@ -25,6 +25,31 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+func isEmptyValue(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Interface, reflect.Ptr:
+		if v.IsNil() {
+			return true
+		}
+		return isEmptyValue(v.Elem())
+	case reflect.Func:
+		return v.IsNil()
+	case reflect.Invalid:
+		return true
+	}
+	return false
+}
+
 func CreateDir(path string) error {
 	err := os.MkdirAll(path, os.ModePerm)
 	return err
@@ -190,7 +215,9 @@ func walkBlocksDir(path string, d fs.DirEntry, err error) error {
 
 		if fileinfo.Name() == workspace.Config.BlocksConfig {
 			blockConfigFileDir := filepath.Dir(path)
-			log.Debug("Block detected - found " + workspace.Config.BlocksConfig + " in " + blockConfigFileDir)
+			log.WithFields(log.Fields{
+				"path": blockConfigFileDir,
+			}).Debugf("Block detected")
 			blockPaths = append(blockPaths, blockConfigFileDir)
 		}
 	}
@@ -345,9 +372,15 @@ func validateMetadataName(fl validator.FieldLevel) bool {
 	if regex.MatchString(name) {
 		// check if there's any __ or -- or //
 		//r2 := regexp.MustCompile(string("(--|\\/\\/|__)+"))
-		log.Debugf("Validation successful: '%s'", name)
+		log.WithFields(log.Fields{
+			"validated": name,
+			"regex":     regex.String(),
+		}).Debugf("Name validation successful")
 	} else {
-		log.Warnf("Validation failed: '%s' doesn't match Regex '%s'", name, regex.String())
+		log.WithFields(log.Fields{
+			"validated": name,
+			"regex":     regex.String(),
+		}).Warnf("Name validation failed")
 		return false
 	}
 	return true
