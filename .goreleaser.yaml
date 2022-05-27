@@ -173,6 +173,6 @@ announce:
     icon_url: ""
 
 release:
-  gitlab:
+  github:
     owner: polycrate
     name: polycrate

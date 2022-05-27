@@ -5,6 +5,10 @@ description: Install polycrate
 
 # Getting Started
 
+## Requirements
+
+Polycrate requires access to a local [Docker](https://www.docker.com/products/docker-desktop/) installation.
+
 ## Installation
 
 ### Automated installer
