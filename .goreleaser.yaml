@@ -49,6 +49,7 @@ snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
+  skip: true
   use: gitlab
   filters:
     exclude:
