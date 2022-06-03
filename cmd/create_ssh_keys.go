@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 
@@ -102,33 +101,48 @@ func CreateSSHKeys() error {
 		// No keys found
 		// Generate new ones
 		pubKeyStr, privKeyStr, err := generateKey()
-		CheckErr(err)
+		if err != nil {
+			return err
+		}
 
 		// Save private key
 		privKeyFile, err := os.Create(privKeyPath)
-		CheckErr(err)
+		if err != nil {
+			return err
+		}
 
 		defer privKeyFile.Close()
 
 		_, errPrivKey := privKeyFile.WriteString(privKeyStr)
-		CheckErr(errPrivKey)
+		if errPrivKey != nil {
+			return errPrivKey
+		}
 
 		err = os.Chmod(privKeyPath, 0600)
-		CheckErr(err)
+		if err != nil {
+			return err
+		}
 
 		// Save public key
 		pubKeyFile, err := os.Create(pubKeyPath)
-		CheckErr(err)
+		if err != nil {
+			return err
+		}
 
 		defer pubKeyFile.Close()
 
 		_, errPubKey := pubKeyFile.WriteString(pubKeyStr)
-		CheckErr(errPubKey)
+		if errPubKey != nil {
+			return errPubKey
+		}
 
 		err = os.Chmod(pubKeyPath, 0644)
-		CheckErr(err)
+		if err != nil {
+			return err
+		}
 	} else {
-		return errors.New("SSH Keys already exist")
+		log.Warn("SSH Keys already exist")
+		return nil
 	}
 
 	return nil

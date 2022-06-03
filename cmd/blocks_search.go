@@ -16,37 +16,32 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-// installCmd represents the install command
-var blocksUninstallCmd = &cobra.Command{
-	Use:   "uninstall BLOCK_NAME",
-	Short: "Uninstall a block",
+var blocksSearchCmd = &cobra.Command{
+	Use:   "search",
+	Short: "Search blocks in the registry",
 	Long:  ``,
-	Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		blockName := args[0]
-		workspace.load().Flush()
-
-		block := workspace.GetBlockFromIndex(blockName)
-		if block != nil {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-				"block":     block.Name,
-			}).Warnf("Uninstalling block")
-
-			block.Uninstall(pruneBlock)
-		} else {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-				"block":     blockName,
-			}).Fatalf("Block not found")
+		blocks, err := registry.SearchBlock(blockName)
+		if err != nil {
+			log.Fatal(err)
 		}
+
+		for _, block := range blocks {
+
+			fmt.Printf("%s (latest: %s)\n", block.Title["rendered"], block.Releases[0].Version)
+		}
+
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksUninstallCmd)
+	blocksCmd.AddCommand(blocksSearchCmd)
 }

@@ -27,6 +27,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pruneBlock bool
+
 // installCmd represents the install command
 var blocksCmd = &cobra.Command{
 	Use:   "block",
@@ -43,6 +45,8 @@ var blocksCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(blocksCmd)
+	blocksCmd.PersistentFlags().BoolVar(&pruneBlock, "prune", false, "Prune artifacts")
+	blocksCmd.PersistentFlags().StringVarP(&blockVersion, "version", "v", "latest", "Version of the block")
 }
 
 type BlockWorkdir struct {
@@ -340,6 +344,47 @@ func (c *Block) LoadArtifacts() error {
 			return err
 		}
 		log.Debugf("Created artifacts directory for block %s at %s", c.Name, c.Artifacts.LocalPath)
+	}
+	return nil
+
+}
+
+func (c *Block) Uninstall(prune bool) error {
+	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
+	if _, err := os.Stat(c.Workdir.LocalPath); os.IsNotExist(err) {
+		log.WithFields(log.Fields{
+			"workspace": workspace.Name,
+			"block":     c.Name,
+			"path":      c.Workdir.LocalPath,
+		}).Debugf("Block directory does not exist")
+	} else {
+		err := os.RemoveAll(c.Workdir.LocalPath)
+		if err != nil {
+			return err
+		}
+		log.WithFields(log.Fields{
+			"workspace": workspace.Name,
+			"block":     c.Name,
+			"path":      c.Workdir.LocalPath,
+		}).Debugf("Block directory removed")
+
+		if prune {
+			log.WithFields(log.Fields{
+				"workspace": workspace.Name,
+				"block":     c.Name,
+				"path":      c.Workdir.LocalPath,
+			}).Debugf("Pruning artifacts")
+
+			err := os.RemoveAll(c.Artifacts.LocalPath)
+			if err != nil {
+				return err
+			}
+			log.WithFields(log.Fields{
+				"workspace": workspace.Name,
+				"block":     c.Name,
+				"path":      c.Artifacts.LocalPath,
+			}).Debugf("Block artifacts directory removed")
+		}
 	}
 	return nil
 

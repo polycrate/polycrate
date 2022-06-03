@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -159,6 +160,70 @@ func ToPathSlice(t reflect.Value, name string, dst []string) []string {
 	return dst
 }
 
+func unzipSource(source, destination string) error {
+	// 1. Open the zip file
+	reader, err := zip.OpenReader(source)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	// 2. Get the absolute destination path
+	destination, err = filepath.Abs(destination)
+	if err != nil {
+		return err
+	}
+
+	// 3. Iterate over zip files inside the archive and unzip each of them
+	for _, f := range reader.File {
+		err := unzipFile(f, destination)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func unzipFile(f *zip.File, destination string) error {
+	// 4. Check if file paths are not vulnerable to Zip Slip
+	filePath := filepath.Join(destination, f.Name)
+	if !strings.HasPrefix(filePath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid file path: %s", filePath)
+	}
+
+	// 5. Create directory tree
+	if f.FileInfo().IsDir() {
+		if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
+		return err
+	}
+
+	// 6. Create a destination file for unzipped content
+	destinationFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+	if err != nil {
+		return err
+	}
+	defer destinationFile.Close()
+
+	// 7. Unzip the content of a file and copy it to the destination file
+	zippedFile, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer zippedFile.Close()
+
+	if _, err := io.Copy(destinationFile, zippedFile); err != nil {
+		return err
+	}
+	return nil
+}
+
 func DownloadFile(url string, fp string) error {
 	// Create the file
 	out, err := os.Create(fp)
@@ -205,6 +270,24 @@ func cleanupWorkspace() {
 	}
 }
 
+func walkWorkspacesDir(path string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if !d.IsDir() {
+		fileinfo, _ := d.Info()
+
+		if fileinfo.Name() == "workspace.poly" {
+			workspaceConfigFileDir := filepath.Dir(path)
+			log.WithFields(log.Fields{
+				"path": workspaceConfigFileDir,
+			}).Debugf("Local workspace detected")
+			workspacePaths = append(workspacePaths, workspaceConfigFileDir)
+		}
+	}
+	return nil
+}
 func walkBlocksDir(path string, d fs.DirEntry, err error) error {
 	if err != nil {
 		return err
@@ -255,9 +338,6 @@ func printObject(object interface{}) {
 		data, err := yaml.Marshal(object)
 		CheckErr(err)
 		fmt.Printf("%s\n", data)
-	}
-	if outputFormat == "env" {
-		fmt.Println(workspaceConfig.AllKeys())
 	}
 }
 
@@ -384,4 +464,49 @@ func validateMetadataName(fl validator.FieldLevel) bool {
 		return false
 	}
 	return true
+}
+
+func discoverWorkspaces() error {
+	workspacesDir := filepath.Join(polycrateHome, "workspaces")
+
+	if _, err := os.Stat(workspacesDir); !os.IsNotExist(err) {
+		log.WithFields(log.Fields{
+			"path": workspacesDir,
+		}).Debugf("Discovering local workspaces")
+
+		// This function adds all valid Blocks to the list of
+		err := filepath.WalkDir(workspacesDir, walkWorkspacesDir)
+		if err != nil {
+			return err
+		}
+	} else {
+		log.WithFields(log.Fields{
+			"path": workspacesDir,
+		}).Debugf("Skipping workspace discovery. Local workspaces directory not found")
+	}
+
+	for _, workspacePath := range workspacePaths {
+		w := Workspace{}
+		w.Path = workspacePath
+		log.WithFields(log.Fields{
+			"path": w.Path,
+		}).Debugf("Loading workspace")
+		w.loadWorkspaceConfig()
+
+		if w.err != nil {
+			log.WithFields(log.Fields{
+				"path":      w.Path,
+				"workspace": w.Name,
+			}).Warnf("Failed to load workspace")
+		} else {
+			log.WithFields(log.Fields{
+				"path":      w.Path,
+				"workspace": w.Name,
+			}).Debugf("Loaded workspace")
+
+			localWorkspaceIndex[w.Name] = w.Path
+		}
+	}
+
+	return nil
 }

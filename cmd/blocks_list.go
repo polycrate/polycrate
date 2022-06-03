@@ -24,6 +24,7 @@ var blocksListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List Blocks",
 	Long:  ``,
+	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
 		workspace.ListBlocks().Flush()

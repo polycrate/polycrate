@@ -20,16 +20,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var blockVersion string
+var download bool = false
+
 // installCmd represents the install command
 var blocksInstallCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "install BLOCK1 BLOCK2:0.0.1",
 	Short: "Install Blocks",
 	Long:  ``,
+	//Args: cobra.RangeArgs(1, 2), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Warn("Comming soon! Check https://polycrate.io for more")
+		workspace.load().Flush()
+		err := workspace.InstallBlocks(args)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 	},
 }
 
 func init() {
 	blocksCmd.AddCommand(blocksInstallCmd)
+
 }

@@ -297,7 +297,57 @@ func (c *Workspace) LookupStep(address string) *Step {
 }
 
 func (c *Workspace) loadWorkspaceConfig() *Workspace {
-	workspaceConfigFilePath := filepath.Join(workspace.Path, workspace.Config.WorkspaceConfig)
+	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
+	var workspaceConfig = viper.New()
+
+	// Match CLI Flags with Config options
+	// CLI Flags have precedence
+	workspaceConfig.BindPFlag("config.image.version", rootCmd.Flags().Lookup("image-version"))
+	workspaceConfig.BindPFlag("config.image.reference", rootCmd.Flags().Lookup("image-ref"))
+	workspaceConfig.BindPFlag("config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
+	workspaceConfig.BindPFlag("config.blocksconfig", rootCmd.Flags().Lookup("blocks-config"))
+	workspaceConfig.BindPFlag("config.workflowsroot", rootCmd.Flags().Lookup("workflows-root"))
+	workspaceConfig.BindPFlag("config.workspaceconfig", rootCmd.Flags().Lookup("workspace-config"))
+	workspaceConfig.BindPFlag("config.artifactsroot", rootCmd.Flags().Lookup("artifacts-root"))
+	workspaceConfig.BindPFlag("config.containerroot", rootCmd.Flags().Lookup("container-root"))
+	workspaceConfig.BindPFlag("config.remoteroot", rootCmd.Flags().Lookup("remote-root"))
+	workspaceConfig.BindPFlag("config.sshprivatekey", rootCmd.Flags().Lookup("ssh-private-key"))
+	workspaceConfig.BindPFlag("config.sshpublickey", rootCmd.Flags().Lookup("ssh-public-key"))
+	workspaceConfig.BindPFlag("config.dockerfile", rootCmd.Flags().Lookup("dockerfile"))
+
+	workspaceConfig.SetEnvPrefix(EnvPrefix)
+	workspaceConfig.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	workspaceConfig.AutomaticEnv()
+
+	// Check if a full path has been given
+	workspaceConfigFilePath := filepath.Join(c.Path, workspace.Config.WorkspaceConfig)
+
+	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
+		// The config file does not exist
+		// We try to look in the list of workspaces in $HOME/.polycrate/workspaces
+
+		// Assuming the "path" given is actually the name of a workspace
+		workspaceName := c.Path
+
+		log.WithFields(log.Fields{
+			"path": workspaceConfigFilePath,
+		}).Debugf("Workspace config not found. Looking for %s in the local workspace index", workspaceName)
+
+		// Check if workspaceName exists in the local workspace index (see discoverWorkspaces())
+		if localWorkspaceIndex[workspaceName] != "" {
+			// We found a workspace with that name in the index
+			path := localWorkspaceIndex[workspaceName]
+			log.WithFields(log.Fields{
+				"workspace": workspaceName,
+				"path":      path,
+			}).Debugf("Found workspace in the local workspace index")
+
+			// Update the workspace config file path with the local workspace path from the index
+			c.Path = path
+			workspaceConfigFilePath = filepath.Join(c.Path, workspace.Config.WorkspaceConfig)
+		}
+	}
+
 	workspaceConfig.SetConfigType("yaml")
 	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
 
@@ -310,10 +360,6 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 		workspaceConfig.SetDefault("description", "Ad-hoc Workspace in "+cwd)
 	}
 
-	return c
-}
-
-func (c *Workspace) unmarshalWorkspaceConfig() *Workspace {
 	if err := workspaceConfig.Unmarshal(&c); err != nil {
 		c.err = err
 		return c
@@ -335,30 +381,8 @@ func (c *Workspace) load() *Workspace {
 		"path": workspace.Path,
 	}).Infof("Loading workspace")
 
-	// Match CLI Flags with Config options
-	// CLI Flags have precedence
-	workspaceConfig.BindPFlag("config.image.version", rootCmd.Flags().Lookup("image-version"))
-	workspaceConfig.BindPFlag("config.image.reference", rootCmd.Flags().Lookup("image-ref"))
-	workspaceConfig.BindPFlag("config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
-	workspaceConfig.BindPFlag("config.blocksconfig", rootCmd.Flags().Lookup("blocks-config"))
-	workspaceConfig.BindPFlag("config.workflowsroot", rootCmd.Flags().Lookup("workflows-root"))
-	workspaceConfig.BindPFlag("config.workspaceconfig", rootCmd.Flags().Lookup("workspace-config"))
-	workspaceConfig.BindPFlag("config.artifactsroot", rootCmd.Flags().Lookup("artifacts-root"))
-	workspaceConfig.BindPFlag("config.containerroot", rootCmd.Flags().Lookup("container-root"))
-	workspaceConfig.BindPFlag("config.remoteroot", rootCmd.Flags().Lookup("remote-root"))
-	workspaceConfig.BindPFlag("config.sshprivatekey", rootCmd.Flags().Lookup("ssh-private-key"))
-	workspaceConfig.BindPFlag("config.sshpublickey", rootCmd.Flags().Lookup("ssh-public-key"))
-	workspaceConfig.BindPFlag("config.dockerfile", rootCmd.Flags().Lookup("dockerfile"))
-
-	workspaceConfig.SetEnvPrefix(EnvPrefix)
-	workspaceConfig.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	workspaceConfig.AutomaticEnv()
-
 	// Load Workspace config (e.g. workspace.poly)
 	c.loadWorkspaceConfig().Flush()
-
-	// Unmarshal + Validate Workspace config
-	c.unmarshalWorkspaceConfig().Flush()
 
 	// Bootstrap the workspace index
 	c.bootstrapIndex().Flush()
@@ -391,11 +415,13 @@ func (c *Workspace) load() *Workspace {
 	log.Debugf("Blocks: %d", len(workspace.Blocks))
 	log.Debugf("Workflows: %d", len(workspace.Workflows))
 
+	// Mark workspace as loaded
 	c.loaded = true
 
 	return c
 }
 
+// Resolves the 'from:' stanza of all blocks
 func (c *Workspace) resolveBlockDependencies() *Workspace {
 	missing := len(c.Blocks)
 
@@ -437,10 +463,17 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 							"dependency": loadedBlock.From,
 							"workspace":  c.Name,
 							"missing":    missing,
-						}).Errorf("Dependency not found")
+						}).Errorf("Dependency not found in the workspace")
 						// There's no Block to load from
-						c.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name)
-						return c
+
+						// Let's check if there's one in the registry
+						if _, err := registry.GetBlock(loadedBlock.From); err == nil {
+							c.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name + " or run 'polycrate block install " + loadedBlock.From + "'")
+							return c
+						} else {
+							c.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name)
+							return c
+						}
 					}
 
 					log.WithFields(log.Fields{
@@ -839,6 +872,12 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 	} else {
 		_force = "0"
 	}
+	var _in_container string
+	if local {
+		_in_container = "0"
+	} else {
+		_in_container = "1"
+	}
 	c.registerEnvVar("ANSIBLE_DISPLAY_SKIPPED_HOSTS", "no")
 	c.registerEnvVar("ANSIBLE_DISPLAY_OK_HOSTS", "yes")
 	c.registerEnvVar("ANSIBLE_HOST_KEY_CHECKING", "no")
@@ -849,13 +888,14 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 	c.registerEnvVar("ANSIBLE_RUN_VARS_PLUGINS", "start")
 	c.registerEnvVar("ANSIBLE_VARS_PLUGINS", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
 	c.registerEnvVar("DEFAULT_VARS_PLUGIN_PATH", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
-	c.registerEnvVar("ANSIBLE_CALLBACKS_ENABLED", "timer,profile_tasks,profile_roles")
+	//c.registerEnvVar("ANSIBLE_CALLBACKS_ENABLED", "timer,profile_tasks,profile_roles")
 	c.registerEnvVar("POLYCRATE_CLI_VERSION", version)
 	c.registerEnvVar("POLYCRATE_IMAGE_REFERENCE", workspace.Config.Image.Reference)
 	c.registerEnvVar("POLYCRATE_IMAGE_VERSION", workspace.Config.Image.Version)
 	c.registerEnvVar("POLYCRATE_FORCE", _force)
 	c.registerEnvVar("POLYCRATE_VERSION", version)
 	c.registerEnvVar("IN_CI", "true")
+	c.registerEnvVar("IN_CONTAINER", _in_container)
 	c.registerEnvVar("TERM", "xterm-256color")
 
 	if local {
@@ -1021,6 +1061,194 @@ func (c *Workspace) getBlockByName(blockName string) *Block {
 func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {
 	if workflow, ok := c.index.Workflows[name]; ok {
 		return workflow
+	}
+	return nil
+}
+
+func (c *Workspace) UpdateBlocks(args []string) error {
+	for _, arg := range args {
+		blockName, blockVersion, err := registry.resolveArg(arg)
+		if err != nil {
+			return err
+		}
+
+		block := c.GetBlockFromIndex(blockName)
+		if block != nil {
+			// Check if block already has the desired version
+			if block.Version == blockVersion {
+				log.WithFields(log.Fields{
+					"workspace":       c.Name,
+					"block":           block.Name,
+					"current_version": block.Version,
+					"desired_version": blockVersion,
+				}).Infof("Block already has desired version")
+				return nil
+			}
+
+			log.WithFields(log.Fields{
+				"workspace":       c.Name,
+				"block":           block.Name,
+				"current_version": block.Version,
+				"desired_version": blockVersion,
+			}).Infof("Updating block")
+
+			// Search block in registry
+			registryBlock, err := registry.GetBlock(blockName)
+			if err != nil {
+				if err != nil {
+					return err
+				}
+			}
+
+			// Check if release exists
+			registryRelease, err := registryBlock.GetRelease(blockVersion)
+			if err != nil {
+				return err
+			}
+
+			// Check again if we're already on the desired version
+			// At this point "latest" has been resolved to a specific release version
+			if block.Version == registryRelease.Version {
+				log.WithFields(log.Fields{
+					"workspace":       c.Name,
+					"block":           block.Name,
+					"current_version": block.Version,
+					"desired_version": registryRelease.Version,
+				}).Infof("Block already has desired version")
+				return nil
+			}
+
+			// Uninstall block
+			// pruneBlock constains a boolean triggered by --prune
+			// Now install the wanted version
+			log.WithFields(log.Fields{
+				"workspace": c.Name,
+				"block":     block.Name,
+				"version":   block.Version,
+			}).Debugf("Uninstalling block from workspace")
+
+			err = block.Uninstall(pruneBlock)
+			if err != nil {
+				return err
+			}
+
+			log.WithFields(log.Fields{
+				"workspace": c.Name,
+				"block":     block.Name,
+				"version":   block.Version,
+			}).Debugf("Successfully uninstalled block from workspace")
+
+			// Now install the wanted version
+			log.WithFields(log.Fields{
+				"workspace": c.Name,
+				"block":     blockName,
+				"version":   blockVersion,
+			}).Debugf("Installing block from registry")
+
+			registryBlockDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot, blockName)
+			registryBlockVersion := blockVersion
+
+			err = registryBlock.Install(registryBlockDir, registryBlockVersion)
+			if err != nil {
+				return err
+			}
+
+			log.WithFields(log.Fields{
+				"workspace": c.Name,
+				"block":     blockName,
+				"version":   blockVersion,
+			}).Infof("Successfully installed block to workspace")
+		} else {
+			err := fmt.Errorf("Block not found: %s", blockName)
+			return err
+		}
+	}
+	return nil
+}
+
+// - Accepts 1 arg: the block name/slug as it is in the registry
+// - Accepts 1 flag: version; defaults to latest
+// - Checks if a block with that name exists already AND has a block dir
+// - If the block exists, the command fails with a warning and shows a hint to the update command
+// - If no block exists, looks up the name of the block via Wordpress API at polycrate.io
+// - If a block is found, gets the list of releases
+// - Marks the youngest release as "latest"
+// - Downloads the release bundle
+// - If download succeeds, creates a block dir for the block
+// - unpacks the release bundle to the block dir
+func (c *Workspace) InstallBlocks(args []string) error {
+	for _, arg := range args {
+		blockName, blockVersion, err := registry.resolveArg(arg)
+		if err != nil {
+			return err
+		}
+
+		block := c.GetBlockFromIndex(blockName)
+		if block != nil {
+			// A block exists already
+			// Let's check if it has a workdir
+			if block.Workdir.LocalPath != "" {
+				// The block has a workdir
+				// Let's check if it exists
+				if _, err := os.Stat(block.Workdir.LocalPath); !os.IsNotExist(err) {
+					// The workdir exists
+					// We're done here
+					log.WithFields(log.Fields{
+						"workspace": c.Name,
+						"block":     block.Name,
+						"path":      block.Workdir.LocalPath,
+					}).Infof("Block is already installed. Use 'polycrate block update %s'", block.Name)
+				} else {
+					// The workdir does not exist
+					// We can download the block
+					download = true
+				}
+			} else {
+				download = true
+			}
+			block.Inspect()
+		} else {
+			download = true
+		}
+
+		// Search block in registry
+		if download {
+			log.WithFields(log.Fields{
+				"workspace": c.Name,
+				"block":     blockName,
+			}).Infof("Installing block from registry")
+
+			registryBlock, err := registry.GetBlock(blockName)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"workspace": c.Name,
+					"block":     blockName,
+				}).Debug(err)
+				return err
+			}
+
+			registryBlockDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot, blockName)
+			registryBlockVersion := blockVersion
+
+			err = registryBlock.Install(registryBlockDir, registryBlockVersion)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"workspace": c.Name,
+					"block":     blockName,
+					"version":   registryBlockVersion,
+					"path":      registryBlockDir,
+				}).Debug(err)
+				return err
+			}
+
+			log.WithFields(log.Fields{
+				"workspace": c.Name,
+				"block":     blockName,
+				"version":   registryBlockVersion,
+				"path":      registryBlockDir,
+			}).Infof("Block installed")
+		}
+
 	}
 	return nil
 }

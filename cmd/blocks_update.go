@@ -21,32 +21,22 @@ import (
 )
 
 // installCmd represents the install command
-var blocksUninstallCmd = &cobra.Command{
-	Use:   "uninstall BLOCK_NAME",
-	Short: "Uninstall a block",
+var blocksUpdateCmd = &cobra.Command{
+	Use:   "update BLOCK_NAME",
+	Short: "Update a block",
 	Long:  ``,
-	Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
+	//Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		blockName := args[0]
 		workspace.load().Flush()
-
-		block := workspace.GetBlockFromIndex(blockName)
-		if block != nil {
+		err := workspace.UpdateBlocks(args)
+		if err != nil {
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
-				"block":     block.Name,
-			}).Warnf("Uninstalling block")
-
-			block.Uninstall(pruneBlock)
-		} else {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-				"block":     blockName,
-			}).Fatalf("Block not found")
+			}).Fatal(err)
 		}
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksUninstallCmd)
+	blocksCmd.AddCommand(blocksUpdateCmd)
 }

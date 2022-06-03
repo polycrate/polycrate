@@ -63,20 +63,22 @@ func init() {
 	//rootCmd.PersistentFlags().StringSliceVarP(&workspace.overrides, "set", "s", []string{}, "Workspace ovrrides")
 	rootCmd.PersistentFlags().StringVarP(&workspace.Path, "workspace", "w", cwd, "The path to the workspace. Defaults to $PWD")
 	rootCmd.PersistentFlags().StringVar(&workspace.ContainerPath, "container-root", WorkspaceContainerRoot, "Workspace container root directory.")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.WorkspaceConfig, "workspace-config", WorkspaceConfigFile, "The config file that holds the workspace config.")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.Image.Reference, "image-ref", WorkspaceConfigImageRef, "Workspace image reference. Defaults to the official polycrate image")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.Image.Version, "image-version", version, "Workspace image version. Defaults to the version of polycrate")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.BlocksRoot, "blocks-root", WorkspaceConfigBlocksRoot, "Blocks root directory")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.BlocksConfig, "blocks-config", BlocksConfigFile, "The config file that holds the block config.")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.ArtifactsRoot, "artifacts-root", WorkspaceConfigArtifactsRoot, "Artifacts root directory")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.WorkflowsRoot, "workflows-root", WorkspaceConfigWorkflowsRoot, "Workflows root directory")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.WorkspaceConfig, "workspace-config", WorkspaceConfigFile, "The name of the config file that holds the workspace config.")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.Image.Reference, "image-ref", WorkspaceConfigImageRef, "Workspace image reference. Defaults to the official Polycrate image")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.Image.Version, "image-version", version, "Workspace image version. Defaults to the version of Polycrate")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.BlocksRoot, "blocks-root", WorkspaceConfigBlocksRoot, "Blocks root directory. Must be located inside the workspace.")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.BlocksConfig, "blocks-config", BlocksConfigFile, "The name of the config file that holds a block's config.")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.ArtifactsRoot, "artifacts-root", WorkspaceConfigArtifactsRoot, "Artifacts root directory. Must be located inside the workspace.")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.WorkflowsRoot, "workflows-root", WorkspaceConfigWorkflowsRoot, "Workflows root directory. Must be located inside the workspace.")
 	rootCmd.PersistentFlags().StringVar(&workspace.Config.Dockerfile, "dockerfile", WorkspaceConfigDockerfile, "The workspace Dockerfile. Can be used to permanently modify the workspace container and adjust it to your needs (e.g. install a .NET runtime, etc). polycrate builds the workspace container automatically when a Dockerfile is detected in the workspace.")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.SshPrivateKey, "ssh-private-key", WorkspaceConfigSshPrivateKey, "Workspace ssh private key. This key can be used to connect to remote hosts via ssh.")
-	rootCmd.PersistentFlags().StringVar(&workspace.Config.SshPublicKey, "ssh-public-key", WorkspaceConfigSshPublicKey, "Workspace ssh public key. Add this key to your remote hosts' authorized_keys file.")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.SshPrivateKey, "ssh-private-key", WorkspaceConfigSshPrivateKey, "Workspace ssh private key. This key can be used to connect to remote hosts via ssh. Must be located inside the workspace.")
+	rootCmd.PersistentFlags().StringVar(&workspace.Config.SshPublicKey, "ssh-public-key", WorkspaceConfigSshPublicKey, "Workspace ssh public key. Add this key to your remote hosts' authorized_keys file Must be located inside the workspace..")
 	rootCmd.PersistentFlags().StringVar(&workspace.Config.RemoteRoot, "remote-root", WorkspaceConfigRemoteRoot, "Remote root. This can be used as a common directory on remote hosts (e.g. a common directory to save Docker stacks and volumes to).")
 	rootCmd.PersistentFlags().StringSliceVarP(&workspace.ExtraEnv, "env", "e", []string{}, "Additional environment variables for the workspace in the format 'KEY=value'")
 	rootCmd.PersistentFlags().StringSliceVarP(&workspace.ExtraMounts, "mount", "m", []string{}, "Additional mounts for the workspace container in the format '/host:/container'. This will be ignored when used with --local")
 
+	rootCmd.PersistentFlags().StringVar(&registry.Url, "registry-url", RegistryUrl, "The URL of the Polycrate registry")
+	rootCmd.PersistentFlags().StringVar(&registry.ApiBase, "registry-api-base", RegistryApiBase, "The API base path of the Polycrate registry")
 }
 
 func initConfig() {
@@ -97,13 +99,13 @@ func initConfig() {
 	var logrusLogLevel string
 	switch logLevel {
 	case "0":
-		logrusLogLevel = "Warn"
-	case "1":
 		logrusLogLevel = "Info"
-	case "2":
+	case "1":
 		logrusLogLevel = "Debug"
+	case "2":
+		logrusLogLevel = "Trace"
 	default:
-		logrusLogLevel = "Warn"
+		logrusLogLevel = "Info"
 	}
 
 	var err error
@@ -123,5 +125,11 @@ func initConfig() {
 
 	// Register the custom validators to the global validator variable
 	validate.RegisterValidation("metadata_name", validateMetadataName)
+
+	// Discover local workspaces
+	err = discoverWorkspaces()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 }

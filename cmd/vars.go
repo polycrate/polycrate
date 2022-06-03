@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
@@ -23,6 +24,8 @@ const WorkspaceConfigSshPrivateKey string = "id_rsa"
 const WorkspaceConfigFile string = "workspace.poly"
 const BlocksConfigFile string = "block.poly"
 const EnvPrefix string = "polycrate"
+const RegistryUrl string = "https://polycrate.io"
+const RegistryApiBase string = "wp-json/wp/v2"
 const defaultFailedCode int = 1
 
 // Global variable to decide if an action runs local or in the container
@@ -80,13 +83,21 @@ var date string
 // This variable holds the allmighty workspace struct
 var workspace Workspace
 
-// Global workspace config variable
-// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
-var workspaceConfig = viper.New()
+// Global registry variable
+// This variable holds the registry struct
+var registry Registry
 
 // Global variable that holds the block paths discovered at block discovery in workspace.load()
 var blockPaths []string
 
+// Global variable that holds the workspace paths discovered at workspace discovery
+var workspacePaths []string
+
+var localWorkspaceIndex map[string]string = make(map[string]string)
+
 // Inventory
 var inventory string
 var inventoryConfigObject = viper.New()
+
+var home, _ = os.UserHomeDir()
+var polycrateHome = filepath.Join(home, ".polycrate")

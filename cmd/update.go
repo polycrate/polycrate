@@ -110,9 +110,9 @@ func init() {
 
 	updateCmd.PersistentFlags().BoolVarP(&consent, "yes", "y", false, "Consent to update")
 	updateCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "d", false, "Don't actually do anything")
-	updateCmd.PersistentFlags().StringVar(&latestUrl, "latest-url", "https://s3.ayedo.de/polycrate/cli/latest", "Latest URL")
+	updateCmd.PersistentFlags().StringVar(&latestUrl, "latest-url", "https://dl.polycrate.io/polycrate/cli/latest", "Latest URL")
 	updateCmd.PersistentFlags().StringVar(&tempDownloadPath, "temp-download-path", "/tmp/polycrate", "Temporary download path")
-	updateCmd.PersistentFlags().StringVar(&packageRegistry, "package-registry", "https://s3.ayedo.de/polycrate/cli", "Package Registry")
+	updateCmd.PersistentFlags().StringVar(&packageRegistry, "package-registry", "https://dl.polycrate.io/polycrate/cli", "Package Registry")
 	updateCmd.PersistentFlags().StringVar(&downloadUrlTemplate, "download-url", "{{ .PackageRegistry }}/v{{ .Version }}/polycrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}.tar.gz", "Download URL Template")
 
 }

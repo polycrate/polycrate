@@ -22,8 +22,8 @@ import (
 
 // installCmd represents the install command
 var blocksInspectCmd = &cobra.Command{
-	Use:   "inspect",
-	Short: "Inspect a Block",
+	Use:   "inspect BLOCK_NAME",
+	Short: "Inspect a block",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
