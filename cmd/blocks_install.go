@@ -16,6 +16,8 @@ limitations under the License.
 package cmd
 
 import (
+	"os"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -31,6 +33,13 @@ var blocksInstallCmd = &cobra.Command{
 	//Args: cobra.RangeArgs(1, 2), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
+		if len(args) == 0 {
+			log.WithFields(log.Fields{
+				"workspace": workspace.Name,
+			}).Warnf("No blocks given")
+			os.Exit(0)
+		}
+
 		err := workspace.InstallBlocks(args)
 		if err != nil {
 			log.Fatal(err)

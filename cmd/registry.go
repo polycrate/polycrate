@@ -333,6 +333,12 @@ func (o *Registry) resolveArg(arg string) (string, string, error) {
 // }
 
 func (o *RegistryBlock) Install(blockDir string, version string) error {
+	log.WithFields(log.Fields{
+		"workspace": workspace.Name,
+		"block":     o.BlockName,
+		"version":   version,
+	}).Debugf("Installing block from registry")
+
 	// Get the correct release
 	release, err := o.GetRelease(version)
 	if err != nil {
@@ -384,6 +390,12 @@ func (o *RegistryBlock) Install(blockDir string, version string) error {
 		"version":   release.Version,
 		"url":       downloadUrl,
 	}).Debugf("Unpacked release bundle")
+
+	log.WithFields(log.Fields{
+		"workspace": workspace.Name,
+		"block":     o.BlockName,
+		"version":   version,
+	}).Infof("Successfully installed block to workspace")
 
 	return nil
 }

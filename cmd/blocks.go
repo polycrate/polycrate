@@ -350,6 +350,12 @@ func (c *Block) LoadArtifacts() error {
 }
 
 func (c *Block) Uninstall(prune bool) error {
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"block":     c.Name,
+		"version":   c.Version,
+	}).Debugf("Successfully uninstalled block from workspace")
+
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
 	if _, err := os.Stat(c.Workdir.LocalPath); os.IsNotExist(err) {
 		log.WithFields(log.Fields{
@@ -386,6 +392,11 @@ func (c *Block) Uninstall(prune bool) error {
 			}).Debugf("Block artifacts directory removed")
 		}
 	}
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"block":     c.Name,
+		"version":   c.Version,
+	}).Debugf("Successfully uninstalled block from workspace")
 	return nil
 
 }

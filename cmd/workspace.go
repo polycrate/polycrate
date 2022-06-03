@@ -1095,9 +1095,7 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			// Search block in registry
 			registryBlock, err := registry.GetBlock(blockName)
 			if err != nil {
-				if err != nil {
-					return err
-				}
+				return err
 			}
 
 			// Check if release exists
@@ -1120,31 +1118,12 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 
 			// Uninstall block
 			// pruneBlock constains a boolean triggered by --prune
-			// Now install the wanted version
-			log.WithFields(log.Fields{
-				"workspace": c.Name,
-				"block":     block.Name,
-				"version":   block.Version,
-			}).Debugf("Uninstalling block from workspace")
-
 			err = block.Uninstall(pruneBlock)
 			if err != nil {
 				return err
 			}
 
-			log.WithFields(log.Fields{
-				"workspace": c.Name,
-				"block":     block.Name,
-				"version":   block.Version,
-			}).Debugf("Successfully uninstalled block from workspace")
-
 			// Now install the wanted version
-			log.WithFields(log.Fields{
-				"workspace": c.Name,
-				"block":     blockName,
-				"version":   blockVersion,
-			}).Debugf("Installing block from registry")
-
 			registryBlockDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot, blockName)
 			registryBlockVersion := blockVersion
 
@@ -1153,11 +1132,6 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 				return err
 			}
 
-			log.WithFields(log.Fields{
-				"workspace": c.Name,
-				"block":     blockName,
-				"version":   blockVersion,
-			}).Infof("Successfully installed block to workspace")
 		} else {
 			err := fmt.Errorf("Block not found: %s", blockName)
 			return err
@@ -1249,6 +1223,22 @@ func (c *Workspace) InstallBlocks(args []string) error {
 			}).Infof("Block installed")
 		}
 
+	}
+	return nil
+}
+
+func (c *Workspace) UninstallBlocks(args []string) error {
+	for _, blockName := range args {
+		block := c.GetBlockFromIndex(blockName)
+		if block != nil {
+			err := block.Uninstall(pruneBlock)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := fmt.Errorf("Block not found: %s", blockName)
+			return err
+		}
 	}
 	return nil
 }
