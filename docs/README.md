@@ -18,7 +18,7 @@ Polycrate can be used to create an overarching "platform development framework" 
 
 Polycrate has been created to help builders to build faster. It's being developed in a cloud-native spirit but is fully capable of handling "legacy" infrastructure and operations as well. Polycrate makes it easy for individuals to manage complex IT systems with confidence. With its "Infrastructure-as-Code" approach, Polycrate makes your operational tasks portable and repeatable. 
 
-Polycrate is packaged into a portable container that comes with a plathora of useful tooling out of the box. Construct your infrastructure with Terraform, automate your deployments with Ansible and manage your Containers with Kubernetes. Polycrate works on all major operating systems and comes with only a single dependency - **Docker**.
+Polycrate is packaged into a portable container that comes with a plethora of useful tooling out of the box. Construct your infrastructure with Terraform, automate your deployments with Ansible and manage your Containers with Kubernetes. Polycrate works on all major operating systems and comes with only a single dependency - **Docker**.
 
 
 

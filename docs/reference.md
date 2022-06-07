@@ -4,7 +4,7 @@
 
 Whatever you build with Polycrate happens in your **workspace**. The workspace contains configuration and lifecycle artifacts. It's a directory on your filesystem (the so called **workspace directory**; can be specified using `--workspace`) that can be synced and collaborated on via **git** or other tooling.
 
-The workspace can be assambled using the [workspace configuration](#workspace-configuration).
+The workspace can be assembled using the [workspace configuration](#workspace-configuration).
 
 ## Container
 
