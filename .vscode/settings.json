@@ -1,6 +1,34 @@
 {
-"workbench.colorCustomizations": {
-    "titleBar.activeBackground": "#21013E" // Change this color!
+  "window.titleBarStyle": "custom",
+  "window.title": "${dirty}Polycrate ${separator} ${activeEditorShort} ${separator} ${rootName}${separator}${appName}",
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#21013E",
+    "activityBar.foreground": "#fff",
+    //"activityBar.activeBackground": "#26262c",
+    "activityBar.activeBackground": "#26262c",
+    "activityBar.activeForeground": "#ff0239",
+    "activityBar.inactiveForeground": "#ffffff",
+    "titleBar.activeBackground": "#21013E",
+    "titleBar.activeForeground": "#fff",
   },
-  "window.titleBarStyle": "custom"
+  "workbench.colorTheme": "Shades of Purple",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.fontLigatures": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
+  "editor.linkedEditing": true,
+  "editor.minimap.enabled": false, 
+  "explorer.confirmDragAndDrop": false,
+  "explorer.confirmDelete": false,
+  "git.autofetch": true,
+  "go.formatTool": "goimports",
+  "go.useLanguageServer": true,
+  "python.formatting.provider": "black",
+  "terminal.integrated.tabs.title": "${cwdFolder}",
+  "terminal.integrated.tabs.description": "${task}${separator}${local}${separator}${cwdFolder}",
+  "workbench.editor.highlightModifiedTabs": true,
 }

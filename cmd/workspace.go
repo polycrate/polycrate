@@ -379,7 +379,7 @@ func (c *Workspace) load() *Workspace {
 
 	log.WithFields(log.Fields{
 		"path": workspace.Path,
-	}).Infof("Loading workspace")
+	}).Debugf("Loading workspace")
 
 	// Load Workspace config (e.g. workspace.poly)
 	c.loadWorkspaceConfig().Flush()
@@ -410,7 +410,7 @@ func (c *Workspace) load() *Workspace {
 
 	log.WithFields(log.Fields{
 		"workspace": c.Name,
-	}).Infof("Workspace ready")
+	}).Debugf("Workspace ready")
 
 	log.Debugf("Blocks: %d", len(workspace.Blocks))
 	log.Debugf("Workflows: %d", len(workspace.Workflows))
@@ -1171,7 +1171,7 @@ func (c *Workspace) InstallBlocks(args []string) error {
 						"workspace": c.Name,
 						"block":     block.Name,
 						"path":      block.Workdir.LocalPath,
-					}).Infof("Block is already installed. Use 'polycrate block update %s'", block.Name)
+					}).Infof("Block is already installed. Use 'polycrate block update %s' to update it", block.Name)
 				} else {
 					// The workdir does not exist
 					// We can download the block
@@ -1187,11 +1187,6 @@ func (c *Workspace) InstallBlocks(args []string) error {
 
 		// Search block in registry
 		if download {
-			log.WithFields(log.Fields{
-				"workspace": c.Name,
-				"block":     blockName,
-			}).Infof("Installing block from registry")
-
 			registryBlock, err := registry.GetBlock(blockName)
 			if err != nil {
 				log.WithFields(log.Fields{
@@ -1206,21 +1201,9 @@ func (c *Workspace) InstallBlocks(args []string) error {
 
 			err = registryBlock.Install(registryBlockDir, registryBlockVersion)
 			if err != nil {
-				log.WithFields(log.Fields{
-					"workspace": c.Name,
-					"block":     blockName,
-					"version":   registryBlockVersion,
-					"path":      registryBlockDir,
-				}).Debug(err)
 				return err
 			}
 
-			log.WithFields(log.Fields{
-				"workspace": c.Name,
-				"block":     blockName,
-				"version":   registryBlockVersion,
-				"path":      registryBlockDir,
-			}).Infof("Block installed")
 		}
 
 	}
