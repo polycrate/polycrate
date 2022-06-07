@@ -9,19 +9,10 @@ theme:
   name: material
   logo: logo.png
   features:
-    #- navigation.instant
     - search.suggest
     - search.share
     - search.highlight
-    # - navigation.tabs
-    # - navigation.sections
-    # - navigation.top
-    # - navigation.tabs.sticky
-    # - navigation.indexes
-    #- toc.integrate
   favicon: logo.png
-  # icon:
-  #   repo: fontawesome/brands/github
   custom_dir: docs/overrides
   palette:
     - media: "(prefers-color-scheme: light)"
@@ -38,12 +29,7 @@ theme:
       toggle:
         icon: material/toggle-switch
         name: Switch to dark mode
-#repo_name: 'polycrate/polycrate'
-#repo_url: https://github.com/polycrate/polycrate/
-#edit_uri: 'edit/main/docs/'
 site_url: https://docs.polycrate.io
-extra:
-  version: 1.21.0-rc-main.142a3c5a
 markdown_extensions:
   - abbr
   - attr_list
