@@ -54,6 +54,11 @@ type RegistryBlock struct {
 	Releases  []RegistryRelease `yaml:"releases,omitempty" mapstructure:",omitempty" json:",omitempty"`
 	BlockName string            `yaml:"block_name" mapstructure:"block_name" json:"block_name" validate:"required"`
 }
+type RegistryWorkspace struct {
+	Post
+	Releases      []RegistryRelease `yaml:"releases,omitempty" mapstructure:",omitempty" json:",omitempty"`
+	WorkspaceName string            `yaml:"block_name" mapstructure:"block_name" json:"block_name" validate:"required"`
+}
 
 type Registry struct {
 	Url      string `yaml:"url" mapstructure:"url" json:"url" validate:"required"`
@@ -81,7 +86,7 @@ func (o *Registry) SearchBlock(blockName string) ([]RegistryBlock, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Debug(string(responseData))
+	//log.Trace(string(responseData))
 
 	if len(blocks) > 0 {
 		// Sort the Releases inside of a Block by date
@@ -99,6 +104,42 @@ func (o *Registry) SearchBlock(blockName string) ([]RegistryBlock, error) {
 
 }
 
+func (o *Registry) SearchWorkspace(workspaceName string) ([]RegistryWorkspace, error) {
+	url := fmt.Sprintf("%s/%s/workspace?search=%s", o.Url, o.ApiBase, workspaceName)
+
+	response, err := http.Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var workspaces []RegistryWorkspace
+	err = json.Unmarshal(responseData, &workspaces)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(workspaces) > 0 {
+		// Sort the Releases inside of a Block by date
+		for _, workspace := range workspaces {
+			sort.Slice(workspace.Releases, func(i, j int) bool {
+				return workspace.Releases[i].PostDate > workspace.Releases[j].PostDate
+			})
+		}
+
+		return workspaces, nil
+	} else {
+		err := fmt.Errorf("Workspace not found: %s", workspaceName)
+		return nil, err
+	}
+
+}
+
 func (o *Registry) GetBlock(blockName string) (*RegistryBlock, error) {
 	registryBlocks, err := o.SearchBlock(blockName)
 	if err != nil {
@@ -110,6 +151,22 @@ func (o *Registry) GetBlock(blockName string) (*RegistryBlock, error) {
 		return &registryBlocks[blockIndex], nil
 	} else {
 		err := fmt.Errorf("Block not found: %s", blockName)
+		return nil, err
+	}
+
+}
+
+func (o *Registry) GetWorkspace(workspaceName string) (*RegistryWorkspace, error) {
+	registryWorkspaces, err := o.SearchWorkspace(workspaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	workspaceIndex := slices.IndexFunc(registryWorkspaces, func(o RegistryWorkspace) bool { return o.WorkspaceName == workspaceName })
+	if workspaceIndex != -1 {
+		return &registryWorkspaces[workspaceIndex], nil
+	} else {
+		err := fmt.Errorf("Block not found: %s", workspaceName)
 		return nil, err
 	}
 
@@ -145,10 +202,40 @@ func (o *RegistryBlock) GetRelease(version string) (*RegistryRelease, error) {
 		return nil, err
 	}
 }
+func (o *RegistryWorkspace) GetRelease(version string) (*RegistryRelease, error) {
+	// Get the correct release
+	var releaseIndex int
+	if version == "latest" {
+		// Pick the latest release
+		releaseIndex = 0
+	} else {
+		// Search release with given version
+		releaseIndex = slices.IndexFunc(o.Releases, func(r RegistryRelease) bool { return r.Version == version })
+	}
+
+	if len(o.Releases) > 0 && releaseIndex != -1 {
+		release := &o.Releases[releaseIndex]
+		if release != nil {
+			log.WithFields(log.Fields{
+				"workspace":         workspace.Name,
+				"block":             o.WorkspaceName,
+				"resolved_version":  release.Version,
+				"requested_version": version,
+			}).Debugf("Found release in registry")
+			return release, nil
+		} else {
+			err := fmt.Errorf("Release not found: %s:%s", o.WorkspaceName, version)
+			return nil, err
+		}
+	} else {
+		err := fmt.Errorf("Release not found: %s:%s", o.WorkspaceName, version)
+		return nil, err
+	}
+}
 
 func (o *Registry) resolveArg(arg string) (string, string, error) {
-	var blockName string
-	var blockVersion string
+	var name string
+	var version string
 
 	// Split arg by :
 	splitArgs := strings.Split(arg, ":")
@@ -158,16 +245,16 @@ func (o *Registry) resolveArg(arg string) (string, string, error) {
 	switch len(splitArgs) {
 	case 1:
 		// it's only the block
-		blockName = splitArgs[0]
-		blockVersion = "latest"
+		name = splitArgs[0]
+		version = "latest"
 	case 2:
-		blockName = splitArgs[0]
-		blockVersion = splitArgs[1]
+		name = splitArgs[0]
+		version = splitArgs[1]
 	default:
-		err := fmt.Errorf("Wrong format: %s - should be 'block:version' as in 'test:0.0.1'", arg)
+		err := fmt.Errorf("Wrong format: %s - should be '$name:$version' as in 'test:0.0.1'", arg)
 		return "", "", err
 	}
-	return blockName, blockVersion, nil
+	return name, version, nil
 }
 
 // func (o *Registry) UpdateBlocks(args []string) error {
@@ -348,19 +435,20 @@ func (o *RegistryBlock) Install(blockDir string, version string) error {
 	// Get download url
 	downloadUrl := release.ReleaseBundle
 
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     o.BlockName,
-		"path":      blockDir,
-		"version":   release.Version,
-		"url":       downloadUrl,
-	}).Debugf("Installing block from registry")
-
 	// Create temp file
 	releaseBundle, err := ioutil.TempFile("/tmp", "polycrate-block-"+o.Slug+"-"+release.Version+"-*.zip")
 	if err != nil {
 		return err
 	}
+
+	// Download to tempfile
+	log.WithFields(log.Fields{
+		"workspace": workspace.Name,
+		"block":     o.BlockName,
+		"path":      releaseBundle.Name(),
+		"version":   release.Version,
+		"url":       downloadUrl,
+	}).Debugf("Downloading release bundle")
 
 	// Download to tempfile
 	err = DownloadFile(downloadUrl, releaseBundle.Name())
@@ -369,13 +457,13 @@ func (o *RegistryBlock) Install(blockDir string, version string) error {
 	}
 	defer os.Remove(releaseBundle.Name())
 
+	// Unpack
 	log.WithFields(log.Fields{
 		"workspace": workspace.Name,
 		"block":     o.BlockName,
-		"path":      releaseBundle.Name(),
-		"version":   release.Version,
-		"url":       downloadUrl,
-	}).Debugf("Downloaded release bundle")
+		"dst":       blockDir,
+		"src":       releaseBundle.Name(),
+	}).Debugf("Unpacking release bundle")
 
 	// Unpack
 	err = unzipSource(releaseBundle.Name(), blockDir)
@@ -386,16 +474,61 @@ func (o *RegistryBlock) Install(blockDir string, version string) error {
 	log.WithFields(log.Fields{
 		"workspace": workspace.Name,
 		"block":     o.BlockName,
-		"path":      blockDir,
+		"version":   release.Version,
+	}).Infof("Successfully installed block to workspace")
+
+	return nil
+}
+
+func (o *RegistryWorkspace) Install(workspaceDir string, version string) error {
+	log.WithFields(log.Fields{
+		"workspace": o.WorkspaceName,
+		"version":   version,
+	}).Debugf("Installing workspace from registry")
+
+	// Get the correct release
+	release, err := o.GetRelease(version)
+	if err != nil {
+		return err
+	}
+
+	// Get download url
+	downloadUrl := release.ReleaseBundle
+
+	// Create temp file
+	releaseBundle, err := ioutil.TempFile("/tmp", "polycrate-workspace-"+o.Slug+"-"+release.Version+"-*.zip")
+	if err != nil {
+		return err
+	}
+
+	// Download to tempfile
+	log.WithFields(log.Fields{
+		"workspace": o.WorkspaceName,
+		"path":      releaseBundle.Name(),
 		"version":   release.Version,
 		"url":       downloadUrl,
-	}).Debugf("Unpacked release bundle")
+	}).Debugf("Downloading release bundle")
+	err = DownloadFile(downloadUrl, releaseBundle.Name())
+	if err != nil {
+		return err
+	}
+	defer os.Remove(releaseBundle.Name())
+
+	// Unpack
+	log.WithFields(log.Fields{
+		"workspace": o.WorkspaceName,
+		"dst":       workspaceDir,
+		"src":       releaseBundle.Name(),
+	}).Debugf("Unpacking release bundle")
+	err = unzipSource(releaseBundle.Name(), workspaceDir)
+	if err != nil {
+		return err
+	}
 
 	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     o.BlockName,
-		"version":   version,
-	}).Infof("Successfully installed block to workspace")
+		"workspace": o.WorkspaceName,
+		"version":   release.Version,
+	}).Infof("Successfully installed workspace")
 
 	return nil
 }

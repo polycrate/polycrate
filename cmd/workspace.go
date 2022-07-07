@@ -78,13 +78,15 @@ type WorkspaceConfig struct {
 }
 
 type Workspace struct {
-	Name            string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
-	Description     string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
-	Labels          map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
-	Alias           []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
-	Config          WorkspaceConfig   `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
-	Blocks          []Block           `yaml:"blocks,omitempty" mapstructure:"blocks,omitempty" json:"blocks,omitempty" validate:"dive,required"`
-	Workflows       []Workflow        `yaml:"workflows,omitempty" mapstructure:"workflows,omitempty" json:"workflows,omitempty"`
+	Name        string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	// Format: block:version
+	Dependencies    []string        `yaml:"dependencies,omitempty" mapstructure:"dependencies,omitempty" json:"dependencies,omitempty"`
+	Config          WorkspaceConfig `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
+	Blocks          []Block         `yaml:"blocks,omitempty" mapstructure:"blocks,omitempty" json:"blocks,omitempty" validate:"dive,required"`
+	Workflows       []Workflow      `yaml:"workflows,omitempty" mapstructure:"workflows,omitempty" json:"workflows,omitempty"`
 	currentBlock    *Block
 	currentAction   *Action
 	currentWorkflow *Workflow
@@ -93,13 +95,17 @@ type Workspace struct {
 	env             map[string]string
 	mounts          map[string]string
 	err             error
+	runtimeDir      string
 	Path            string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
+	Remote          string `yaml:"remote,omitempty" mapstructure:"remote,omitempty" json:"remote,omitempty"`
+	LocalPath       string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath   string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 	//overrides       []string
-	ExtraEnv      []string `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
-	ExtraMounts   []string `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
-	ContainerPath string   `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
-	containerID   string
-	loaded        bool
+	ExtraEnv    []string `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
+	ExtraMounts []string `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
+	containerID string
+	loaded      bool
+	Version     string `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
 }
 
 type WorkspaceIndex struct {
@@ -320,14 +326,14 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 	workspaceConfig.AutomaticEnv()
 
 	// Check if a full path has been given
-	workspaceConfigFilePath := filepath.Join(c.Path, workspace.Config.WorkspaceConfig)
+	workspaceConfigFilePath := filepath.Join(c.LocalPath, workspace.Config.WorkspaceConfig)
 
 	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
 		// The config file does not exist
 		// We try to look in the list of workspaces in $HOME/.polycrate/workspaces
 
 		// Assuming the "path" given is actually the name of a workspace
-		workspaceName := c.Path
+		workspaceName := c.LocalPath
 
 		log.WithFields(log.Fields{
 			"path": workspaceConfigFilePath,
@@ -343,8 +349,8 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 			}).Debugf("Found workspace in the local workspace index")
 
 			// Update the workspace config file path with the local workspace path from the index
-			c.Path = path
-			workspaceConfigFilePath = filepath.Join(c.Path, workspace.Config.WorkspaceConfig)
+			c.LocalPath = path
+			workspaceConfigFilePath = filepath.Join(c.LocalPath, workspace.Config.WorkspaceConfig)
 		}
 	}
 
@@ -369,6 +375,10 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 		c.err = err
 		return c
 	}
+
+	// set runtime dir
+	c.runtimeDir = filepath.Join(polycrateRuntimeDir, c.Name)
+
 	return c
 }
 
@@ -377,12 +387,21 @@ func (c *Workspace) load() *Workspace {
 		return c
 	}
 
+	if local {
+		c.Path = c.LocalPath
+	} else {
+		c.Path = c.ContainerPath
+	}
+
 	log.WithFields(log.Fields{
-		"path": workspace.Path,
+		"path": workspace.LocalPath,
 	}).Debugf("Loading workspace")
 
 	// Load Workspace config (e.g. workspace.poly)
 	c.loadWorkspaceConfig().Flush()
+
+	// Cleanup workspace runtime
+	c.cleanup().Flush()
 
 	// Bootstrap the workspace index
 	c.bootstrapIndex().Flush()
@@ -392,6 +411,9 @@ func (c *Workspace) load() *Workspace {
 
 	// Load all discovered blocks in the workspace
 	c.loadBlockConfigs().Flush()
+
+	// Load dependencies
+	c.loadDependencies().Flush()
 
 	// Resolve block dependencies
 	c.resolveBlockDependencies().Flush()
@@ -418,7 +440,69 @@ func (c *Workspace) load() *Workspace {
 	// Mark workspace as loaded
 	c.loaded = true
 
+	// Load sync
+	sync.Load()
+
 	return c
+}
+
+func (c *Workspace) cleanup() *Workspace {
+	// Create runtime dir
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"path":      c.runtimeDir,
+	}).Debugf("Creating runtime directory")
+
+	err := os.MkdirAll(c.runtimeDir, os.ModePerm)
+	if err != nil {
+		c.err = err
+		return c
+	}
+
+	// Purge all contents of runtime dir
+	dir, err := ioutil.ReadDir(c.runtimeDir)
+	if err != nil {
+		c.err = err
+		return c
+	}
+	for _, d := range dir {
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"path":      c.runtimeDir,
+			"file":      d.Name(),
+		}).Debugf("Cleaning runtime directory")
+		err := os.RemoveAll(filepath.Join([]string{c.runtimeDir, d.Name()}...))
+		if err != nil {
+			c.err = err
+			return c
+		}
+	}
+	return c
+}
+
+func (c *Workspace) Uninstall() error {
+	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
+	if _, err := os.Stat(c.LocalPath); os.IsNotExist(err) {
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"path":      c.LocalPath,
+		}).Debugf("Workspace directory does not exist")
+	} else {
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"path":      c.LocalPath,
+		}).Debugf("Removing workspace directory")
+		err := os.RemoveAll(c.LocalPath)
+		if err != nil {
+			return err
+		}
+	}
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"path":      c.LocalPath,
+	}).Debugf("Successfully uninstalled workspace")
+	return nil
+
 }
 
 // Resolves the 'from:' stanza of all blocks
@@ -770,7 +854,7 @@ func (c *Workspace) bootstrapMounts() *Workspace {
 	c.mounts = map[string]string{}
 
 	// Mount the Workspace
-	c.registerMount(c.Path, c.ContainerPath)
+	c.registerMount(c.LocalPath, c.ContainerPath)
 
 	// Mount the Docker Socket if possible
 	dockerSocket := "/var/run/docker.sock"
@@ -900,7 +984,7 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 
 	if local {
 		// Not in container
-		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.Path)
+		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.LocalPath)
 	} else {
 		// In container
 		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.ContainerPath)
@@ -949,8 +1033,10 @@ func (c *Workspace) SaveSnapshot() error {
 	}
 
 	if data != nil {
-		// Create a temp file
-		f, err := ioutil.TempFile("/tmp", "polycrate."+workspace.Name+".snapshot.*.yml")
+		snapshotSlug := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+		snapshotFilename := strings.Join([]string{snapshotSlug, "yml"}, ".")
+
+		f, err := workspace.getTempFile(snapshotFilename)
 		if err != nil {
 			return err
 		}
@@ -1065,6 +1151,32 @@ func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {
 	return nil
 }
 
+func (c *Workspace) Create() *Workspace {
+	// Check if a workspace with this name already exists
+	// if yes, fail
+	// Check if the directory for this workspace already exists in polycrateWorkspaceDir
+	// if yes, fail
+	// if no, create
+	// Set the new directory as workspace.Path
+	// Save the current workspace config to workspace.poly in the given directory
+	return nil
+}
+
+func (c *Workspace) Sync() *Workspace {
+
+	// Check if a remote is configured
+	// if not, fail
+	// Check if git has already been initialized
+	// if no, run git init and configure remote
+	// if yes: Check if the configured remote matches the current remote
+	// 				 if no, fail
+	// Check if the remote is ahead, even or behind
+	// Add all files of the worktree
+	// Commit with the current command (as seen from bash)
+	// Push
+	return c
+}
+
 func (c *Workspace) UpdateBlocks(args []string) error {
 	for _, arg := range args {
 		blockName, blockVersion, err := registry.resolveArg(arg)
@@ -1072,22 +1184,24 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			return err
 		}
 
-		block := c.GetBlockFromIndex(blockName)
+		block := c.getBlockByName(blockName)
 		if block != nil {
 			// Check if block already has the desired version
 			if block.Version == blockVersion {
 				log.WithFields(log.Fields{
 					"workspace":       c.Name,
 					"block":           block.Name,
+					"path":            block.Workdir.LocalPath,
 					"current_version": block.Version,
 					"desired_version": blockVersion,
-				}).Infof("Block already has desired version")
+				}).Debugf("Block is already installed")
 				return nil
 			}
 
 			log.WithFields(log.Fields{
 				"workspace":       c.Name,
 				"block":           block.Name,
+				"path":            block.Workdir.LocalPath,
 				"current_version": block.Version,
 				"desired_version": blockVersion,
 			}).Infof("Updating block")
@@ -1110,6 +1224,7 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 				log.WithFields(log.Fields{
 					"workspace":       c.Name,
 					"block":           block.Name,
+					"path":            block.Workdir.LocalPath,
 					"current_version": block.Version,
 					"desired_version": registryRelease.Version,
 				}).Infof("Block already has desired version")
@@ -1124,7 +1239,7 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			}
 
 			// Now install the wanted version
-			registryBlockDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot, blockName)
+			registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
 			registryBlockVersion := blockVersion
 
 			err = registryBlock.Install(registryBlockDir, registryBlockVersion)
@@ -1133,8 +1248,34 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			}
 
 		} else {
-			err := fmt.Errorf("Block not found: %s", blockName)
-			return err
+			if pull {
+				// If we pull the container image automatically
+				// We certainly want to install dependencies automatically
+
+				// Search block in registry
+				registryBlock, err := registry.GetBlock(blockName)
+				if err != nil {
+					return err
+				}
+
+				// Check if release exists
+				_, err = registryBlock.GetRelease(blockVersion)
+				if err != nil {
+					return err
+				}
+				// Now install the wanted version
+				registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
+				registryBlockVersion := blockVersion
+
+				err = registryBlock.Install(registryBlockDir, registryBlockVersion)
+				if err != nil {
+					return err
+				}
+
+			} else {
+				err := fmt.Errorf("Block not found: %s. Run 'polycrate block install %s' to install it.", blockName, blockName)
+				return err
+			}
 		}
 	}
 	return nil
@@ -1157,7 +1298,7 @@ func (c *Workspace) InstallBlocks(args []string) error {
 			return err
 		}
 
-		block := c.GetBlockFromIndex(blockName)
+		block := c.getBlockByName(blockName)
 		if block != nil {
 			// A block exists already
 			// Let's check if it has a workdir
@@ -1180,7 +1321,7 @@ func (c *Workspace) InstallBlocks(args []string) error {
 			} else {
 				download = true
 			}
-			block.Inspect()
+
 		} else {
 			download = true
 		}
@@ -1196,7 +1337,7 @@ func (c *Workspace) InstallBlocks(args []string) error {
 				return err
 			}
 
-			registryBlockDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot, blockName)
+			registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
 			registryBlockVersion := blockVersion
 
 			err = registryBlock.Install(registryBlockDir, registryBlockVersion)
@@ -1279,7 +1420,13 @@ func (c *Workspace) loadBlockConfigs() *Workspace {
 
 		// Set Block vars
 		loadedBlock.Workdir.LocalPath = blockPath
-		loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, filepath.Base(blockPath))
+		loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, loadedBlock.Name)
+
+		if local {
+			loadedBlock.Workdir.Path = loadedBlock.Workdir.LocalPath
+		} else {
+			loadedBlock.Workdir.Path = loadedBlock.Workdir.ContainerPath
+		}
 
 		// Check if Block exists
 		existingBlock := c.getBlockByName(loadedBlock.Name)
@@ -1334,7 +1481,7 @@ func (c *Workspace) loadBlockConfigs() *Workspace {
 }
 
 func (c *Workspace) discoverBlocks() *Workspace {
-	blocksDir := filepath.Join(workspace.Path, workspace.Config.BlocksRoot)
+	blocksDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot)
 
 	if _, err := os.Stat(blocksDir); !os.IsNotExist(err) {
 		log.WithFields(log.Fields{
@@ -1355,4 +1502,34 @@ func (c *Workspace) discoverBlocks() *Workspace {
 	}
 
 	return c
+}
+
+func (c *Workspace) loadDependencies() *Workspace {
+	// Loop through dependencies
+	// Resolve each dep into block/version
+	// Check if block already exists
+	// If yes, check if version matches
+	// If version matches, continue
+	// If version doesn't match, update
+	// If no, install
+
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+	}).Debugf("Resolving workspace dependencies")
+
+	err := c.UpdateBlocks(c.Dependencies)
+	if err != nil {
+		c.err = err
+		return c
+	}
+	return c
+}
+
+func (c *Workspace) getTempFile(filename string) (*os.File, error) {
+	fp := filepath.Join(workspace.runtimeDir, filename)
+	f, err := os.Create(fp)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }

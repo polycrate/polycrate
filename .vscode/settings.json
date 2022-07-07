@@ -9,7 +9,7 @@
     "activityBar.activeForeground": "#ff0239",
     "activityBar.inactiveForeground": "#ffffff",
     "titleBar.activeBackground": "#21013E",
-    "titleBar.activeForeground": "#fff",
+    "titleBar.activeForeground": "#fff"
   },
   "workbench.colorTheme": "Shades of Purple",
   "editor.tabSize": 2,
@@ -21,7 +21,7 @@
   "editor.formatOnPaste": true,
   "editor.formatOnSave": true,
   "editor.linkedEditing": true,
-  "editor.minimap.enabled": false, 
+  "editor.minimap.enabled": false,
   "explorer.confirmDragAndDrop": false,
   "explorer.confirmDelete": false,
   "git.autofetch": true,
@@ -30,5 +30,5 @@
   "python.formatting.provider": "black",
   "terminal.integrated.tabs.title": "${cwdFolder}",
   "terminal.integrated.tabs.description": "${task}${separator}${local}${separator}${cwdFolder}",
-  "workbench.editor.highlightModifiedTabs": true,
+  "workbench.editor.highlightModifiedTabs": true
 }

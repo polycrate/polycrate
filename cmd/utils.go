@@ -15,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/gosimple/slug"
+
 	goErrors "errors"
 
 	"os"
@@ -252,7 +254,7 @@ func DownloadFile(url string, fp string) error {
 		return err
 	}
 
-	log.Debug("Downloaded file from ", url, " to ", fp)
+	//log.Debug("Downloaded file from ", url, " to ", fp)
 
 	return nil
 }
@@ -312,7 +314,7 @@ func loadInventory() {
 
 	// Check if inventory.yml exists
 
-	_inventoryPath := filepath.Join(workspace.Path, "inventory.yml")
+	_inventoryPath := filepath.Join(workspace.LocalPath, "inventory.yml")
 	if _, err := os.Stat(_inventoryPath); os.IsNotExist(err) {
 		log.Fatal("inventory.yml not found. Please add an inventory.")
 	} else {
@@ -443,31 +445,21 @@ func promptYesNo(pc promptContent) string {
 	return result
 }
 
-func validateMetadataName(fl validator.FieldLevel) bool {
-	name := fl.Field().String()
-
+func ValidateMetaDataName(name string) bool {
 	regex := regexp.MustCompile("^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$")
 	// (?!.*--.*)^(?!.*__.*)
 
-	if regex.MatchString(name) {
-		// check if there's any __ or -- or //
-		//r2 := regexp.MustCompile(string("(--|\\/\\/|__)+"))
-		log.WithFields(log.Fields{
-			"validated": name,
-			"regex":     regex.String(),
-		}).Debugf("Name validation successful")
-	} else {
-		log.WithFields(log.Fields{
-			"validated": name,
-			"regex":     regex.String(),
-		}).Warnf("Name validation failed")
-		return false
-	}
-	return true
+	return regex.MatchString(name)
+}
+
+func validateMetadataName(fl validator.FieldLevel) bool {
+	name := fl.Field().String()
+
+	return ValidateMetaDataName(name)
 }
 
 func discoverWorkspaces() error {
-	workspacesDir := filepath.Join(polycrateHome, "workspaces")
+	workspacesDir := polycrateWorkspaceDir
 
 	if _, err := os.Stat(workspacesDir); !os.IsNotExist(err) {
 		log.WithFields(log.Fields{
@@ -487,26 +479,77 @@ func discoverWorkspaces() error {
 
 	for _, workspacePath := range workspacePaths {
 		w := Workspace{}
-		w.Path = workspacePath
+		w.LocalPath = workspacePath
 		log.WithFields(log.Fields{
-			"path": w.Path,
+			"path": w.LocalPath,
 		}).Debugf("Loading workspace")
 		w.loadWorkspaceConfig()
 
 		if w.err != nil {
 			log.WithFields(log.Fields{
-				"path":      w.Path,
+				"path":      w.LocalPath,
 				"workspace": w.Name,
+				"error":     w.err,
 			}).Warnf("Failed to load workspace")
 		} else {
 			log.WithFields(log.Fields{
-				"path":      w.Path,
+				"path":      w.LocalPath,
 				"workspace": w.Name,
 			}).Debugf("Loaded workspace")
 
-			localWorkspaceIndex[w.Name] = w.Path
+			localWorkspaceIndex[w.Name] = w.LocalPath
 		}
 	}
 
 	return nil
+}
+
+func slugify(args []string) string {
+	preSlug := strings.Join(args, "-")
+	slug := slug.Make(preSlug)
+
+	return slug
+}
+
+func NewGitlabSyncProvider() PolycrateProvider {
+	return config.Gitlab
+}
+
+func getSyncProvider() PolycrateProvider {
+	if config.Sync.Provider == "gitlab" {
+		var pf SyncProviderFactory = NewGitlabSyncProvider
+		provider := pf()
+
+		log.WithFields(log.Fields{
+			"provider": "gitlab",
+		}).Debugf("Loading sync provider")
+		return provider
+	}
+	return nil
+}
+
+func NewSync(path string) (*PolycrateSync, error) {
+	log.WithFields(log.Fields{
+		"path": path,
+	}).Debugf("Initializing Sync")
+	s := PolycrateSync{}
+
+	// Check if workspace.Remote is configured
+	// if workspace.Remote == "" {
+	// 	return nil, errors.New("workspace.remote needs to be configured for sync to work")
+	// }
+
+	//s.LoadProvider()
+
+	// Upsert-style behaviour - load OR create the repo
+	// - Checks if a repository exists at workspce.LocalPath
+	// - Checks if the repository's remote is equal to the workspace's remote
+	// - Updates the repository remote if not
+	// - Creates a locl repository if none exists
+	// - Creates a remote repository at the configured provider if configured and none exists
+	// - configures remote from created project
+	// - initializes the repository with the configured remote
+	//s.LoadRepo().Flush()
+
+	return &s, nil
 }

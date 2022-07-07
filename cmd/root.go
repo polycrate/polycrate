@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -59,9 +61,13 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", false, "Make the container interactive and accept input from stdin. Like '-it' for Docker.")
 	rootCmd.PersistentFlags().BoolVarP(&build, "build", "b", true, "When this is true, a custom image will be built from the workspace Dockerfile. This image will then be used to run the action. Defaults to true.")
 	rootCmd.PersistentFlags().BoolVarP(&snapshot, "snapshot", "", false, "Only dump the workspace snapshot, do not run anything.")
+	rootCmd.PersistentFlags().StringVar(&editor, "editor", DefaultEditor, "Editor to use to open the workspace")
+
+	rootCmd.PersistentFlags().StringVar(&config.Gitlab.Url, "gitlab-url", GitLabDefaultUrl, "Default GitLab API endpoint")
+	rootCmd.PersistentFlags().StringVar(&config.Sync.DefaultBranch, "git-default-branch", GitDefaultBranch, "Default git branch")
 
 	//rootCmd.PersistentFlags().StringSliceVarP(&workspace.overrides, "set", "s", []string{}, "Workspace ovrrides")
-	rootCmd.PersistentFlags().StringVarP(&workspace.Path, "workspace", "w", cwd, "The path to the workspace. Defaults to $PWD")
+	rootCmd.PersistentFlags().StringVarP(&workspace.LocalPath, "workspace", "w", cwd, "The path to the workspace. Defaults to $PWD")
 	rootCmd.PersistentFlags().StringVar(&workspace.ContainerPath, "container-root", WorkspaceContainerRoot, "Workspace container root directory.")
 	rootCmd.PersistentFlags().StringVar(&workspace.Config.WorkspaceConfig, "workspace-config", WorkspaceConfigFile, "The name of the config file that holds the workspace config.")
 	rootCmd.PersistentFlags().StringVar(&workspace.Config.Image.Reference, "image-ref", WorkspaceConfigImageRef, "Workspace image reference. Defaults to the official Polycrate image")
@@ -82,6 +88,50 @@ func init() {
 }
 
 func initConfig() {
+	// Load Polycrate config
+	var polycrateConfig = viper.New()
+
+	// Match CLI Flags with Config options
+	// CLI Flags have precedence
+	polycrateConfig.BindPFlag("gitlab.url", rootCmd.Flags().Lookup("gitlab-url"))
+	// workspaceConfig.BindPFlag("config.image.reference", rootCmd.Flags().Lookup("image-ref"))
+	// workspaceConfig.BindPFlag("config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
+	// workspaceConfig.BindPFlag("config.blocksconfig", rootCmd.Flags().Lookup("blocks-config"))
+	// workspaceConfig.BindPFlag("config.workflowsroot", rootCmd.Flags().Lookup("workflows-root"))
+	// workspaceConfig.BindPFlag("config.workspaceconfig", rootCmd.Flags().Lookup("workspace-config"))
+	// workspaceConfig.BindPFlag("config.artifactsroot", rootCmd.Flags().Lookup("artifacts-root"))
+	// workspaceConfig.BindPFlag("config.containerroot", rootCmd.Flags().Lookup("container-root"))
+	// workspaceConfig.BindPFlag("config.remoteroot", rootCmd.Flags().Lookup("remote-root"))
+	// workspaceConfig.BindPFlag("config.sshprivatekey", rootCmd.Flags().Lookup("ssh-private-key"))
+	// workspaceConfig.BindPFlag("config.sshpublickey", rootCmd.Flags().Lookup("ssh-public-key"))
+	// workspaceConfig.BindPFlag("config.dockerfile", rootCmd.Flags().Lookup("dockerfile"))
+
+	polycrateConfig.SetEnvPrefix(EnvPrefix)
+	polycrateConfig.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	polycrateConfig.AutomaticEnv()
+
+	polycrateConfig.SetConfigType("yaml")
+	polycrateConfig.SetConfigFile(polycrateConfigFilePath)
+
+	if _, err := os.Stat(polycrateConfigFilePath); os.IsNotExist(err) {
+		// Seems config wasn't found
+		// Let's initialize it
+		CreateDir(polycrateHome)
+		CreateFile(polycrateConfigFilePath)
+	}
+	err := polycrateConfig.ReadInConfig()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	if err = polycrateConfig.Unmarshal(&config); err != nil {
+		log.Fatal(err)
+	}
+
+	if err = config.validate(); err != nil {
+		log.Fatal(err)
+	}
+
 	// Goroutine to capture signals (SIGINT, etc)
 	// Exits with exit code 1 when ctrl-c is captured
 	signals := make(chan os.Signal, 1)
@@ -108,7 +158,6 @@ func initConfig() {
 		logrusLogLevel = "Info"
 	}
 
-	var err error
 	logrusLevel, err = log.ParseLevel(logrusLogLevel)
 	if err != nil {
 		logrusLevel = log.InfoLevel

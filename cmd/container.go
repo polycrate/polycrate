@@ -34,7 +34,7 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 		Dockerfile: dockerfilePath,
 		Tags:       tags,
 	}
-	buildCtx, _ := archive.TarWithOptions(workspace.Path, &archive.TarOptions{})
+	buildCtx, _ := archive.TarWithOptions(workspace.LocalPath, &archive.TarOptions{})
 
 	resp, err := cli.ImageBuild(ctx, buildCtx, buildOpts)
 	if err != nil {
@@ -107,19 +107,20 @@ func pruneContainer(cli *client.Client, id string) error {
 	if err := cli.ContainerRemove(ctx, id, removeOptions); err != nil {
 		return fmt.Errorf("unable to remove container: %s", err)
 	}
-	log.Debugf("Removed container with id %s", id)
 	return nil
 }
 
-func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig) error {
+func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig, name string) error {
 	ctx := context.Background()
 	inout := make(chan []byte)
 
-	resp, err := cli.ContainerCreate(ctx, cc, hc, nil, nil, "")
+	log.WithFields(log.Fields{
+		"name": name,
+	}).Debugf("Creating container")
+	resp, err := cli.ContainerCreate(ctx, cc, hc, nil, nil, name)
 	if err != nil {
 		return err
 	}
-	log.Debugf("Created container with ID %s", resp.ID)
 
 	// Save container id to the workspace
 	workspace.containerID = resp.ID
@@ -134,10 +135,16 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 	var waiter types.HijackedResponse
 
 	if !interactive {
-		log.Debugf("Attaching in non-interactive mode")
+		log.WithFields(log.Fields{
+			"id":   resp.ID,
+			"name": name,
+		}).Debugf("Attaching non-interactively")
 		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
 	} else {
-		log.Warnf("Container in interactive mode - input will be forwarded")
+		log.WithFields(log.Fields{
+			"id":   resp.ID,
+			"name": name,
+		}).Debugf("Attaching interactively (-it) - input will be forwarded")
 		containerAttachOptions.Stdin = true
 		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
 	}
@@ -169,10 +176,13 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 		}
 	}(waiter.Conn)
 
+	log.WithFields(log.Fields{
+		"id":   resp.ID,
+		"name": name,
+	}).Debugf("Starting container")
 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return err
 	}
-	log.Debugf("Started container with id %s", resp.ID)
 
 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
@@ -183,6 +193,10 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 	case <-statusCh:
 	}
 
+	log.WithFields(log.Fields{
+		"id":   resp.ID,
+		"name": name,
+	}).Debugf("Removing container")
 	// Stop and remove the container
 	if err := pruneContainer(cli, resp.ID); err != nil {
 		return err

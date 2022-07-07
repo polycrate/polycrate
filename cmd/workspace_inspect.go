@@ -22,7 +22,7 @@ import (
 // installCmd represents the install command
 var workspaceInspectCmd = &cobra.Command{
 	Use:   "inspect",
-	Short: "Inspect an Action",
+	Short: "Inspect the workspace",
 	Long:  ``,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {

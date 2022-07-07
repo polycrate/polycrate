@@ -20,7 +20,6 @@ import (
 	"bytes"
 	goErrors "errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,7 +102,7 @@ func (c *Action) RunContainer() error {
 	// Check if a Dockerfile is configured in the Workspace
 	if workspace.Config.Dockerfile != "" {
 		// Create the filepath
-		dockerfilePath := filepath.Join(workspace.Path, workspace.Config.Dockerfile)
+		dockerfilePath := filepath.Join(workspace.LocalPath, workspace.Config.Dockerfile)
 
 		// Check if the file exists
 		if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
@@ -270,7 +269,9 @@ func (c *Action) RunContainer() error {
 		Mounts: containerMounts,
 	}
 
-	err = runContainer(cli, cc, hc)
+	containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+
+	err = runContainer(cli, cc, hc, containerName)
 	return err
 }
 
@@ -282,6 +283,7 @@ func (c *Action) Run() error {
 	}).Infof("Running action")
 
 	// 3. Determine inventory path
+	log.Debugf("Current block: %s", workspace.currentBlock.Name)
 	log.WithFields(log.Fields{
 		"workspace": c.Name,
 		"action":    c.Name,
@@ -301,6 +303,7 @@ func (c *Action) Run() error {
 
 	// Save execution script
 	err := c.saveExecutionScript()
+
 	if err != nil {
 		return err
 	}
@@ -327,6 +330,9 @@ func (c *Action) Run() error {
 			if !local {
 				err := c.RunContainer()
 				return err
+			} else {
+				err := fmt.Errorf("'local' mode not yet implemented")
+				return err
 			}
 		}
 	}
@@ -337,12 +343,15 @@ func (c *Action) saveExecutionScript() error {
 	script := c.GetExecutionScript()
 	snapshot := workspace.GetSnapshot()
 
+	scriptSlug := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+	scriptFilename := strings.Join([]string{scriptSlug, "sh"}, ".")
+
 	if script != nil {
-		f, err := ioutil.TempFile("/tmp", "polycrate."+workspace.Name+".script.*.sh")
+		f, err := workspace.getTempFile(scriptFilename)
 		if err != nil {
-			log.Error(err)
 			return err
 		}
+
 		log.Debugf("Script not empty, saving to %s", f.Name())
 		datawriter := bufio.NewWriter(f)
 

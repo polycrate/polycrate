@@ -22,11 +22,17 @@ const WorkspaceContainerRoot string = "/workspace"
 const WorkspaceConfigSshPublicKey string = "id_rsa.pub"
 const WorkspaceConfigSshPrivateKey string = "id_rsa"
 const WorkspaceConfigFile string = "workspace.poly"
+
 const BlocksConfigFile string = "block.poly"
 const EnvPrefix string = "polycrate"
 const RegistryUrl string = "https://polycrate.io"
+const DefaultEditor string = "code"
 const RegistryApiBase string = "wp-json/wp/v2"
 const defaultFailedCode int = 1
+
+const GitLabDefaultUrl string = "https://gitlab.com"
+
+const GitDefaultBranch string = "main"
 
 // Global variable to decide if an action runs local or in the container
 // Can be overriden with the --local flag
@@ -47,6 +53,9 @@ var force bool
 // Global variable to decide if the container should run in interactive mode (i.e. `-it`)
 // Can be overriden with the --interactive flag
 var interactive bool
+
+// Global variable to configure the editor used to open files
+var editor string
 
 // Global variable to decide if the container should be built from the workspace Dockerfile (should it exist)
 // Can be overriden with the --build flag
@@ -79,6 +88,10 @@ var version string = "latest"
 var commit string
 var date string
 
+// Global sync variable
+// This variable holds the sync struct
+var sync Sync
+
 // Global workspace variable
 // This variable holds the allmighty workspace struct
 var workspace Workspace
@@ -101,3 +114,7 @@ var inventoryConfigObject = viper.New()
 
 var home, _ = os.UserHomeDir()
 var polycrateHome = filepath.Join(home, ".polycrate")
+var polycrateWorkspaceDir = filepath.Join(polycrateHome, "workspaces")
+var polycrateRuntimeDir = filepath.Join(polycrateHome, "run")
+var polycrateConfigFilePath = filepath.Join(polycrateHome, "polycrate.yml")
+var config PolycrateConfig

@@ -51,22 +51,28 @@ func init() {
 
 type BlockWorkdir struct {
 	exists        bool
+	Path          string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockKubeconfig struct {
+	Path          string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	From          string `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
+	Filename      string `yaml:"filename,omitempty" mapstructure:"filename,omitempty" json:"filename,omitempty"`
 	exists        bool
 	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockInventory struct {
+	Path          string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	From          string `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
+	Filename      string `yaml:"filename,omitempty" mapstructure:"filename,omitempty" json:"filename,omitempty"`
 	exists        bool
 	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockArtifacts struct {
+	Path          string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
@@ -91,25 +97,19 @@ type Block struct {
 }
 
 func (c *Block) getInventoryPath() string {
+	log.Debugf("Remote inventory: %s", c.Inventory.From)
 	if c.Inventory.From != "" {
 		// Take the inventory from another Block
+		log.Debugf("Remote inventory: %s", c.Inventory.From)
 		inventorySourceBlock := workspace.getBlockByName(c.Inventory.From)
 		if inventorySourceBlock != nil {
 			if inventorySourceBlock.Inventory.exists {
-				if local {
-					return inventorySourceBlock.Inventory.LocalPath
-				} else {
-					return inventorySourceBlock.Inventory.ContainerPath
-				}
+				return inventorySourceBlock.Inventory.Path
 			}
 		}
 	} else {
 		if c.Inventory.exists {
-			if local {
-				return c.Inventory.LocalPath
-			} else {
-				return c.Inventory.ContainerPath
-			}
+			return c.Inventory.Path
 		}
 	}
 	return ""
@@ -291,7 +291,14 @@ func (c *Block) Inspect() {
 
 func (c *Block) LoadInventory() {
 	// Locate "inventory.yml" in blockArtifactsDir
-	blockInventoryFile := filepath.Join(c.Artifacts.LocalPath, "inventory.yml")
+
+	var blockInventoryFile string
+	if c.Inventory.Filename != "" {
+		blockInventoryFile = filepath.Join(c.Artifacts.LocalPath, c.Inventory.Filename)
+	} else {
+		blockInventoryFile = filepath.Join(c.Artifacts.LocalPath, "inventory.yml")
+	}
+
 	log.WithFields(log.Fields{
 		"path":      blockInventoryFile,
 		"block":     c.Name,
@@ -302,7 +309,19 @@ func (c *Block) LoadInventory() {
 		// File exists
 		c.Inventory.exists = true
 		c.Inventory.LocalPath = blockInventoryFile
-		c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.yml")
+
+		if c.Inventory.Filename != "" {
+			c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, c.Inventory.Filename)
+		} else {
+			c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.yml")
+		}
+
+		if local {
+			c.Inventory.Path = c.Inventory.LocalPath
+		} else {
+			c.Inventory.Path = c.Inventory.ContainerPath
+		}
+
 		log.WithFields(log.Fields{
 			"path":      blockInventoryFile,
 			"block":     c.Name,
@@ -316,13 +335,30 @@ func (c *Block) LoadInventory() {
 
 func (c *Block) LoadKubeconfig() {
 	// Locate "kubeconfig.yml" in blockArtifactsDir
-	blockKubeconfigFile := filepath.Join(c.Artifacts.LocalPath, "kubeconfig.yml")
+	var blockKubeconfigFile string
+	if c.Kubeconfig.Filename != "" {
+		blockKubeconfigFile = filepath.Join(c.Artifacts.LocalPath, c.Kubeconfig.Filename)
+	} else {
+		blockKubeconfigFile = filepath.Join(c.Artifacts.LocalPath, "kubeconfig.yml")
+	}
 
 	if _, err := os.Stat(blockKubeconfigFile); !os.IsNotExist(err) {
 		// File exists
 		c.Kubeconfig.exists = true
 		c.Kubeconfig.LocalPath = blockKubeconfigFile
-		c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
+
+		if c.Kubeconfig.Filename != "" {
+			c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, c.Kubeconfig.Filename)
+		} else {
+			c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
+		}
+
+		if local {
+			c.Kubeconfig.Path = c.Kubeconfig.LocalPath
+		} else {
+			c.Kubeconfig.Path = c.Kubeconfig.ContainerPath
+		}
+
 		log.Debug("Found Block Kubeconfig at " + blockKubeconfigFile)
 	} else {
 		c.Kubeconfig.exists = false
@@ -332,9 +368,15 @@ func (c *Block) LoadKubeconfig() {
 
 func (c *Block) LoadArtifacts() error {
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
-	c.Artifacts.LocalPath = filepath.Join(workspace.Path, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, c.Name)
+	c.Artifacts.LocalPath = filepath.Join(workspace.LocalPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, c.Name)
 	// e.g. /workspace/artifacts/blocks/block-1
 	c.Artifacts.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, c.Name)
+
+	if local {
+		c.Artifacts.Path = c.Artifacts.LocalPath
+	} else {
+		c.Artifacts.Path = c.Artifacts.ContainerPath
+	}
 
 	// Check if the local artifacts directory for this Block exists
 	if _, err := os.Stat(c.Artifacts.LocalPath); os.IsNotExist(err) {
@@ -350,12 +392,6 @@ func (c *Block) LoadArtifacts() error {
 }
 
 func (c *Block) Uninstall(prune bool) error {
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-		"block":     c.Name,
-		"version":   c.Version,
-	}).Debugf("Successfully uninstalled block from workspace")
-
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
 	if _, err := os.Stat(c.Workdir.LocalPath); os.IsNotExist(err) {
 		log.WithFields(log.Fields{
@@ -364,36 +400,32 @@ func (c *Block) Uninstall(prune bool) error {
 			"path":      c.Workdir.LocalPath,
 		}).Debugf("Block directory does not exist")
 	} else {
-		err := os.RemoveAll(c.Workdir.LocalPath)
-		if err != nil {
-			return err
-		}
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
 			"block":     c.Name,
 			"path":      c.Workdir.LocalPath,
-		}).Debugf("Block directory removed")
+		}).Debugf("Removing block directory")
+
+		err := os.RemoveAll(c.Workdir.LocalPath)
+		if err != nil {
+			return err
+		}
 
 		if prune {
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
 				"block":     c.Name,
-				"path":      c.Workdir.LocalPath,
+				"path":      c.Artifacts.LocalPath,
 			}).Debugf("Pruning artifacts")
 
 			err := os.RemoveAll(c.Artifacts.LocalPath)
 			if err != nil {
 				return err
 			}
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-				"block":     c.Name,
-				"path":      c.Artifacts.LocalPath,
-			}).Debugf("Block artifacts directory removed")
 		}
 	}
 	log.WithFields(log.Fields{
-		"workspace": c.Name,
+		"workspace": workspace.Name,
 		"block":     c.Name,
 		"version":   c.Version,
 	}).Debugf("Successfully uninstalled block from workspace")

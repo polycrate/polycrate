@@ -98,7 +98,7 @@ func connectWithSSH(node string) {
 		log.Fatal("ansible_host not set")
 	}
 
-	sshPrivateKey := filepath.Join(workspace.Path, "id_rsa")
+	sshPrivateKey := filepath.Join(workspace.LocalPath, "id_rsa")
 
 	args := []string{
 		"-l",
