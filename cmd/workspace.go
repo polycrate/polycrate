@@ -217,10 +217,19 @@ func (c *Workspace) RunAction(address string) *Workspace {
 			return c
 		}
 
-		err := action.Run()
-		if err != nil {
-			c.err = err
-			return c
+		// Write log here
+		if snapshot {
+			c.Snapshot()
+		} else {
+			sync.Log(fmt.Sprintf("Running action %s of block %s", action.Name, block.Name)).Flush()
+			err := action.Run()
+			if err != nil {
+				c.err = err
+
+				sync.Log(fmt.Sprintf("Action %s of block %s failed", action.Name, block.Name)).Flush()
+				return c
+			}
+			sync.Log(fmt.Sprintf("Action %s of block %s was successful", action.Name, block.Name)).Flush()
 		}
 	} else {
 		c.err = goErrors.New("cannot find Action with address " + address)

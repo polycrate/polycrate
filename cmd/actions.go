@@ -89,7 +89,7 @@ func (c *Action) RunContainer() error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 	log.WithFields(log.Fields{
 		"workspace": workspace.Name,

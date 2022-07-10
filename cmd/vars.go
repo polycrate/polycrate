@@ -68,6 +68,9 @@ var build bool
 // logger of the buildContainerImage() function
 var logrusLevel log.Level
 
+// Global history variable
+var history HistoryLog
+
 // Global variable for the current working directory
 var cwd, _ = os.Getwd()
 

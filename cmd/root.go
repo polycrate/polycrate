@@ -43,6 +43,11 @@ Learn more at https://docs.polycrate.io
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		log.Warnf("Adding cmd to history: %s", cmd.Name())
+		sync.History.cmd = cmd
+
+	},
 	Version: version,
 }
 
@@ -66,6 +71,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&config.Gitlab.Url, "gitlab-url", GitLabDefaultUrl, "Default GitLab API endpoint")
 	rootCmd.PersistentFlags().StringVar(&config.Gitlab.Transport, "gitlab-transport", GitLabDefaultTransport, "Default GitLab repository action transport (ssh|http)")
 	rootCmd.PersistentFlags().StringVar(&config.Sync.DefaultBranch, "git-default-branch", GitDefaultBranch, "Default git branch")
+	rootCmd.PersistentFlags().StringVar(&workspace.SyncOptions.Local.Branch.Name, "sync-local-branch", GitDefaultBranch, "Default git branch")
+	rootCmd.PersistentFlags().StringVar(&workspace.SyncOptions.Remote.Branch.Name, "sync-remote-branch", GitDefaultBranch, "Default git branch")
+	rootCmd.PersistentFlags().StringVar(&workspace.SyncOptions.Remote.Name, "sync-remote-name", GitDefaultRemote, "Default git remote")
 
 	//rootCmd.PersistentFlags().StringSliceVarP(&workspace.overrides, "set", "s", []string{}, "Workspace ovrrides")
 	rootCmd.PersistentFlags().StringVarP(&workspace.LocalPath, "workspace", "w", cwd, "The path to the workspace. Defaults to $PWD")
@@ -181,5 +189,4 @@ func initConfig() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 }
