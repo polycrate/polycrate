@@ -96,10 +96,10 @@ type Workspace struct {
 	mounts          map[string]string
 	err             error
 	runtimeDir      string
-	Path            string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
-	Remote          string `yaml:"remote,omitempty" mapstructure:"remote,omitempty" json:"remote,omitempty"`
-	LocalPath       string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
-	ContainerPath   string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
+	Path            string      `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
+	SyncOptions     SyncOptions `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
+	LocalPath       string      `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath   string      `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 	//overrides       []string
 	ExtraEnv    []string `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
 	ExtraMounts []string `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
@@ -351,6 +351,9 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 			// Update the workspace config file path with the local workspace path from the index
 			c.LocalPath = path
 			workspaceConfigFilePath = filepath.Join(c.LocalPath, workspace.Config.WorkspaceConfig)
+		} else {
+			c.err = fmt.Errorf("couldn't find workspace config at %s", workspaceConfigFilePath)
+			return c
 		}
 	}
 
@@ -359,11 +362,13 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 
 	err := workspaceConfig.MergeInConfig()
 	if err != nil {
-		log.Warnf("Couldn't find workspace config at %s: %s", workspaceConfigFilePath, err.Error())
-		log.Warnf("Creating ad-hoc workspace with name %s", filepath.Base(cwd))
+		// log.Warnf("Couldn't find workspace config at %s: %s", workspaceConfigFilePath, err.Error())
+		// log.Warnf("Creating ad-hoc workspace with name %s", filepath.Base(cwd))
 
-		workspaceConfig.SetDefault("name", filepath.Base(cwd))
-		workspaceConfig.SetDefault("description", "Ad-hoc Workspace in "+cwd)
+		// workspaceConfig.SetDefault("name", filepath.Base(cwd))
+		// workspaceConfig.SetDefault("description", "Ad-hoc Workspace in "+cwd)
+		c.err = err
+		return c
 	}
 
 	if err := workspaceConfig.Unmarshal(&c); err != nil {
@@ -379,6 +384,71 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 	// set runtime dir
 	c.runtimeDir = filepath.Join(polycrateRuntimeDir, c.Name)
 
+	return c
+}
+
+func (c *Workspace) updateConfig(path string, value string) *Workspace {
+	var sideloadConfig = viper.New()
+	//var sideloadStruct Workspace
+
+	// Check if a full path has been given
+	workspaceConfigFilePath := filepath.Join(c.LocalPath, workspace.Config.WorkspaceConfig)
+
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"key":       path,
+		"value":     value,
+		"path":      workspaceConfigFilePath,
+	}).Debugf("Updating workspace config")
+
+	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
+		c.err = fmt.Errorf("couldn't find workspace config at %s: %s", workspaceConfigFilePath, err)
+		return c
+	}
+
+	yamlFile, err := ioutil.ReadFile(workspaceConfigFilePath)
+	if err != nil {
+		c.err = err
+		return c
+	}
+
+	sideloadConfig.SetConfigType("yaml")
+	sideloadConfig.SetConfigName("workspace")
+	sideloadConfig.SetConfigFile(workspaceConfigFilePath)
+	//sideloadConfig.ReadInConfig()
+
+	err = sideloadConfig.ReadConfig(bytes.NewBuffer(yamlFile))
+	if err != nil {
+		c.err = err
+		return c
+	}
+
+	// Update here
+	sideloadConfig.Set(path, value)
+
+	// if err := sideloadConfig.Unmarshal(&sideloadStruct); err != nil {
+	// 	c.err = err
+	// 	return c
+	// }
+
+	// if err := sideloadStruct.validate(); err != nil {
+	// 	c.err = err
+	// 	return c
+	// }
+
+	// Write back
+	s := sideloadConfig.AllSettings()
+	bs, err := yaml.Marshal(s)
+	if err != nil {
+		c.err = err
+		return c
+	}
+
+	err = ioutil.WriteFile(workspaceConfigFilePath, bs, 0)
+	if err != nil {
+		c.err = err
+		return c
+	}
 	return c
 }
 
@@ -1163,7 +1233,7 @@ func (c *Workspace) Create() *Workspace {
 }
 
 func (c *Workspace) Sync() *Workspace {
-
+	sync.Sync("").Flush()
 	// Check if a remote is configured
 	// if not, fail
 	// Check if git has already been initialized

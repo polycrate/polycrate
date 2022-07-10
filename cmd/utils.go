@@ -116,6 +116,43 @@ func RunCommand(name string, args ...string) (exitCode int, err error) {
 	return exitCode, err
 }
 
+func RunCommandWithOutput(name string, args ...string) (exitCode int, output string, err error) {
+	log.Debug("Running command: ", name, " ", strings.Join(args, " "))
+
+	var outb, errb bytes.Buffer
+
+	cmd := exec.Command(name, args...)
+
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, workspace.DumpEnv()...)
+
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+
+	err = cmd.Run()
+
+	if err != nil {
+		// try to get the exit code
+		if exitError, ok := err.(*exec.ExitError); ok {
+			ws := exitError.Sys().(syscall.WaitStatus)
+			exitCode = ws.ExitStatus()
+		} else {
+			// This will happen (in OSX) if `name` is not available in $PATH,
+			// in this situation, exit code could not be get, and stderr will be
+			// empty string very likely, so we use the default fail code, and format err
+			// to string and set to stderr
+			log.Printf("Could not get exit code for failed program: %v, %v", name, args)
+			exitCode = defaultFailedCode
+		}
+	} else {
+		// success, exitCode should be 0 if go is ok
+		ws := cmd.ProcessState.Sys().(syscall.WaitStatus)
+		exitCode = ws.ExitStatus()
+	}
+
+	return exitCode, string(outb.String()), err
+}
+
 func ToPathSlice(t reflect.Value, name string, dst []string) []string {
 	typeName := t.Type().Name()
 	if typeName != "" {

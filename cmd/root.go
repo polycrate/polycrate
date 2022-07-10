@@ -64,6 +64,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&editor, "editor", DefaultEditor, "Editor to use to open the workspace")
 
 	rootCmd.PersistentFlags().StringVar(&config.Gitlab.Url, "gitlab-url", GitLabDefaultUrl, "Default GitLab API endpoint")
+	rootCmd.PersistentFlags().StringVar(&config.Gitlab.Transport, "gitlab-transport", GitLabDefaultTransport, "Default GitLab repository action transport (ssh|http)")
 	rootCmd.PersistentFlags().StringVar(&config.Sync.DefaultBranch, "git-default-branch", GitDefaultBranch, "Default git branch")
 
 	//rootCmd.PersistentFlags().StringSliceVarP(&workspace.overrides, "set", "s", []string{}, "Workspace ovrrides")

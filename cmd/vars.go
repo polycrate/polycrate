@@ -31,8 +31,10 @@ const RegistryApiBase string = "wp-json/wp/v2"
 const defaultFailedCode int = 1
 
 const GitLabDefaultUrl string = "https://gitlab.com"
+const GitLabDefaultTransport string = "ssh"
 
 const GitDefaultBranch string = "main"
+const GitDefaultRemote string = "origin"
 
 // Global variable to decide if an action runs local or in the container
 // Can be overriden with the --local flag
