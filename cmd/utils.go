@@ -528,13 +528,19 @@ func discoverWorkspaces() error {
 				"workspace": w.Name,
 				"error":     w.err,
 			}).Warnf("Failed to load workspace")
+			return w.err
 		} else {
 			log.WithFields(log.Fields{
 				"path":      w.LocalPath,
 				"workspace": w.Name,
 			}).Debugf("Loaded workspace")
 
+			if localWorkspaceIndex[w.Name] != "" {
+				err := fmt.Errorf("Workspace already exists: %s", w.LocalPath)
+				return err
+			}
 			localWorkspaceIndex[w.Name] = w.LocalPath
+
 		}
 	}
 

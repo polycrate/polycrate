@@ -125,6 +125,15 @@ type WorkspaceSnapshot struct {
 	Mounts    map[string]string `yaml:"mounts,omitempty" mapstructure:"mounts,omitempty" json:"mounts,omitempty"`
 }
 
+func (c *Workspace) CreateSshKeys() *Workspace {
+	err := CreateSSHKeys()
+	if err != nil {
+		c.err = err
+		return c
+	}
+	return c
+}
+
 func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
 	// create empty map to hold the flattened keys
 	var jsonMap map[string]interface{}
@@ -234,6 +243,9 @@ func (c *Workspace) RunAction(address string) *Workspace {
 	} else {
 		c.err = goErrors.New("cannot find Action with address " + address)
 		return c
+	}
+	if sync.Options.Enabled && sync.Options.Auto {
+		sync.Sync().Flush()
 	}
 	return c
 }
@@ -396,6 +408,24 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 	return c
 }
 
+func (c *Workspace) saveWorkspace(path string) *Workspace {
+	workspaceConfigFilePath := filepath.Join(path, workspace.Config.WorkspaceConfig)
+
+	if _, err := os.Stat(workspaceConfigFilePath); !os.IsNotExist(err) {
+		c.err = fmt.Errorf("config file already exists: %s", workspaceConfigFilePath)
+		return c
+	}
+
+	yamlBytes, err := yaml.Marshal(c)
+
+	err = ioutil.WriteFile(workspaceConfigFilePath, yamlBytes, 0)
+	if err != nil {
+		c.err = err
+		return c
+	}
+	return c
+}
+
 func (c *Workspace) updateConfig(path string, value string) *Workspace {
 	var sideloadConfig = viper.New()
 	//var sideloadStruct Workspace
@@ -520,7 +550,10 @@ func (c *Workspace) load() *Workspace {
 	c.loaded = true
 
 	// Load sync
-	sync.Load()
+	sync.Load().Flush()
+	if sync.Options.Enabled && sync.Options.Auto {
+		sync.Sync().Flush()
+	}
 
 	return c
 }
@@ -1231,18 +1264,57 @@ func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {
 }
 
 func (c *Workspace) Create() *Workspace {
+	workspacePath := filepath.Join(polycrateWorkspaceDir, c.Name)
+
 	// Check if a workspace with this name already exists
-	// if yes, fail
+	if localWorkspaceIndex[c.Name] != "" {
+		// We found a workspace with that name in the index
+
+		c.err = fmt.Errorf("workspace already exists: %s", localWorkspaceIndex[c.Name])
+		return c
+	}
+
 	// Check if the directory for this workspace already exists in polycrateWorkspaceDir
-	// if yes, fail
-	// if no, create
-	// Set the new directory as workspace.Path
-	// Save the current workspace config to workspace.poly in the given directory
-	return nil
+	if _, err := os.Stat(workspacePath); !os.IsNotExist(err) {
+		// Directory already exists
+		c.err = fmt.Errorf("workspace directory already exists: %s", workspacePath)
+		return c
+	} else {
+		err := CreateDir(workspacePath)
+		if err != nil {
+			c.err = err
+			return c
+		}
+
+		// Set the new directory as workspace.Path
+		c.LocalPath = workspacePath
+	}
+	// Save a new workspace config to workspace.poly in the given directory
+	var n Workspace
+
+	// Update workspace vars with minimum defaults
+	n.Name = c.Name
+
+	if c.SyncOptions.Enabled {
+		n.SyncOptions.Enabled = true
+	}
+
+	if c.SyncOptions.Auto {
+		n.SyncOptions.Auto = true
+	}
+
+	if c.SyncOptions.Remote.Url != "" {
+		n.SyncOptions.Remote.Url = c.SyncOptions.Remote.Url
+		n.SyncOptions.Remote.Branch.Name = c.SyncOptions.Remote.Branch.Name
+	}
+
+	n.saveWorkspace(c.LocalPath).Flush()
+
+	return c
 }
 
 func (c *Workspace) Sync() *Workspace {
-	sync.Sync("").Flush()
+	sync.Sync().Flush()
 	// Check if a remote is configured
 	// if not, fail
 	// Check if git has already been initialized

@@ -17,18 +17,17 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/manifoldco/promptui"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-var _workspaceName string
-var _workspaceGroup string
-var _workspaceRemote string
-var _workspaceSync bool
-var gitRepoConsent bool = false
+var withName string
+var withSshKeys bool
+var withRemoteUrl string
+var withSync bool
+var withAutoSync bool
 
 // installCmd represents the install command
 var workspaceCreateCmd = &cobra.Command{
@@ -45,7 +44,7 @@ var workspaceCreateCmd = &cobra.Command{
 		log.Info("Creating new workspace")
 
 		// Check if a name has been given via flag
-		if _workspaceName == "" {
+		if withName == "" {
 			// Ask for a name via prompt
 			validate := func(input string) error {
 				valid := ValidateMetaDataName(input)
@@ -65,17 +64,14 @@ var workspaceCreateCmd = &cobra.Command{
 			if err != nil {
 				log.Fatalf("Failed to save workspace name: %s", err)
 			}
-			_workspaceName = result
+			withName = result
 		}
 
-		workspace.Name = _workspaceName
+		workspace.Name = withName
 
 		// Check if a git repo has been given via flag
-		if _workspaceRemote == "" {
-			if config.Sync.AutoSync {
-				_workspaceSync = true
-			}
-			if !_workspaceSync {
+		if withRemoteUrl == "" {
+			if !withSync {
 				// Ask if sync with git repo is wanted
 				gitRepoConsentPrompt := promptui.Prompt{
 					Label:     "Do you want to sync this workspace with a git repository",
@@ -88,69 +84,69 @@ var workspaceCreateCmd = &cobra.Command{
 				// 	log.Fatalf("Failed to save git repository: %s", err)
 				// }
 				if gitRepoConsentPromptResult == "y" {
-					_workspaceSync = true
+					withSync = true
 				}
 			}
 
-			if _workspaceSync {
-				var group PolycrateProviderGroup
-				if config.Sync.CreateRepo {
-					if _workspaceGroup == "" {
+			if withSync {
+				// var group PolycrateProviderGroup
+				// if config.Sync.CreateRepo {
+				// 	if _workspaceGroup == "" {
 
-						groups, err := config.Gitlab.GetGroups()
-						if err != nil {
-							log.Fatal(err)
-						}
+				// 		groups, err := config.Gitlab.GetGroups()
+				// 		if err != nil {
+				// 			log.Fatal(err)
+				// 		}
 
-						templates := &promptui.SelectTemplates{
-							Label:    "{{ .name }}",
-							Active:   "{{ .name | blue }}",
-							Inactive: "{{ .name }}",
-							Selected: "{{ .name | green }}",
-						}
+				// 		templates := &promptui.SelectTemplates{
+				// 			Label:    "{{ .name }}",
+				// 			Active:   "{{ .name | blue }}",
+				// 			Inactive: "{{ .name }}",
+				// 			Selected: "{{ .name | green }}",
+				// 		}
 
-						gitlabGroupsPrompt := promptui.Select{
-							Label:     "Choose a group to create the project in",
-							Items:     groups,
-							Templates: templates,
-						}
+				// 		gitlabGroupsPrompt := promptui.Select{
+				// 			Label:     "Choose a group to create the project in",
+				// 			Items:     groups,
+				// 			Templates: templates,
+				// 		}
 
-						// Returns the resulting struct
-						index, _, err := gitlabGroupsPrompt.Run()
+				// 		// Returns the resulting struct
+				// 		index, _, err := gitlabGroupsPrompt.Run()
 
-						if err != nil {
-							log.Fatal(err)
-						}
+				// 		if err != nil {
+				// 			log.Fatal(err)
+				// 		}
 
-						group = groups[index]
-					} else {
-						var err error
-						group, err = config.Gitlab.GetGroup(_workspaceGroup)
-						if err != nil {
-							log.Fatal(err)
-						}
-					}
+				// 		group = groups[index]
+				// 	} else {
+				// 		var err error
+				// 		group, err = config.Gitlab.GetGroup(_workspaceGroup)
+				// 		if err != nil {
+				// 			log.Fatal(err)
+				// 		}
+				// 	}
 
-					// Create the project
-					project, err := config.Gitlab.CreateProject(group, _workspaceName)
-					if err != nil {
-						log.Fatal(err)
-					}
-					printObject(project)
+				// 	// Create the project
+				// 	project, err := config.Gitlab.CreateProject(group, _workspaceName)
+				// 	if err != nil {
+				// 		log.Fatal(err)
+				// 	}
+				// 	printObject(project)
 
-				}
+				// }
 
-				gitRepoConsent = true
+				workspace.SyncOptions.Enabled = true
 
 				validate := func(input string) error {
 					if len(input) <= 0 {
-						return errors.New("Invalid git repo url")
+						return errors.New("invalid git remote url")
 					}
 					return nil
 				}
 
 				prompt := promptui.Prompt{
-					Label:    "Git repository url",
+					Label:    "Git remote url",
 					Validate: validate,
 				}
 
@@ -159,28 +155,70 @@ var workspaceCreateCmd = &cobra.Command{
 				if err != nil {
 					log.Fatalf("Failed to save git repository: %s", err)
 				}
-				_workspaceRemote = result
+				withRemoteUrl = result
+				workspace.SyncOptions.Remote.Url = result
+				log.Infof("Setting sync url: %s", withRemoteUrl)
+
+				if !withAutoSync {
+					// Ask if sync with git repo is wanted
+					autoSyncConsentPrompt := promptui.Prompt{
+						Label:     "Do you want to enable auto sync?",
+						IsConfirm: true,
+					}
+
+					autoSyncConsentPromptResult, _ := autoSyncConsentPrompt.Run()
+
+					// if err != nil {
+					// 	log.Fatalf("Failed to save git repository: %s", err)
+					// }
+					if autoSyncConsentPromptResult == "y" {
+						withAutoSync = true
+					}
+				}
+
+				if withAutoSync {
+					workspace.SyncOptions.Auto = true
+				}
+			} else {
+				workspace.SyncOptions.Enabled = false
+				workspace.SyncOptions.Auto = false
 			}
 
 		}
 
-		workspace.SyncOptions.Remote.Url = _workspaceRemote
+		// Check if a git repo has been given via flag
+		if !withSshKeys {
 
-		workspace.Create()
+			// Ask if sync with git repo is wanted
+			sshKeysConsentPrompt := promptui.Prompt{
+				Label:     "Do you want to sync this workspace with a git repository",
+				IsConfirm: true,
+			}
 
-		if gitRepoConsent {
-			//workspace.Sync()
-			fmt.Println("sync")
+			sshKeysConsentPromptResult, _ := sshKeysConsentPrompt.Run()
+
+			// if err != nil {
+			// 	log.Fatalf("Failed to save git repository: %s", err)
+			// }
+			if sshKeysConsentPromptResult == "y" {
+				withSshKeys = true
+			}
+		}
+
+		workspace.Create().Flush()
+		if withSshKeys {
+			workspace.CreateSshKeys().Flush()
 		}
 
 	},
 }
 
 func init() {
-	workspaceCreateCmd.Flags().StringVar(&_workspaceName, "name", "", "The name of the workspace")
-	workspaceCreateCmd.Flags().StringVar(&_workspaceGroup, "group", "", "The group of the poject")
-	workspaceCreateCmd.Flags().StringVar(&_workspaceRemote, "remote", "", "The git repository to sync with")
-	workspaceCreateCmd.Flags().BoolVar(&_workspaceSync, "sync", false, "Toogle workspace sync")
+	workspaceCreateCmd.Flags().StringVar(&withName, "with-name", "", "The name of the workspace")
+	workspaceCreateCmd.Flags().StringVar(&withRemoteUrl, "with-remote-url", "", "The git repository to sync with")
+	workspaceCreateCmd.Flags().BoolVar(&withSshKeys, "with-ssh-keys", true, "Create SSH keys")
+	workspaceCreateCmd.Flags().BoolVar(&withSync, "with-sync", false, "Toogle sync")
+	workspaceCreateCmd.Flags().BoolVar(&withAutoSync, "with-auto-sync", false, "Toogle auto sync")
 
 	workspaceCmd.AddCommand(workspaceCreateCmd)
 }

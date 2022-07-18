@@ -184,22 +184,39 @@ func GitDeleteRemote(path string, name string) error {
 	return nil
 }
 
-func GitHasRemote(repository *git.Repository, remote string) bool {
-	r, err := repository.Remote(remote)
+// func GitHasRemote(repository *git.Repository, remote string) bool {
+// 	r, err := repository.Remote(remote)
+// 	if err != nil {
+// 		return false
+// 	}
+
+// 	url := r.Config().URLs[0]
+// 	return url != ""
+// }
+
+func GitHasRemote(path string, remote string) bool {
+	args := []string{
+		"remote",
+		"get-url",
+		remote,
+	}
+	output, err := GitExecute(path, args)
 	if err != nil {
 		return false
 	}
 
-	url := r.Config().URLs[0]
-	return url != ""
+	if output != "" {
+		return true
+	}
+	return false
 }
 
 func GitIsRepo(path string) bool {
 	args := []string{
 		"status",
 	}
-	output, err := GitExecute(path, args)
-	log.Debug(output)
+	_, err := GitExecute(path, args)
+
 	return err == nil
 }
 
@@ -282,17 +299,33 @@ func GitIsAncestor(r *git.Repository) (bool, error) {
 	return isAncestor, nil
 }
 
+func GitHasChanges(path string) bool {
+	statusArgs := []string{
+		"status",
+		"--porcelain",
+	}
+
+	output, err := GitExecute(path, statusArgs)
+	if err != nil {
+		return false
+	}
+
+	if output != "" {
+		return true
+	}
+	return false
+}
+
 func GitCommitAll(path string, message string) (string, error) {
 	addArgs := []string{
 		"add",
 		".",
 	}
 
-	output, err := GitExecute(path, addArgs)
+	_, err := GitExecute(path, addArgs)
 	if err != nil {
 		return "", err
 	}
-	log.Debugf(output)
 
 	commitArgs := []string{
 		"commit",
@@ -300,28 +333,10 @@ func GitCommitAll(path string, message string) (string, error) {
 		fmt.Sprintf("--message=%s", message),
 	}
 
-	output, err = GitExecute(path, commitArgs)
+	_, err = GitExecute(path, commitArgs)
 	if err != nil {
 		return "", err
 	}
-	log.Debugf(output)
-	// //Make an initial commit
-	// w, err := r.Worktree()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// // Add "." to the repo
-	// _, err = w.Add(".")
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// // Commit
-	// hash, err := w.Commit(message, &git.CommitOptions{})
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	// Get current commit hash
 	hashArgs := []string{
@@ -329,16 +344,10 @@ func GitCommitAll(path string, message string) (string, error) {
 		"HEAD",
 	}
 
-	hash, err := GitExecute(path, hashArgs)
+	_, err = GitExecute(path, hashArgs)
 	if err != nil {
 		return "", err
 	}
-
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"message":   message,
-		"hash":      hash,
-	}).Infof("Added commit")
 
 	return "", nil
 }
@@ -370,7 +379,6 @@ func GitFetch(path string) (string, error) {
 		"fetch",
 	}
 	output, err := GitExecute(path, fetchArgs)
-	log.Debug(output)
 	if err != nil {
 		return "", err
 	}
@@ -386,7 +394,22 @@ func GitPush(path string, remote string, branch string) (string, error) {
 		branch,
 	}
 	output, err := GitExecute(path, pushArgs)
-	log.Debug(output)
+
+	if err != nil {
+		return "", err
+	}
+
+	return output, nil
+}
+
+func GitPull(path string, remote string, branch string) (string, error) {
+	pullArgs := []string{
+		"pull",
+		remote,
+		branch,
+	}
+	output, err := GitExecute(path, pullArgs)
+
 	if err != nil {
 		return "", err
 	}
@@ -395,10 +418,6 @@ func GitPush(path string, remote string, branch string) (string, error) {
 }
 
 func GitBehindBy(path string) (int, error) {
-	log.WithFields(log.Fields{
-		"path": path,
-	}).Debugf("Calculating sync delta to remote")
-
 	// behind_count = $(git rev-list --count HEAD..@{u}).
 	revArgs := []string{
 		"rev-list",
@@ -410,8 +429,6 @@ func GitBehindBy(path string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Debug(output)
-
 	int, err := strconv.Atoi(output)
 	if err != nil {
 		return 0, err
@@ -429,15 +446,10 @@ func GitGetHeadCommit(path string, revision string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Debug(output)
 	return output, nil
 }
 
 func GitAheadBy(path string) (int, error) {
-	log.WithFields(log.Fields{
-		"path": path,
-	}).Debugf("Calculating sync delta to remote")
-
 	// ahead_count = $(git rev-list --count @{u}..HEAD)
 	revArgs := []string{
 		"rev-list",
@@ -449,7 +461,6 @@ func GitAheadBy(path string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Debug(output)
 
 	int, err := strconv.Atoi(output)
 	if err != nil {
@@ -472,8 +483,7 @@ func GitCreateRemote(path string, name string, url string) error {
 		url,
 	}
 
-	output, err := GitExecute(path, remoteArgs)
-	log.Debug(output)
+	_, err := GitExecute(path, remoteArgs)
 
 	// _, err := r.CreateRemote(&gitConfig.RemoteConfig{
 	// 	Name:  name,
@@ -517,8 +527,8 @@ func GitCreateRemote(path string, name string, url string) error {
 		"remote": GitDefaultRemote,
 	}).Debugf("Fetching remote")
 
-	output, err = GitFetch(path)
-	log.Debug(output)
+	_, err = GitFetch(path)
+
 	if err != nil {
 		return err
 	}
