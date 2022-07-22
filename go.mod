@@ -20,6 +20,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210608223527-2377c96fe795 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/Microsoft/hcsshim v0.9.2 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7 // indirect

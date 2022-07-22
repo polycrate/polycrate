@@ -172,6 +172,78 @@ func (o *Registry) GetWorkspace(workspaceName string) (*RegistryWorkspace, error
 
 }
 
+// func (o *RegistryBlock) AddRelease(version string, bundle string, filename string) (*RegistryRelease, error) {
+// 	// 1. Create attachment
+// 	// 2. Create post & link attachment
+// 	// credentialString := strings.Join([]string{config.Registry.Username, config.Registry.Password}, ":")
+// 	// credentials := base64.StdEncoding.EncodeToString([]byte(credentialString))
+
+// 	// attachmentData := url.Values{
+// 	// 	"title":          {filename},
+// 	// 	"status":         {"publish"},
+// 	// 	"content":        {""},
+// 	// 	"slug":           {"---"},
+// 	// 	"version":        {version},
+// 	// 	"release_bundle": {version},
+// 	// }
+// 	// data := url.Values{
+// 	// 	"title":          {"John Doe"},
+// 	// 	"status":         {"publish"},
+// 	// 	"content":        {""},
+// 	// 	"slug":           {"---"},
+// 	// 	"version":        {version},
+// 	// 	"release_bundle": {version},
+// 	// }
+
+// 	attachmentData, err := os.Open(bundle)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	mediaUrl := fmt.Sprintf("%s/%s/media", registry.Url, registry.ApiBase)
+
+// 	req, err := http.NewRequest("POST", mediaUrl, strings.NewReader(attachmentData.Encode()))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
+// 	req.Header.Set("Content-Type", "application/json")
+// 	req.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+
+// 	resp, err := s.Client.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
+
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	printObject(body)
+
+// 	os.Exit(1)
+
+// 	// apiUrl := fmt.Sprintf("%s/%s/block_release", registry.Url, registry.ApiBase)
+// 	// resp, err := http.PostForm(apiUrl, data)
+// 	// var res map[string]interface{}
+
+// 	// json.NewDecoder(resp.Body).Decode(&res)
+
+// 	// fmt.Println(res["form"])
+// 	// //response, err := http.Post(url)
+
+// 	// if err != nil {
+// 	// 	return nil, err
+// 	// }
+// 	return nil, nil
+
+// 	// responseData, err := ioutil.ReadAll(response.Body)
+// 	// if err != nil {
+// 	// 	return nil, err
+// 	// }
+// }
+
 func (o *RegistryBlock) GetRelease(version string) (*RegistryRelease, error) {
 	// Get the correct release
 	var releaseIndex int
@@ -202,6 +274,7 @@ func (o *RegistryBlock) GetRelease(version string) (*RegistryRelease, error) {
 		return nil, err
 	}
 }
+
 func (o *RegistryWorkspace) GetRelease(version string) (*RegistryRelease, error) {
 	// Get the correct release
 	var releaseIndex int

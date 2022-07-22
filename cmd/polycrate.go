@@ -58,6 +58,7 @@ type PolycrateConfig struct {
 	Sync      PolycrateSyncConfig     `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	Providers []PolycrateProvider     `yaml:"providers,omitempty" mapstructure:"providers,omitempty" json:"providers,omitempty"`
 	Gitlab    PolycrateGitlabProvider `yaml:"gitlab,omitempty" mapstructure:"gitlab,omitempty" json:"gitlab,omitempty"`
+	Registry  Registry                `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty"`
 }
 
 func (c *PolycrateProviderCredentials) Print() {

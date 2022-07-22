@@ -16,32 +16,29 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-var blocksSearchCmd = &cobra.Command{
-	Use:   "search",
-	Short: "Search blocks in the registry",
+// installCmd represents the install command
+var blocksPushCmd = &cobra.Command{
+	Use:   "push BLOCK",
+	Short: "Upload a block to the registry",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		workspace.load().Flush()
 		blockName := args[0]
-		blocks, err := config.Registry.SearchBlock(blockName)
+
+		err := workspace.PushBlock(blockName)
 		if err != nil {
 			log.Fatal(err)
-		}
-
-		for _, block := range blocks {
-
-			fmt.Printf("%s (latest: %s)\n", block.Title["rendered"], block.Releases[0].Version)
 		}
 
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksSearchCmd)
+	blocksCmd.AddCommand(blocksPushCmd)
+
 }

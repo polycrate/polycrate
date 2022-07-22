@@ -25,6 +25,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/semver"
+
 	"github.com/jeremywohl/flatten"
 
 	"github.com/go-playground/validator/v10"
@@ -1499,6 +1501,121 @@ func (c *Workspace) InstallBlocks(args []string) error {
 		}
 
 	}
+	return nil
+}
+func (c *Workspace) PushBlock(blockName string) error {
+	// Get the block
+	// Check that it has a version
+	// Check if release with new version exists in registry
+	// Get the latest version from the registry
+	// Check if new version > current version
+	//
+
+	block := c.GetBlockFromIndex(blockName)
+	if block != nil {
+		// The block exists
+		// Check it has a version
+		if block.Version == "" {
+			return fmt.Errorf("block has no version")
+		}
+	} else {
+		return fmt.Errorf("block not found in workspace: %s", blockName)
+	}
+
+	// Search block in registry
+	registryBlock, err := config.Registry.GetBlock(blockName)
+	if err != nil {
+		// Block not found should lead to the creation of the block
+		// WIP
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"block":     blockName,
+		}).Debug(err)
+		return err
+	}
+	printObject(registryBlock)
+
+	_, err = registryBlock.GetRelease(block.Version)
+	if err == nil {
+		err := fmt.Errorf("release with version %s of block %s already exists in the registry", block.Version, block.Name)
+		// Release already exists
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"block":     block.Name,
+			"version":   block.Version,
+		}).Debug(err)
+		return err
+	}
+
+	// No release exists with that version
+	// Now let's get the latest release
+	latestRelease, err := registryBlock.GetRelease("latest")
+	if err != nil {
+		// Release does not exist
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"block":     block.Name,
+			"version":   block.Version,
+		}).Debug(err)
+		return err
+	}
+
+	// Check if our version is bigger than the current version
+	blockSemVer, err := semver.NewVersion(block.Version)
+	if err != nil {
+		return err
+	}
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"block":     block.Name,
+		"version":   block.Version,
+	}).Debugf("Current block version: %s", blockSemVer.String())
+	latestReleaseSemVer, err := semver.NewVersion(latestRelease.Version)
+	if err != nil {
+		return err
+	}
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"block":     block.Name,
+		"version":   block.Version,
+	}).Debugf("Latest registry release version: %s", latestReleaseSemVer.String())
+
+	// Compare versions
+	comparison := fmt.Sprintf("> %s", latestReleaseSemVer)
+	constraint, err := semver.NewConstraint(comparison)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"block":     block.Name,
+			"version":   block.Version,
+		}).Debugf(err.Error())
+		return err
+	}
+	isGreater := constraint.Check(blockSemVer)
+
+	if !isGreater {
+
+		err := fmt.Errorf("block version (%s) is lower than registry version (%s)", blockSemVer.String(), latestReleaseSemVer.String())
+		return err
+	}
+
+	// Zip the block workdir
+	blockFileName := slugify([]string{block.Name, block.Version})
+	zipFilePath, err := createZipFile(block.Workdir.LocalPath, blockFileName)
+	if err != nil {
+		return err
+	}
+	fmt.Println(zipFilePath)
+
+	// Create RegistryRelease object with respective version, zip, etc
+	newRegistryRelease := RegistryRelease{
+		Version: block.Version,
+	}
+	printObject(newRegistryRelease)
+
+	// Create / Upload attachment, save id (registry.CreateAttachment(path string) string)
+	// Create Release, link to attachment and Block ID
+
 	return nil
 }
 

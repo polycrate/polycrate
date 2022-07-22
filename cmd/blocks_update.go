@@ -16,8 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"os"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -33,8 +31,7 @@ var blocksUpdateCmd = &cobra.Command{
 		if len(args) == 0 {
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
-			}).Warnf("No blocks given")
-			os.Exit(0)
+			}).Fatalf("No blocks given")
 		}
 
 		err := workspace.UpdateBlocks(args)
