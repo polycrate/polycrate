@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -51,7 +53,7 @@ type RegistryRelease struct {
 
 type RegistryBlock struct {
 	Post
-	Releases  []RegistryRelease `yaml:"releases,omitempty" mapstructure:",omitempty" json:",omitempty"`
+	Releases  []RegistryRelease `yaml:"releases,omitempty" mapstructure:"releases,omitempty" json:"releases,omitempty"`
 	BlockName string            `yaml:"block_name" mapstructure:"block_name" json:"block_name" validate:"required"`
 }
 type RegistryWorkspace struct {
@@ -67,8 +69,33 @@ type Registry struct {
 	Password string `yaml:"password,omitempty" mapstructure:"password,omitempty" json:"password,omitempty"`
 }
 
+func (rb *RegistryBlock) UnmarshalJSON(b []byte) error {
+	type TmpJson RegistryBlock
+
+	//var tmpJson map[string]interface{}
+	var tmpJson TmpJson
+	err := json.Unmarshal(b, &tmpJson)
+	if err != nil {
+		return err
+	}
+
+	// Wordpress returns "releases: false" instead of "releases: []"
+	// So we're overwriting a boolean value with an empty list during unmarshalling
+	if reflect.TypeOf(tmpJson.Releases).String() == "bool" {
+		rb.Releases = []RegistryRelease{}
+		rb.Id = tmpJson.Id
+		rb.BlockName = tmpJson.BlockName
+		return nil
+	}
+
+	//return json.Unmarshal(b, &rb)
+	*rb = RegistryBlock(tmpJson)
+	return nil
+
+}
+
 func (o *Registry) SearchBlock(blockName string) ([]RegistryBlock, error) {
-	url := fmt.Sprintf("%s/%s/block?search=%s", o.Url, o.ApiBase, blockName)
+	url := fmt.Sprintf("%s/%s/block?search=%s", config.Registry.Url, config.Registry.ApiBase, blockName)
 
 	response, err := http.Get(url)
 
@@ -98,7 +125,7 @@ func (o *Registry) SearchBlock(blockName string) ([]RegistryBlock, error) {
 
 		return blocks, nil
 	} else {
-		err := fmt.Errorf("Block not found: %s", blockName)
+		err := fmt.Errorf("Block not found in registry: %s", blockName)
 		return nil, err
 	}
 
@@ -150,10 +177,63 @@ func (o *Registry) GetBlock(blockName string) (*RegistryBlock, error) {
 	if blockIndex != -1 {
 		return &registryBlocks[blockIndex], nil
 	} else {
-		err := fmt.Errorf("Block not found: %s", blockName)
+		err := fmt.Errorf("Block not found in registry: %s", blockName)
 		return nil, err
 	}
 
+}
+
+func (o *Registry) AddBlock(blockName string) (*RegistryBlock, error) {
+	log.WithFields(log.Fields{
+		"workspace": workspace.Name,
+		"block":     blockName,
+	}).Debugf("Adding block to registry")
+
+	var registryBlock RegistryBlock
+
+	client := &http.Client{}
+	postUrl := fmt.Sprintf("%s/%s/block", config.Registry.Url, config.Registry.ApiBase)
+
+	// Data
+	values := map[string]interface{}{
+		"block_name": blockName,
+		"title":      blockName,
+		"status":     "publish",
+	}
+	json_data, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", postUrl, bytes.NewBuffer(json_data))
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(body, &registryBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	log.WithFields(log.Fields{
+		"workspace": workspace.Name,
+		"block":     blockName,
+	}).Debugf("New registry block created")
+
+	return &registryBlock, nil
 }
 
 func (o *Registry) GetWorkspace(workspaceName string) (*RegistryWorkspace, error) {
@@ -172,77 +252,126 @@ func (o *Registry) GetWorkspace(workspaceName string) (*RegistryWorkspace, error
 
 }
 
-// func (o *RegistryBlock) AddRelease(version string, bundle string, filename string) (*RegistryRelease, error) {
-// 	// 1. Create attachment
-// 	// 2. Create post & link attachment
-// 	// credentialString := strings.Join([]string{config.Registry.Username, config.Registry.Password}, ":")
-// 	// credentials := base64.StdEncoding.EncodeToString([]byte(credentialString))
+func (o *RegistryBlock) AddRelease(version string, bundle string, filename string) (*RegistryRelease, error) {
+	// 1. Create attachment
+	// 2. Create post & link attachment
+	// credentialString := strings.Join([]string{config.Registry.Username, config.Registry.Password}, ":")
+	// credentials := base64.StdEncoding.EncodeToString([]byte(credentialString))
 
-// 	// attachmentData := url.Values{
-// 	// 	"title":          {filename},
-// 	// 	"status":         {"publish"},
-// 	// 	"content":        {""},
-// 	// 	"slug":           {"---"},
-// 	// 	"version":        {version},
-// 	// 	"release_bundle": {version},
-// 	// }
-// 	// data := url.Values{
-// 	// 	"title":          {"John Doe"},
-// 	// 	"status":         {"publish"},
-// 	// 	"content":        {""},
-// 	// 	"slug":           {"---"},
-// 	// 	"version":        {version},
-// 	// 	"release_bundle": {version},
-// 	// }
+	// attachmentData := url.Values{
+	// 	"title":          {filename},
+	// 	"status":         {"publish"},
+	// 	"content":        {""},
+	// 	"slug":           {"---"},
+	// 	"version":        {version},
+	// 	"release_bundle": {version},
+	// }
+	// data := url.Values{
+	// 	"title":          {"John Doe"},
+	// 	"status":         {"publish"},
+	// 	"content":        {""},
+	// 	"slug":           {"---"},
+	// 	"version":        {version},
+	// 	"release_bundle": {version},
+	// }
 
-// 	attachmentData, err := os.Open(bundle)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+	attachmentData, err := os.Open(bundle)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-// 	mediaUrl := fmt.Sprintf("%s/%s/media", registry.Url, registry.ApiBase)
+	mediaUrl := fmt.Sprintf("%s/%s/media", config.Registry.Url, config.Registry.ApiBase)
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", mediaUrl, attachmentData)
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
+	req.Header.Set("Content-Type", "application/zip")
+	req.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", filename))
 
-// 	req, err := http.NewRequest("POST", mediaUrl, strings.NewReader(attachmentData.Encode()))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
-// 	req.Header.Set("Content-Type", "application/json")
-// 	req.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-// 	resp, err := s.Client.Do(req)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer resp.Body.Close()
+	responseData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
-// 	body, err := ioutil.ReadAll(resp.Body)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	printObject(body)
+	var attachmentPost Post
+	err = json.Unmarshal(responseData, &attachmentPost)
+	if err != nil {
+		return nil, err
+	}
 
-// 	os.Exit(1)
+	printObject(attachmentPost)
 
-// 	// apiUrl := fmt.Sprintf("%s/%s/block_release", registry.Url, registry.ApiBase)
-// 	// resp, err := http.PostForm(apiUrl, data)
-// 	// var res map[string]interface{}
+	// Create the release post
+	releaseUrl := fmt.Sprintf("%s/%s/block_release", config.Registry.Url, config.Registry.ApiBase)
 
-// 	// json.NewDecoder(resp.Body).Decode(&res)
+	// Data
+	slug := slugify([]string{o.BlockName, version})
+	title := strings.Join([]string{o.BlockName, version}, ":")
+	values := map[string]interface{}{
+		"release_name":   slug,
+		"title":          title,
+		"status":         "publish",
+		"block":          o.Id,
+		"release_bundle": attachmentPost.Id,
+		"version":        version,
+	}
+	json_data, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
 
-// 	// fmt.Println(res["form"])
-// 	// //response, err := http.Post(url)
+	req, err = http.NewRequest("POST", releaseUrl, bytes.NewBuffer(json_data))
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
+	req.Header.Set("Content-Type", "application/json")
 
-// 	// if err != nil {
-// 	// 	return nil, err
-// 	// }
-// 	return nil, nil
+	resp, err = client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-// 	// responseData, err := ioutil.ReadAll(response.Body)
-// 	// if err != nil {
-// 	// 	return nil, err
-// 	// }
-// }
+	responseData, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var registryRelease Post
+	err = json.Unmarshal(responseData, &registryRelease)
+	if err != nil {
+		return nil, err
+	}
+	printObject(registryRelease)
+
+	// apiUrl := fmt.Sprintf("%s/%s/block_release", registry.Url, registry.ApiBase)
+	// resp, err := http.PostForm(apiUrl, data)
+	// var res map[string]interface{}
+
+	// json.NewDecoder(resp.Body).Decode(&res)
+
+	// fmt.Println(res["form"])
+	// //response, err := http.Post(url)
+
+	// if err != nil {
+	// 	return nil, err
+	// }
+	return nil, nil
+
+	// responseData, err := ioutil.ReadAll(response.Body)
+	// if err != nil {
+	// 	return nil, err
+	// }
+}
 
 func (o *RegistryBlock) GetRelease(version string) (*RegistryRelease, error) {
 	// Get the correct release

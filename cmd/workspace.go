@@ -520,11 +520,11 @@ func (c *Workspace) load() *Workspace {
 	// Find all blocks in the workspace
 	c.discoverBlocks().Flush()
 
-	// Load all discovered blocks in the workspace
-	c.loadBlockConfigs().Flush()
-
 	// Load dependencies
 	c.loadDependencies().Flush()
+
+	// Load all discovered blocks in the workspace
+	c.loadBlockConfigs().Flush()
 
 	// Resolve block dependencies
 	c.resolveBlockDependencies().Flush()
@@ -1337,6 +1337,12 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			return err
 		}
 
+		log.WithFields(log.Fields{
+			"workspace":       c.Name,
+			"block":           blockName,
+			"desired_version": blockVersion,
+		}).Debugf("Updating block")
+
 		block := c.getBlockByName(blockName)
 		if block != nil {
 			// Check if block already has the desired version
@@ -1531,7 +1537,12 @@ func (c *Workspace) PushBlock(blockName string) error {
 			"workspace": c.Name,
 			"block":     blockName,
 		}).Debug(err)
-		return err
+
+		// Create block
+		registryBlock, err = registry.AddBlock(blockName)
+		if err != nil {
+			return err
+		}
 	}
 	printObject(registryBlock)
 
@@ -1548,70 +1559,93 @@ func (c *Workspace) PushBlock(blockName string) error {
 	}
 
 	// No release exists with that version
-	// Now let's get the latest release
+	// Now let's see if there's a latest release
 	latestRelease, err := registryBlock.GetRelease("latest")
 	if err != nil {
-		// Release does not exist
+		// Latest release does not exist
+		// This means that the block has just been created or there haven't been any releases yet
 		log.WithFields(log.Fields{
 			"workspace": c.Name,
 			"block":     block.Name,
 			"version":   block.Version,
 		}).Debug(err)
-		return err
 	}
 
-	// Check if our version is bigger than the current version
-	blockSemVer, err := semver.NewVersion(block.Version)
-	if err != nil {
-		return err
-	}
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-		"block":     block.Name,
-		"version":   block.Version,
-	}).Debugf("Current block version: %s", blockSemVer.String())
-	latestReleaseSemVer, err := semver.NewVersion(latestRelease.Version)
-	if err != nil {
-		return err
-	}
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-		"block":     block.Name,
-		"version":   block.Version,
-	}).Debugf("Latest registry release version: %s", latestReleaseSemVer.String())
-
-	// Compare versions
-	comparison := fmt.Sprintf("> %s", latestReleaseSemVer)
-	constraint, err := semver.NewConstraint(comparison)
-	if err != nil {
+	// Compare version if there's a release
+	if latestRelease != nil {
+		// Check if our version is bigger than the current version
+		blockSemVer, err := semver.NewVersion(block.Version)
+		if err != nil {
+			return err
+		}
 		log.WithFields(log.Fields{
 			"workspace": c.Name,
 			"block":     block.Name,
 			"version":   block.Version,
-		}).Debugf(err.Error())
-		return err
-	}
-	isGreater := constraint.Check(blockSemVer)
+		}).Debugf("Current block version: %s", blockSemVer.String())
 
-	if !isGreater {
+		latestReleaseSemVer, err := semver.NewVersion(latestRelease.Version)
+		if err != nil {
+			return err
+		}
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"block":     block.Name,
+			"version":   block.Version,
+		}).Debugf("Latest registry release version: %s", latestReleaseSemVer.String())
 
-		err := fmt.Errorf("block version (%s) is lower than registry version (%s)", blockSemVer.String(), latestReleaseSemVer.String())
-		return err
+		// Compare versions
+		comparison := fmt.Sprintf("> %s", latestReleaseSemVer)
+		constraint, err := semver.NewConstraint(comparison)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"workspace": c.Name,
+				"block":     block.Name,
+				"version":   block.Version,
+			}).Debugf(err.Error())
+			return err
+		}
+		isGreater := constraint.Check(blockSemVer)
+
+		if !isGreater {
+
+			err := fmt.Errorf("block version (%s) is lower than registry version (%s)", blockSemVer.String(), latestReleaseSemVer.String())
+			return err
+		}
 	}
 
 	// Zip the block workdir
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"block":     block.Name,
+		"version":   block.Version,
+	}).Debugf("Creating release bundle")
+
 	blockFileName := slugify([]string{block.Name, block.Version})
 	zipFilePath, err := createZipFile(block.Workdir.LocalPath, blockFileName)
 	if err != nil {
 		return err
 	}
-	fmt.Println(zipFilePath)
 
-	// Create RegistryRelease object with respective version, zip, etc
-	newRegistryRelease := RegistryRelease{
-		Version: block.Version,
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"block":     block.Name,
+		"version":   block.Version,
+		"path":      zipFilePath,
+	}).Debugf("Saved release bundle to %s", zipFilePath)
+
+	release, err := registryBlock.AddRelease(block.Version, zipFilePath, blockFileName)
+	if err != nil {
+		return err
 	}
-	printObject(newRegistryRelease)
+	printObject(release)
+
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+		"block":     block.Name,
+		"version":   block.Version,
+		"id":        release.Id,
+	}).Debugf("Successfully pushed release to registry")
 
 	// Create / Upload attachment, save id (registry.CreateAttachment(path string) string)
 	// Create Release, link to attachment and Block ID

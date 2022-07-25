@@ -368,16 +368,18 @@ func loadInventory() {
 }
 
 func printObject(object interface{}) {
+	if logLevel != "0" {
 
-	if outputFormat == "json" {
-		data, err := json.Marshal(object)
-		CheckErr(err)
-		fmt.Printf("%s\n", data)
-	}
-	if outputFormat == "yaml" {
-		data, err := yaml.Marshal(object)
-		CheckErr(err)
-		fmt.Printf("%s\n", data)
+		if outputFormat == "json" {
+			data, err := json.Marshal(object)
+			CheckErr(err)
+			fmt.Printf("%s\n", data)
+		}
+		if outputFormat == "yaml" {
+			data, err := yaml.Marshal(object)
+			CheckErr(err)
+			fmt.Printf("%s\n", data)
+		}
 	}
 }
 
