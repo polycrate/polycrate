@@ -24,6 +24,7 @@ Run `make snapshot` - this will create a `dist` dir that contains the bundled ar
 
 ### Release a new version
 
+- Create a changelog and fill in necessary information for the release: `make changelog`
 - Make sure the workspace is clean: `git status`
 - Once the workspace is clean, run `make next` to see the next computed version
 - If everything fits, run `make tag` - this will create and push a new tag

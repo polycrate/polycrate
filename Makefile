@@ -1,4 +1,4 @@
-tag: changelog
+tag:
 	git tag $(shell svu next)
 	git push origin $(shell svu)
 	#echo $(shell svu) > latest.txt
@@ -37,4 +37,4 @@ serve:
 changelog:
 	git-chglog --next-tag $(shell svu next) --output docs/changelog/$(shell svu next).md $(shell svu next)
 	git add .
-	git commit -am "release $(shell svu next)"
+	git commit -am "changelog created $(shell svu next)"
