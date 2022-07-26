@@ -1082,6 +1082,7 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 	c.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
 	c.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
 	c.registerEnvVar("ANSIBLE_VERBOSITY", logLevel)
+	c.registerEnvVar("ANSIBLE_SSH_PRIVATE_KEY_FILE", filepath.Join(c.ContainerPath, c.Config.SshPrivateKey))
 	c.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
 	c.registerEnvVar("ANSIBLE_RUN_VARS_PLUGINS", "start")
 	c.registerEnvVar("ANSIBLE_VARS_PLUGINS", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")

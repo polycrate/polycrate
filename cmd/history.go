@@ -22,8 +22,9 @@ var logCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		message := args[0]
+		workspace.load().Flush()
 
-		history.Append(message)
+		sync.Log(message)
 	},
 }
 
