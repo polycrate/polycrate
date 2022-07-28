@@ -1639,13 +1639,14 @@ func (c *Workspace) PushBlock(blockName string) error {
 	if err != nil {
 		return err
 	}
+
 	printObject(release)
 
 	log.WithFields(log.Fields{
 		"workspace": c.Name,
 		"block":     block.Name,
 		"version":   block.Version,
-		"id":        release.Id,
+		//"id":        release.Id,
 	}).Debugf("Successfully pushed release to registry")
 
 	// Create / Upload attachment, save id (registry.CreateAttachment(path string) string)

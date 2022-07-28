@@ -582,7 +582,9 @@ func createZipFile(sourcePath string, filename string) (string, error) {
 		header.Method = zip.Deflate
 
 		// 4. Set relative path of a file as the header name
-		header.Name, err = filepath.Rel(filepath.Dir(sourcePath), path)
+		//header.Name, err = filepath.Rel(filepath.Dir(sourcePath), path)
+		// https://stackoverflow.com/questions/57504246/how-to-compress-a-file-to-zip-without-directory-folder-in-go
+		header.Name = filepath.Base(path)
 		if err != nil {
 			return err
 		}
