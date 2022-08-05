@@ -26,7 +26,6 @@ var workspaceSyncCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
-		workspace.Sync().Flush()
 	},
 }
 
