@@ -117,6 +117,7 @@ func (c *Block) getInventoryPath() string {
 
 func (c *Block) getKubeconfigPath() string {
 	if c.Kubeconfig.From != "" {
+		log.Debugf("Loading Kubeconfig from block %s", c.Kubeconfig.From)
 		// Take the inventory from another Block
 		kubeconfigSourceBlock := workspace.getBlockByName(c.Kubeconfig.From)
 		if kubeconfigSourceBlock != nil {
@@ -127,8 +128,11 @@ func (c *Block) getKubeconfigPath() string {
 					return kubeconfigSourceBlock.Kubeconfig.ContainerPath
 				}
 			}
+		} else {
+			log.Error("No kubeconfig found")
 		}
 	} else {
+		log.Debugf("Not Loading Kubeconfig from other block")
 		if c.Kubeconfig.exists {
 			if local {
 				return c.Kubeconfig.LocalPath

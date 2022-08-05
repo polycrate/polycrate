@@ -210,6 +210,7 @@ func unzipSource(source, destination string) error {
 
 	// 2. Get the absolute destination path
 	destination, err = filepath.Abs(destination)
+	log.Debugf("filepath.Abs(f, destionation)")
 	if err != nil {
 		return err
 	}
@@ -217,7 +218,9 @@ func unzipSource(source, destination string) error {
 	// 3. Iterate over zip files inside the archive and unzip each of them
 	for _, f := range reader.File {
 		err := unzipFile(f, destination)
+		log.Debugf("Unzipfile(f, destionation)")
 		if err != nil {
+
 			return err
 		}
 	}
@@ -228,6 +231,15 @@ func unzipSource(source, destination string) error {
 func unzipFile(f *zip.File, destination string) error {
 	// 4. Check if file paths are not vulnerable to Zip Slip
 	filePath := filepath.Join(destination, f.Name)
+	log.Debugf("File: %s", f.Name)
+	log.Debugf(filepath.Clean(destination))
+	log.Debugf("Path separator: %s", string(os.PathSeparator))
+	log.Debugf("filepath: %s", filePath)
+	log.Debugf("destination: %s", destination)
+
+	if f.Name == "./" {
+		return nil
+	}
 	if !strings.HasPrefix(filePath, filepath.Clean(destination)+string(os.PathSeparator)) {
 		return fmt.Errorf("invalid file path: %s", filePath)
 	}
@@ -584,13 +596,28 @@ func createZipFile(sourcePath string, filename string) (string, error) {
 		// 4. Set relative path of a file as the header name
 		//header.Name, err = filepath.Rel(filepath.Dir(sourcePath), path)
 		// https://stackoverflow.com/questions/57504246/how-to-compress-a-file-to-zip-without-directory-folder-in-go
-		header.Name = filepath.Base(path)
+		// log.Debugf("Zipping file %s", path)
+		// log.Debugf("Header name %s", header.Name)
+		log.Debugf("Source path %s", sourcePath)
+		log.Debugf("Path %s", path)
+		log.Debugf("path filepath.Dir %s", filepath.Dir(path))
+		filePathRel, err := filepath.Rel(sourcePath, path)
 		if err != nil {
+			log.Error(err)
+			return err
+		}
+		log.Debugf("filePathRel %s", filePathRel)
+
+		header.Name = filePathRel
+		// log.Debugf("filepath rel %s", filePathRel)
+		if err != nil {
+			log.Error(err)
 			return err
 		}
 		if info.IsDir() {
 			header.Name += "/"
 		}
+		log.Debugf("Zipping file at path %s", header.Name)
 
 		// 5. Create writer for the file header and save content of the file
 		headerWriter, err := writer.CreateHeader(header)
