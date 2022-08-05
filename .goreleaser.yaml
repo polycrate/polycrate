@@ -34,6 +34,7 @@ builds:
     goos:
       - linux
       - darwin
+      #
     # hooks:
     #   post:
     #     - upx --brute "{{ .Path }}"
