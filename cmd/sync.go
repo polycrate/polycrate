@@ -135,7 +135,7 @@ func (s *Sync) Load() *Sync {
 			"module":    "sync",
 		}).Debugf("Loading sync module")
 
-		s.LoadProvider().Flush()
+		//s.LoadProvider().Flush()
 		s.LoadRepo().Flush()
 		s.UpdateStatus().Flush()
 		s.loaded = true
