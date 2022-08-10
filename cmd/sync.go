@@ -326,6 +326,15 @@ func (s *Sync) LoadRepo() *Sync {
 						return s
 					}
 				}
+
+				// Set upstream branch tracking
+
+				_, err = GitSetUpstreamTracking(workspace.LocalPath, workspace.SyncOptions.Remote.Name, workspace.SyncOptions.Remote.Branch.Name)
+				if err != nil {
+					s.err = err
+					return s
+				}
+
 			} else {
 				remoteUrl, err := GitGetRemoteUrl(workspace.LocalPath, GitDefaultRemote)
 				if err != nil {

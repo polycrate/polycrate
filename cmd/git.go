@@ -401,6 +401,21 @@ func GitPush(path string, remote string, branch string) (string, error) {
 
 	return output, nil
 }
+func GitSetUpstreamTracking(path string, remote string, branch string) (string, error) {
+	pushArgs := []string{
+		"branch",
+		"--set-upstream",
+		remote,
+		branch,
+	}
+	output, err := GitExecute(path, pushArgs)
+
+	if err != nil {
+		return "", err
+	}
+
+	return output, nil
+}
 
 func GitPull(path string, remote string, branch string) (string, error) {
 	pullArgs := []string{
