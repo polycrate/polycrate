@@ -419,6 +419,10 @@ func (c *Workspace) saveWorkspace(path string) *Workspace {
 	}
 
 	yamlBytes, err := yaml.Marshal(c)
+	if err != nil {
+		c.err = err
+		return c
+	}
 
 	err = ioutil.WriteFile(workspaceConfigFilePath, yamlBytes, 0644)
 	if err != nil {
