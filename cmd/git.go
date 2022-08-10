@@ -405,7 +405,7 @@ func GitSetUpstreamTracking(path string, remote string, branch string) (string, 
 	pushArgs := []string{
 		"branch",
 		"-u",
-		remote,
+		strings.Join([]string{remote, branch}, "/"),
 		branch,
 	}
 	output, err := GitExecute(path, pushArgs)
