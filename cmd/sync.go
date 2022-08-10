@@ -343,6 +343,11 @@ func (s *Sync) LoadRepo() *Sync {
 				workspace.updateConfig("sync.remote.url", remoteUrl).Flush()
 			}
 		}
+		log.WithFields(log.Fields{
+			"path":   workspace.LocalPath,
+			"remote": workspace.SyncOptions.Remote.Name,
+			"branch": workspace.SyncOptions.Remote.Branch.Name,
+		}).Debugf("Tracking remote branch")
 		_, err = GitSetUpstreamTracking(workspace.LocalPath, workspace.SyncOptions.Remote.Name, workspace.SyncOptions.Remote.Branch.Name)
 		if err != nil {
 			s.err = err

@@ -404,7 +404,7 @@ func GitPush(path string, remote string, branch string) (string, error) {
 func GitSetUpstreamTracking(path string, remote string, branch string) (string, error) {
 	pushArgs := []string{
 		"branch",
-		"--set-upstream",
+		"--set-upstream-to",
 		remote,
 		branch,
 	}
