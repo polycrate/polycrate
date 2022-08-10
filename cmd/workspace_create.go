@@ -184,6 +184,8 @@ var workspaceCreateCmd = &cobra.Command{
 				workspace.SyncOptions.Auto = false
 			}
 
+		} else {
+			workspace.SyncOptions.Remote.Url = withRemoteUrl
 		}
 
 		// Check if a git repo has been given via flag
