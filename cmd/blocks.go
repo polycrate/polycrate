@@ -110,6 +110,8 @@ func (c *Block) getInventoryPath() string {
 	} else {
 		if c.Inventory.exists {
 			return c.Inventory.Path
+		} else {
+			return "/etc/ansible/hosts"
 		}
 	}
 	return ""

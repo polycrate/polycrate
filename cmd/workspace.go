@@ -1080,13 +1080,13 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 	} else {
 		_in_container = "1"
 	}
-	c.registerEnvVar("ANSIBLE_DISPLAY_SKIPPED_HOSTS", "no")
-	c.registerEnvVar("ANSIBLE_DISPLAY_OK_HOSTS", "yes")
-	c.registerEnvVar("ANSIBLE_HOST_KEY_CHECKING", "no")
-	c.registerEnvVar("ANSIBLE_ACTION_WARNINGS", "no")
-	c.registerEnvVar("ANSIBLE_COMMAND_WARNINGS", "no")
-	c.registerEnvVar("ANSIBLE_LOCALHOST_WARNING", "no")
-	c.registerEnvVar("ANSIBLE_DEPRECATION_WARNINGS", "no")
+	c.registerEnvVar("ANSIBLE_DISPLAY_SKIPPED_HOSTS", "False")
+	c.registerEnvVar("ANSIBLE_DISPLAY_OK_HOSTS", "True")
+	c.registerEnvVar("ANSIBLE_HOST_KEY_CHECKING", "False")
+	c.registerEnvVar("ANSIBLE_ACTION_WARNINGS", "False")
+	c.registerEnvVar("ANSIBLE_COMMAND_WARNINGS", "False")
+	c.registerEnvVar("ANSIBLE_LOCALHOST_WARNING", "False")
+	c.registerEnvVar("ANSIBLE_DEPRECATION_WARNINGS", "False")
 	c.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
 	c.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
 	c.registerEnvVar("ANSIBLE_VERBOSITY", logLevel)

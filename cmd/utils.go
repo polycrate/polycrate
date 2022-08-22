@@ -380,7 +380,7 @@ func loadInventory() {
 }
 
 func printObject(object interface{}) {
-	if logLevel != "0" {
+	if logLevel != "0" || snapshot {
 
 		if outputFormat == "json" {
 			data, err := json.Marshal(object)
