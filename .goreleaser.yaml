@@ -84,6 +84,7 @@ dockers:
       - python-requirements.txt
       - ansible-requirements.yml
       - hack/ansible/plugins/vars/polycrate_vars.py
+      - hack/ansible/inventory
   - image_templates:
       - "ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8"
       - "ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8"
