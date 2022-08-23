@@ -103,6 +103,7 @@ dockers:
       - python-requirements.txt
       - ansible-requirements.yml
       - hack/ansible/plugins/vars/polycrate_vars.py
+      - hack/ansible/inventory
 docker_manifests:
   - name_template: ghcr.io/polycrate/polycrate:{{ .Version }}
     image_templates:
