@@ -73,7 +73,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&workspace.SyncOptions.Local.Branch.Name, "sync-local-branch", GitDefaultBranch, "Default git branch")
 	rootCmd.PersistentFlags().StringVar(&workspace.SyncOptions.Remote.Branch.Name, "sync-remote-branch", GitDefaultBranch, "Default git branch")
 	rootCmd.PersistentFlags().StringVar(&workspace.SyncOptions.Remote.Name, "sync-remote-name", GitDefaultRemote, "Default git remote")
-	rootCmd.PersistentFlags().BoolVar(&workspace.SyncOptions.Enabled, "sync-enabled", true, "Sync enabled")
+	rootCmd.PersistentFlags().BoolVar(&workspace.SyncOptions.Enabled, "sync-enabled", false, "Sync enabled")
 	rootCmd.PersistentFlags().BoolVar(&workspace.SyncOptions.Auto, "sync-auto", false, "Sync automatically")
 
 	//rootCmd.PersistentFlags().StringSliceVarP(&workspace.overrides, "set", "s", []string{}, "Workspace ovrrides")
