@@ -1,6 +1,1 @@
-all:
-  hosts:
-    localhost:
-      vars:
-        ansible_connection: local
-        ansible_python_interpreter: "{{ansible_playbook_python}}"
+localhost ansible_connection=local ansible_python_interpreter="{{ansible_playbook_python}}"
