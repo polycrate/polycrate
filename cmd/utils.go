@@ -392,6 +392,12 @@ func printObject(object interface{}) {
 	}
 }
 
+func debugObject(object interface{}) {
+	if logLevel != "0" {
+		printObject(object)
+	}
+}
+
 func promptGetInput(pc promptContent) string {
 	validate := func(input string) error {
 		if len(input) <= 0 {
