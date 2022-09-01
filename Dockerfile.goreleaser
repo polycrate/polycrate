@@ -58,7 +58,7 @@ COPY hack/ansible/plugins/vars/polycrate_vars.py /usr/share/ansible/plugins/vars
 COPY hack/ansible/inventory /etc/ansible/hosts
 
 RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace /polycrate /usr/share/ansible/plugins/vars && \
-  pip install --no-cache-dir cffi && \
+  #pip install --no-cache-dir cffi && \
   pip install --no-cache-dir -r python-requirements.txt && \
   ansible-galaxy collection install --collections-path /etc/ansible/collections community.general && \
   ansible-galaxy install --roles-path /etc/ansible/roles -r ansible-requirements.yml
