@@ -93,8 +93,10 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVarP(&workspace.ExtraEnv, "env", "e", []string{}, "Additional environment variables for the workspace in the format 'KEY=value'")
 	rootCmd.PersistentFlags().StringSliceVarP(&workspace.ExtraMounts, "mount", "m", []string{}, "Additional mounts for the workspace container in the format '/host:/container'. This will be ignored when used with --local")
 
-	rootCmd.PersistentFlags().StringVar(&config.Registry.Url, "registry-url", RegistryUrl, "The URL of the Polycrate registry")
+	rootCmd.PersistentFlags().StringVar(&config.Registry.Url, "registry-url", RegistryUrl, "The URL of the OCI registry")
+	rootCmd.PersistentFlags().StringVar(&config.Registry.BlockNamespace, "registry-block-namespace", RegistryBlockNamespace, "The Block namespace in the OCI registry")
 	rootCmd.PersistentFlags().StringVar(&config.Registry.ApiBase, "registry-api-base", RegistryApiBase, "The API base path of the Polycrate registry")
+	rootCmd.PersistentFlags().StringVar(&config.Registry.BaseImage, "registry-base-image", RegistryBaseImage, "The base image to package blocks in OCI format")
 	rootCmd.PersistentFlags().StringVar(&config.Registry.Username, "registry-username", "", "The username used to authenticate with the Polycrate registry")
 	rootCmd.PersistentFlags().StringVar(&config.Registry.Password, "registry-password", "", "The password used to authenticate with the Polycrate registry")
 }

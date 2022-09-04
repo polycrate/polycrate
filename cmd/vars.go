@@ -25,9 +25,11 @@ const WorkspaceConfigFile string = "workspace.poly"
 
 const BlocksConfigFile string = "block.poly"
 const EnvPrefix string = "polycrate"
-const RegistryUrl string = "https://polycrate.io"
-const DefaultEditor string = "code"
+const RegistryUrl string = "cargo.ayedo.cloud"
+const RegistryBlockNamespace string = "polycrate-blocks"
 const RegistryApiBase string = "wp-json/wp/v2"
+const RegistryBaseImage string = "cargo.ayedo.dev/library/scratch:latest"
+const DefaultEditor string = "code"
 const defaultFailedCode int = 1
 
 const GitLabDefaultUrl string = "https://gitlab.com"

@@ -21,23 +21,27 @@ import (
 )
 
 // installCmd represents the install command
-var blocksPushCmd = &cobra.Command{
-	Use:   "push BLOCK",
-	Short: "Upload a block to the registry",
+var blocksPullCmd = &cobra.Command{
+	Use:   "pull BLOCK:VERSION",
+	Short: "Pull a block from the registry",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
-		blockName := args[0]
+		blockInfo := args[0]
 
-		err := workspace.PushBlock(blockName)
+		blockName, blockVersion, err := registry.resolveArg(blockInfo)
 		if err != nil {
 			log.Fatal(err)
 		}
 
+		err = workspace.PullBlock(blockName, blockVersion)
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksPushCmd)
+	blocksCmd.AddCommand(blocksPullCmd)
 }

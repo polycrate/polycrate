@@ -521,11 +521,11 @@ func (c *Workspace) load() *Workspace {
 	// Bootstrap the workspace index
 	c.bootstrapIndex().Flush()
 
-	// Find all blocks in the workspace
-	c.discoverBlocks().Flush()
-
 	// Load dependencies
 	c.loadDependencies().Flush()
+
+	// Find all blocks in the workspace
+	c.discoverBlocks().Flush()
 
 	// Load all discovered blocks in the workspace
 	c.loadBlockConfigs().Flush()
@@ -1353,6 +1353,16 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			"desired_version": blockVersion,
 		}).Debugf("Updating block")
 
+		// Download blocks from registry
+		err = c.PullBlock(blockName, blockVersion)
+		if err != nil {
+			return err
+		}
+
+		return nil
+
+		// NOT NEEDED ANYMORE
+
 		block := c.getBlockByName(blockName)
 		if block != nil {
 			// Check if block already has the desired version
@@ -1374,6 +1384,16 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 				"current_version": block.Version,
 				"desired_version": blockVersion,
 			}).Infof("Updating block")
+
+			// Download blocks from registry
+			err = c.PullBlock(blockName, blockVersion)
+			if err != nil {
+				return err
+			}
+
+			return nil
+
+			// NOT NEEDED ANYMORE
 
 			// Search block in registry
 			registryBlock, err := registry.GetBlock(blockName)
@@ -1519,6 +1539,18 @@ func (c *Workspace) InstallBlocks(args []string) error {
 	}
 	return nil
 }
+
+func (c *Workspace) PullBlock(blockName string, blockVersion string) error {
+	targetDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
+
+	log.Infof("Pulling block %s:%s", blockName, blockVersion)
+	err := UnwrapOCIImage(targetDir, blockName, blockVersion)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Workspace) PushBlock(blockName string) error {
 	// Get the block
 	// Check that it has a version
@@ -1537,6 +1569,14 @@ func (c *Workspace) PushBlock(blockName string) error {
 	} else {
 		return fmt.Errorf("block not found in workspace: %s", blockName)
 	}
+
+	err := WrapOCIImage(block.Workdir.LocalPath, block.Name, block.Version)
+	if err != nil {
+		return err
+	}
+	return nil
+
+	// NOT NEEDED ANYMORE
 
 	// Search block in registry
 	registryBlock, err := config.Registry.GetBlock(blockName)
