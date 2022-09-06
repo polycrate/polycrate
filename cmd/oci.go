@@ -51,12 +51,13 @@ func WrapOCIImage(path string, imageName string, imageTag string) error {
 
 	registryBase := strings.Join([]string{config.Registry.Url, config.Registry.BlockNamespace}, "/")
 	localImageTag := strings.Join([]string{imageName, imageTag}, ":")
+	localImageTagLatest := strings.Join([]string{imageName, "latest"}, ":")
 	tag, err := name.NewTag(strings.Join([]string{registryBase, localImageTag}, "/"))
 	if err != nil {
 		return err
 	}
 
-	latesTag, err := name.NewTag(strings.Join([]string{registryBase, "latest"}, "/"))
+	latestTag, err := name.NewTag(strings.Join([]string{registryBase, localImageTagLatest}, "/"))
 	if err != nil {
 		return err
 	}
@@ -66,8 +67,8 @@ func WrapOCIImage(path string, imageName string, imageTag string) error {
 		return err
 	}
 
-	log.Debugf("Pushing image %s", latesTag.String())
-	if err := crane.Push(newImg, latesTag.String()); err != nil {
+	log.Debugf("Pushing image %s", latestTag.String())
+	if err := crane.Push(newImg, latestTag.String()); err != nil {
 		return err
 	}
 
