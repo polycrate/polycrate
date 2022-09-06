@@ -1831,6 +1831,11 @@ func (c *Workspace) loadBlockConfigs() *Workspace {
 
 		// create block runtime dir
 		blockRuntimeDir := filepath.Join(c.runtimeDir, loadedBlock.Name)
+		log.WithFields(log.Fields{
+			"block":       loadedBlock.Name,
+			"workspace":   c.Name,
+			"runtime-dir": blockRuntimeDir,
+		}).Debugf("Creating block runtime dir")
 		err := os.MkdirAll(blockRuntimeDir, os.ModePerm)
 		if err != nil {
 			c.err = err
