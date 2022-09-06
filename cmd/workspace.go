@@ -406,11 +406,6 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 
 	// set runtime dir
 	c.runtimeDir = filepath.Join(polycrateRuntimeDir, c.Name)
-	err = os.MkdirAll(c.runtimeDir, os.ModePerm)
-	if err != nil {
-		c.err = err
-		return c
-	}
 
 	return c
 }
@@ -1832,6 +1827,14 @@ func (c *Workspace) loadBlockConfigs() *Workspace {
 
 		} else {
 			c.Blocks = append(c.Blocks, loadedBlock)
+		}
+
+		// create block runtime dir
+		blockRuntimeDir := filepath.Join(c.runtimeDir, loadedBlock.Name)
+		err := os.MkdirAll(blockRuntimeDir, os.ModePerm)
+		if err != nil {
+			c.err = err
+			return c
 		}
 	}
 	return c
