@@ -56,8 +56,18 @@ func WrapOCIImage(path string, imageName string, imageTag string) error {
 		return err
 	}
 
+	latesTag, err := name.NewTag(strings.Join([]string{registryBase, "latest"}, "/"))
+	if err != nil {
+		return err
+	}
+
 	log.Debugf("Pushing image %s", tag.String())
 	if err := crane.Push(newImg, tag.String()); err != nil {
+		return err
+	}
+
+	log.Debugf("Pushing image %s", latesTag.String())
+	if err := crane.Push(newImg, latesTag.String()); err != nil {
 		return err
 	}
 
