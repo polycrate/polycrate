@@ -98,6 +98,7 @@ type Block struct {
 
 func (c *Block) getInventoryPath() string {
 	log.Debugf("Remote inventory: %s", c.Inventory.From)
+
 	if c.Inventory.From != "" {
 		// Take the inventory from another Block
 		log.Debugf("Remote inventory: %s", c.Inventory.From)

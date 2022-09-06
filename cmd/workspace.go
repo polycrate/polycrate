@@ -406,6 +406,11 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 
 	// set runtime dir
 	c.runtimeDir = filepath.Join(polycrateRuntimeDir, c.Name)
+	err = os.MkdirAll(c.runtimeDir, os.ModePerm)
+	if err != nil {
+		c.err = err
+		return c
+	}
 
 	return c
 }
