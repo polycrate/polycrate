@@ -1353,6 +1353,18 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			"desired_version": blockVersion,
 		}).Debugf("Updating block")
 
+		// create block runtime dir
+		blockRuntimeDir := filepath.Join(c.runtimeDir, blockName)
+		log.WithFields(log.Fields{
+			"block":       blockName,
+			"workspace":   c.Name,
+			"runtime-dir": blockRuntimeDir,
+		}).Debugf("Creating block runtime dir")
+		err = os.MkdirAll(blockRuntimeDir, os.ModePerm)
+		if err != nil {
+			return err
+		}
+
 		// Download blocks from registry
 		err = c.PullBlock(blockName, blockVersion)
 		if err != nil {
@@ -1827,19 +1839,6 @@ func (c *Workspace) loadBlockConfigs() *Workspace {
 
 		} else {
 			c.Blocks = append(c.Blocks, loadedBlock)
-		}
-
-		// create block runtime dir
-		blockRuntimeDir := filepath.Join(c.runtimeDir, loadedBlock.Name)
-		log.WithFields(log.Fields{
-			"block":       loadedBlock.Name,
-			"workspace":   c.Name,
-			"runtime-dir": blockRuntimeDir,
-		}).Debugf("Creating block runtime dir")
-		err := os.MkdirAll(blockRuntimeDir, os.ModePerm)
-		if err != nil {
-			c.err = err
-			return c
 		}
 	}
 	return c
