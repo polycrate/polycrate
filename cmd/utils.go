@@ -75,7 +75,12 @@ func CheckErr(msg interface{}) {
 }
 
 func RunCommand(name string, args ...string) (exitCode int, err error) {
-	log.Debug("Running command: ", name, " ", strings.Join(args, " "))
+
+	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))
+	log.WithFields(log.Fields{
+		"command": name,
+		"args":    strings.Join(args, " "),
+	}).Debugf("Running shell command")
 
 	cmd := exec.Command(name, args...)
 
@@ -118,7 +123,11 @@ func RunCommand(name string, args ...string) (exitCode int, err error) {
 }
 
 func RunCommandWithOutput(name string, args ...string) (exitCode int, output string, err error) {
-	log.Debug("Running command: ", name, " ", strings.Join(args, " "))
+	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))
+	log.WithFields(log.Fields{
+		"command": name,
+		"args":    strings.Join(args, " "),
+	}).Debugf("Running shell command")
 
 	var outb, errb bytes.Buffer
 

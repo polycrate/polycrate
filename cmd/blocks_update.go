@@ -22,9 +22,10 @@ import (
 
 // installCmd represents the install command
 var blocksUpdateCmd = &cobra.Command{
-	Use:   "update BLOCK_NAME",
-	Short: "Update a block",
-	Long:  ``,
+	Hidden: true,
+	Use:    "update BLOCK_NAME",
+	Short:  "Update a block",
+	Long:   ``,
 	//Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()

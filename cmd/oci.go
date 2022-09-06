@@ -32,13 +32,19 @@ func WrapOCIImage(path string, imageName string, imageTag string) error {
 	// 2. /usr/share/nginx/html <- delete this dir (new layer, appended on top of nginx)
 	// 3. copy my blog there (new layer, appended on top of nginx)
 
-	log.Debugf("Pulling base image %s", config.Registry.BaseImage)
+	//log.Debugf("Pulling base image %s", config.Registry.BaseImage)
+	log.WithFields(log.Fields{
+		"image": config.Registry.BaseImage,
+	}).Debugf("Pulling base image")
 	img, err := PullOCIImage(config.Registry.BaseImage)
 	if err != nil {
 		return err
 	}
 
-	log.Debugf("Adding directory to image: %s", path)
+	//log.Debugf("Adding directory to image: %s", path)
+	log.WithFields(log.Fields{
+		"path": path,
+	}).Debugf("Adding layer to image")
 	addLayer, err := layerFromDir(path, "")
 	if err != nil {
 		return err
@@ -62,12 +68,18 @@ func WrapOCIImage(path string, imageName string, imageTag string) error {
 		return err
 	}
 
-	log.Debugf("Pushing image %s", tag.String())
+	//log.Debugf("Pushing image %s", tag.String())
+	log.WithFields(log.Fields{
+		"image": tag.String(),
+	}).Debugf("Pushing image")
 	if err := crane.Push(newImg, tag.String()); err != nil {
 		return err
 	}
 
-	log.Debugf("Pushing image %s", latestTag.String())
+	//log.Debugf("Pushing image %s", latestTag.String())
+	log.WithFields(log.Fields{
+		"image": latestTag.String(),
+	}).Debugf("Pushing image")
 	if err := crane.Push(newImg, latestTag.String()); err != nil {
 		return err
 	}
@@ -83,7 +95,10 @@ func UnwrapOCIImage(path string, imageName string, imageTag string) error {
 		return err
 	}
 
-	log.Debugf("Pulling image %s", tag.String())
+	//log.Debugf("Pulling image %s", tag.String())
+	log.WithFields(log.Fields{
+		"image": tag.String(),
+	}).Debugf("Pulling image")
 
 	img, err := PullOCIImage(tag.String())
 	if err != nil {
@@ -97,12 +112,20 @@ func UnwrapOCIImage(path string, imageName string, imageTag string) error {
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	log.Debugf("Saving temporary image to %s", f.Name())
+	//log.Debugf("Saving temporary image to %s", f.Name())
+	log.WithFields(log.Fields{
+		"image": tag.String(),
+		"path":  f.Name(),
+	}).Debugf("Saving image")
 	if err := crane.Export(img, f); err != nil {
 		return err
 	}
 
-	log.Debugf("Unpacking image to %s", path)
+	//log.Debugf("Unpacking image to %s", path)
+	log.WithFields(log.Fields{
+		"image": tag.String(),
+		"path":  path,
+	}).Debugf("Unpacking image")
 	err = Untar(f.Name(), path)
 	if err != nil {
 		return err

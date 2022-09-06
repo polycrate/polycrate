@@ -307,11 +307,11 @@ func (c *Block) LoadInventory() {
 		blockInventoryFile = filepath.Join(c.Artifacts.LocalPath, "inventory.yml")
 	}
 
-	log.WithFields(log.Fields{
-		"path":      blockInventoryFile,
-		"block":     c.Name,
-		"workspace": workspace.Name,
-	}).Debugf("Loading inventory")
+	// log.WithFields(log.Fields{
+	// 	"path":      blockInventoryFile,
+	// 	"block":     c.Name,
+	// 	"workspace": workspace.Name,
+	// }).Debugf("Discovering inventory")
 
 	if _, err := os.Stat(blockInventoryFile); !os.IsNotExist(err) {
 		// File exists
@@ -334,7 +334,7 @@ func (c *Block) LoadInventory() {
 			"path":      blockInventoryFile,
 			"block":     c.Name,
 			"workspace": workspace.Name,
-		}).Debugf("Found block inventory")
+		}).Debugf("Inventory loaded")
 	} else {
 		c.Inventory.exists = false
 	}
@@ -367,7 +367,11 @@ func (c *Block) LoadKubeconfig() {
 			c.Kubeconfig.Path = c.Kubeconfig.ContainerPath
 		}
 
-		log.Debug("Found Block Kubeconfig at " + blockKubeconfigFile)
+		log.WithFields(log.Fields{
+			"workspace": workspace.Name,
+			"block":     c.Name,
+			"path":      blockKubeconfigFile,
+		}).Debugf("Kubeconfig loaded")
 	} else {
 		c.Kubeconfig.exists = false
 	}

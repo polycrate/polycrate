@@ -26,6 +26,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/semver"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/jeremywohl/flatten"
 
@@ -359,8 +360,9 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 		workspaceName := c.LocalPath
 
 		log.WithFields(log.Fields{
-			"path": workspaceConfigFilePath,
-		}).Debugf("Workspace config not found. Looking for %s in the local workspace index", workspaceName)
+			"path":      workspaceConfigFilePath,
+			"workspace": workspaceName,
+		}).Debugf("Workspace config not found. Looking in the local workspace index", workspaceName)
 
 		// Check if workspaceName exists in the local workspace index (see discoverWorkspaces())
 		if localWorkspaceIndex[workspaceName] != "" {
@@ -547,10 +549,9 @@ func (c *Workspace) load() *Workspace {
 
 	log.WithFields(log.Fields{
 		"workspace": c.Name,
+		"blocks":    len(workspace.Blocks),
+		"workflows": len(workspace.Workflows),
 	}).Debugf("Workspace ready")
-
-	log.Debugf("Blocks: %d", len(workspace.Blocks))
-	log.Debugf("Workflows: %d", len(workspace.Workflows))
 
 	// Mark workspace as loaded
 	c.loaded = true
@@ -692,11 +693,12 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 					if !dep.resolved {
 						// Needed Block from 'from' stanza is not yet resolved
 						log.WithFields(log.Fields{
-							"block":      loadedBlock.Name,
-							"dependency": loadedBlock.From,
-							"workspace":  c.Name,
-							"missing":    missing,
-						}).Debugf("Postponing block because dependency is not yet resolved")
+							"block":               loadedBlock.Name,
+							"dependency":          loadedBlock.From,
+							"workspace":           c.Name,
+							"missing":             missing,
+							"dependency_resolved": dep.resolved,
+						}).Debugf("Postponing block")
 						loadedBlock.resolved = false
 						continue
 					}
@@ -1341,35 +1343,40 @@ func (c *Workspace) Sync() *Workspace {
 }
 
 func (c *Workspace) UpdateBlocks(args []string) error {
+	eg := new(errgroup.Group)
 	for _, arg := range args {
-		blockName, blockVersion, err := registry.resolveArg(arg)
-		if err != nil {
-			return err
-		}
+		arg := arg // https://go.dev/doc/faq#closures_and_goroutines
+		eg.Go(func() error {
+			blockName, blockVersion, err := registry.resolveArg(arg)
+			if err != nil {
+				return err
+			}
 
-		log.WithFields(log.Fields{
-			"workspace":       c.Name,
-			"block":           blockName,
-			"desired_version": blockVersion,
-		}).Debugf("Updating block")
+			log.WithFields(log.Fields{
+				"workspace":       c.Name,
+				"block":           blockName,
+				"desired_version": blockVersion,
+			}).Debugf("Updating block")
 
-		// create block runtime dir
-		blockRuntimeDir := filepath.Join(c.runtimeDir, blockName)
-		log.WithFields(log.Fields{
-			"block":       blockName,
-			"workspace":   c.Name,
-			"runtime-dir": blockRuntimeDir,
-		}).Debugf("Creating block runtime dir")
-		err = os.MkdirAll(blockRuntimeDir, os.ModePerm)
-		if err != nil {
-			return err
-		}
+			// create block runtime dir
+			// blockRuntimeDir := filepath.Join(c.runtimeDir, blockName)
+			// log.WithFields(log.Fields{
+			// 	"block":       blockName,
+			// 	"workspace":   c.Name,
+			// 	"runtime-dir": blockRuntimeDir,
+			// }).Debugf("Creating block runtime dir")
+			// err = os.MkdirAll(blockRuntimeDir, os.ModePerm)
+			// if err != nil {
+			// 	return err
+			// }
 
-		// Download blocks from registry
-		err = c.PullBlock(blockName, blockVersion)
-		if err != nil {
-			return err
-		}
+			// Download blocks from registry
+			err = c.PullBlock(blockName, blockVersion)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 
 		// NOT NEEDED ANYMORE
 
@@ -1477,6 +1484,11 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 		// 	}
 		// }
 	}
+	//return nil
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1553,7 +1565,11 @@ func (c *Workspace) InstallBlocks(args []string) error {
 func (c *Workspace) PullBlock(blockName string, blockVersion string) error {
 	targetDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
 
-	log.Debugf("Pulling block %s:%s", blockName, blockVersion)
+	//log.Debugf("Pulling block %s:%s", blockName, blockVersion)
+	log.WithFields(log.Fields{
+		"block":   blockName,
+		"version": blockVersion,
+	}).Debugf("Pulling block")
 	err := UnwrapOCIImage(targetDir, blockName, blockVersion)
 	if err != nil {
 		return err
@@ -1579,6 +1595,12 @@ func (c *Workspace) PushBlock(blockName string) error {
 	} else {
 		return fmt.Errorf("block not found in workspace: %s", blockName)
 	}
+
+	log.WithFields(log.Fields{
+		"block":   block.Name,
+		"version": block.Version,
+		"path":    block.Workdir.LocalPath,
+	}).Debugf("Pushing block")
 
 	err := WrapOCIImage(block.Workdir.LocalPath, block.Name, block.Version)
 	if err != nil {
