@@ -280,7 +280,7 @@ func (c *Action) Run() error {
 		"workspace": workspace.Name,
 		"action":    c.Name,
 		"block":     c.Block,
-	}).Infof("Running action")
+	}).Debugf("Running action")
 
 	// 3. Determine inventory path
 	log.Debugf("Current block: %s", workspace.currentBlock.Name)

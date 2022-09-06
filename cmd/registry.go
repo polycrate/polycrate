@@ -679,7 +679,7 @@ func (o *RegistryBlock) Install(blockDir string, version string) error {
 		"workspace": workspace.Name,
 		"block":     o.BlockName,
 		"version":   release.Version,
-	}).Infof("Successfully installed block to workspace")
+	}).Debugf("Successfully installed block to workspace")
 
 	return nil
 }
@@ -732,7 +732,7 @@ func (o *RegistryWorkspace) Install(workspaceDir string, version string) error {
 	log.WithFields(log.Fields{
 		"workspace": o.WorkspaceName,
 		"version":   release.Version,
-	}).Infof("Successfully installed workspace")
+	}).Debugf("Successfully installed workspace")
 
 	return nil
 }

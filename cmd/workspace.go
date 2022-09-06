@@ -1511,7 +1511,7 @@ func (c *Workspace) InstallBlocks(args []string) error {
 						"workspace": c.Name,
 						"block":     block.Name,
 						"path":      block.Workdir.LocalPath,
-					}).Infof("Block is already installed. Use 'polycrate block update %s' to update it", block.Name)
+					}).Debugf("Block is already installed. Use 'polycrate block update %s' to update it", block.Name)
 				} else {
 					// The workdir does not exist
 					// We can download the block
@@ -1553,7 +1553,7 @@ func (c *Workspace) InstallBlocks(args []string) error {
 func (c *Workspace) PullBlock(blockName string, blockVersion string) error {
 	targetDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
 
-	log.Infof("Pulling block %s:%s", blockName, blockVersion)
+	log.Debugf("Pulling block %s:%s", blockName, blockVersion)
 	err := UnwrapOCIImage(targetDir, blockName, blockVersion)
 	if err != nil {
 		return err

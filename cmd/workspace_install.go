@@ -68,6 +68,6 @@ var workspaceInstallCmd = &cobra.Command{
 }
 
 func init() {
-	workspaceCmd.AddCommand(workspaceInstallCmd)
+	//workspaceCmd.AddCommand(workspaceInstallCmd)
 
 }

@@ -67,21 +67,21 @@ func (s *Sync) Sync() *Sync {
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
 			"module":    "sync",
-		}).Infof("Updating status")
+		}).Debugf("Updating status")
 
 		switch status := s.Status; status {
 		case "changed":
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
 				"module":    "sync",
-			}).Infof("Changes found. Comitting and syncing again")
+			}).Debugf("Changes found. Comitting and syncing again")
 			s.Log("Sync auto-commit").Flush()
 			s.Sync().Flush()
 		case "synced":
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
 				"module":    "sync",
-			}).Infof("Up-to-date")
+			}).Debugf("Up-to-date")
 		case "diverged":
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
@@ -91,13 +91,13 @@ func (s *Sync) Sync() *Sync {
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
 				"module":    "sync",
-			}).Infof("New commits found. Syncing")
+			}).Debugf("New commits found. Syncing")
 			s.Push().Flush()
 		case "behind":
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
 				"module":    "sync",
-			}).Infof("New commits found. Syncing")
+			}).Debugf("New commits found. Syncing")
 			s.Pull().Flush()
 		}
 	} else {

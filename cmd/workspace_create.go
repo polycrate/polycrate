@@ -157,7 +157,7 @@ var workspaceCreateCmd = &cobra.Command{
 				}
 				withRemoteUrl = result
 				workspace.SyncOptions.Remote.Url = result
-				log.Infof("Setting sync url: %s", withRemoteUrl)
+				log.Debugf("Setting sync url: %s", withRemoteUrl)
 
 				if !withAutoSync {
 					// Ask if sync with git repo is wanted

@@ -49,6 +49,6 @@ var blocksInstallCmd = &cobra.Command{
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksInstallCmd)
+	//blocksCmd.AddCommand(blocksInstallCmd)
 
 }

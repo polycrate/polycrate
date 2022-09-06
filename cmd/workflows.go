@@ -71,7 +71,7 @@ func (c *Workflow) Inspect() {
 }
 
 func (c *Workflow) run() error {
-	log.Infof("Running Workflow '%s'", c.Name)
+	log.Debugf("Running Workflow '%s'", c.Name)
 
 	// Check if any steps are configured
 	// Return an error if not
@@ -95,7 +95,7 @@ func (c *Step) run() error {
 	// Get workflow from step
 	workflow := workspace.GetWorkflowFromIndex(c.Workflow)
 
-	log.Infof("Running step '%s' of workflow '%s'", c.Name, workflow.Name)
+	log.Debugf("Running step '%s' of workflow '%s'", c.Name, workflow.Name)
 
 	// Reloading Workspace to discover new files
 	workspace.load().Flush()
