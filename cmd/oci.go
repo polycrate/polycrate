@@ -79,7 +79,7 @@ func UnwrapOCIImage(path string, imageName string, imageTag string) error {
 		return err
 	}
 
-	f, err := workspace.getTempFile(imageName)
+	f, err := workspace.getTempFile(strings.Replace(imageName, "/", "-", -1))
 	if err != nil {
 		return err
 	}
