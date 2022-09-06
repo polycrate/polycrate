@@ -16,28 +16,26 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
-
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var blocksSearchCmd = &cobra.Command{
-	Use:   "search",
-	Short: "Search blocks in the registry",
-	Long:  ``,
-	Args:  cobra.ExactArgs(1),
+	Use:        "search",
+	Short:      "Search blocks in the registry",
+	Long:       ``,
+	Args:       cobra.ExactArgs(1),
+	Deprecated: "please see https://docs.polycrate.io",
 	Run: func(cmd *cobra.Command, args []string) {
-		blockName := args[0]
-		blocks, err := config.Registry.SearchBlock(blockName)
-		if err != nil {
-			log.Fatal(err)
-		}
+		// blockName := args[0]
+		// blocks, err := config.Registry.SearchBlock(blockName)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 
-		for _, block := range blocks {
+		// for _, block := range blocks {
 
-			fmt.Printf("%s (latest: %s)\n", block.Title["rendered"], block.Releases[0].Version)
-		}
+		// 	fmt.Printf("%s (latest: %s)\n", block.Title["rendered"], block.Releases[0].Version)
+		// }
 
 	},
 }

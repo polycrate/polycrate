@@ -99,6 +99,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&config.Registry.BaseImage, "registry-base-image", RegistryBaseImage, "The base image to package blocks in OCI format")
 	rootCmd.PersistentFlags().StringVar(&config.Registry.Username, "registry-username", "", "The username used to authenticate with the Polycrate registry")
 	rootCmd.PersistentFlags().StringVar(&config.Registry.Password, "registry-password", "", "The password used to authenticate with the Polycrate registry")
+
+	rootCmd.PersistentFlags().MarkDeprecated("registry-api-base", "Registry has moved to OCI compatible registry; API Base is deprecated.")
+	rootCmd.PersistentFlags().MarkDeprecated("registry-username", "Registry has moved to OCI compatible registry; Username is deprecated.")
+	rootCmd.PersistentFlags().MarkDeprecated("registry-password", "Registry has moved to OCI compatible registry; Password is deprecated.")
 }
 
 func initConfig() {

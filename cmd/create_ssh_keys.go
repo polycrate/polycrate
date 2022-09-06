@@ -35,8 +35,8 @@ var CreateSSHKeyCmd = &cobra.Command{
 	Hidden: false,
 	Use:    "ssh-keys",
 	Args:   cobra.ExactArgs(0),
-	Short:  "Generate SSH Keys for a stack",
-	Long:   `Generate SSH Keys for a stack`,
+	Short:  "Generate SSH Keys for a Workspace",
+	Long:   `Generate SSH Keys for a Workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
 		err := CreateSSHKeys()

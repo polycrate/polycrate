@@ -32,11 +32,12 @@ var pruneBlock bool
 // installCmd represents the install command
 var blocksCmd = &cobra.Command{
 	Use:   "block",
-	Short: "Control Polycrate Blocks",
+	Short: "List blocks in the workspace",
 	Aliases: []string{
 		"blocks",
 	},
 	Long: ``,
+	Args: cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
 		workspace.ListBlocks().Flush()

@@ -72,6 +72,10 @@ dockers:
       - "ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64"
       - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64"
       - "ghcr.io/polycrate/polycrate:latest-amd64"
+      - "cargo.ayedo.cloud/library/polycrate:{{ .Version }}-amd64"
+      - "cargo.ayedo.cloud/library/polycrate:v{{ .Major }}-amd64"
+      - "cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}-amd64"
+      - "cargo.ayedo.cloud/library/polycrate:latest-amd64"
     use: buildx
     dockerfile: Dockerfile.goreleaser
     build_flag_templates:
@@ -90,6 +94,10 @@ dockers:
       - "ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8"
       - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8"
       - "ghcr.io/polycrate/polycrate:latest-arm64v8"
+      - "cargo.ayedo.cloud/library/polycrate:{{ .Version }}-arm64v8"
+      - "cargo.ayedo.cloud/library/polycrate:v{{ .Major }}-arm64v8"
+      - "cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8"
+      - "cargo.ayedo.cloud/library/polycrate:latest-arm64v8"
     use: buildx
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -121,6 +129,23 @@ docker_manifests:
     image_templates:
       - ghcr.io/polycrate/polycrate:latest-amd64
       - ghcr.io/polycrate/polycrate:latest-arm64v8
+
+  - name_template: cargo.ayedo.cloud/library/polycrate:{{ .Version }}
+    image_templates:
+      - cargo.ayedo.cloud/library/polycrate:{{ .Version }}-amd64
+      - cargo.ayedo.cloud/library/polycrate:{{ .Version }}-arm64v8
+  - name_template: cargo.ayedo.cloud/library/polycrate:v{{ .Major }}
+    image_templates:
+      - cargo.ayedo.cloud/library/polycrate:v{{ .Major }}-amd64
+      - cargo.ayedo.cloud/library/polycrate:v{{ .Major }}-arm64v8
+  - name_template: cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}-amd64
+      - cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8
+  - name_template: cargo.ayedo.cloud/library/polycrate:latest
+    image_templates:
+      - cargo.ayedo.cloud/library/polycrate:latest-amd64
+      - cargo.ayedo.cloud/library/polycrate:latest-arm64v8
 # brews:
 #   - # GitHub/GitLab repository to push the formula to
 #     tap:
