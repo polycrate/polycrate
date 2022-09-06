@@ -57,7 +57,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&logLevel, "loglevel", "0", "loglevel")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "loglevel", "1", "loglevel")
 	rootCmd.PersistentFlags().BoolVarP(&pull, "pull", "p", true, "Pull the workspace image before running the container. Defaults to true.")
 	rootCmd.PersistentFlags().BoolVarP(&local, "local", "l", false, "Run actions locally (without the polycrate container). Defaults to false.")
 	rootCmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "Force whatever you want to do. Like sudo with more willpower. Defaults to false.")
@@ -166,11 +166,11 @@ func initConfig() {
 
 	var logrusLogLevel string
 	switch logLevel {
-	case "0":
-		logrusLogLevel = "Info"
 	case "1":
-		logrusLogLevel = "Debug"
+		logrusLogLevel = "Info"
 	case "2":
+		logrusLogLevel = "Debug"
+	case "3":
 		logrusLogLevel = "Trace"
 	default:
 		logrusLogLevel = "Info"
