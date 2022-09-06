@@ -1371,113 +1371,111 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			return err
 		}
 
-		return nil
-
 		// NOT NEEDED ANYMORE
 
-		block := c.getBlockByName(blockName)
-		if block != nil {
-			// Check if block already has the desired version
-			if block.Version == blockVersion {
-				log.WithFields(log.Fields{
-					"workspace":       c.Name,
-					"block":           block.Name,
-					"path":            block.Workdir.LocalPath,
-					"current_version": block.Version,
-					"desired_version": blockVersion,
-				}).Debugf("Block is already installed")
-				return nil
-			}
+		// block := c.getBlockByName(blockName)
+		// if block != nil {
+		// 	// Check if block already has the desired version
+		// 	if block.Version == blockVersion {
+		// 		log.WithFields(log.Fields{
+		// 			"workspace":       c.Name,
+		// 			"block":           block.Name,
+		// 			"path":            block.Workdir.LocalPath,
+		// 			"current_version": block.Version,
+		// 			"desired_version": blockVersion,
+		// 		}).Debugf("Block is already installed")
+		// 		return nil
+		// 	}
 
-			log.WithFields(log.Fields{
-				"workspace":       c.Name,
-				"block":           block.Name,
-				"path":            block.Workdir.LocalPath,
-				"current_version": block.Version,
-				"desired_version": blockVersion,
-			}).Infof("Updating block")
+		// 	log.WithFields(log.Fields{
+		// 		"workspace":       c.Name,
+		// 		"block":           block.Name,
+		// 		"path":            block.Workdir.LocalPath,
+		// 		"current_version": block.Version,
+		// 		"desired_version": blockVersion,
+		// 	}).Infof("Updating block")
 
-			// Download blocks from registry
-			err = c.PullBlock(blockName, blockVersion)
-			if err != nil {
-				return err
-			}
+		// 	// Download blocks from registry
+		// 	err = c.PullBlock(blockName, blockVersion)
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-			return nil
+		// 	return nil
 
-			// NOT NEEDED ANYMORE
+		// 	// NOT NEEDED ANYMORE
 
-			// Search block in registry
-			registryBlock, err := registry.GetBlock(blockName)
-			if err != nil {
-				return err
-			}
+		// 	// Search block in registry
+		// 	registryBlock, err := registry.GetBlock(blockName)
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-			// Check if release exists
-			registryRelease, err := registryBlock.GetRelease(blockVersion)
-			if err != nil {
-				return err
-			}
+		// 	// Check if release exists
+		// 	registryRelease, err := registryBlock.GetRelease(blockVersion)
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-			// Check again if we're already on the desired version
-			// At this point "latest" has been resolved to a specific release version
-			if block.Version == registryRelease.Version {
-				log.WithFields(log.Fields{
-					"workspace":       c.Name,
-					"block":           block.Name,
-					"path":            block.Workdir.LocalPath,
-					"current_version": block.Version,
-					"desired_version": registryRelease.Version,
-				}).Infof("Block already has desired version")
-				return nil
-			}
+		// 	// Check again if we're already on the desired version
+		// 	// At this point "latest" has been resolved to a specific release version
+		// 	if block.Version == registryRelease.Version {
+		// 		log.WithFields(log.Fields{
+		// 			"workspace":       c.Name,
+		// 			"block":           block.Name,
+		// 			"path":            block.Workdir.LocalPath,
+		// 			"current_version": block.Version,
+		// 			"desired_version": registryRelease.Version,
+		// 		}).Infof("Block already has desired version")
+		// 		return nil
+		// 	}
 
-			// Uninstall block
-			// pruneBlock constains a boolean triggered by --prune
-			err = block.Uninstall(pruneBlock)
-			if err != nil {
-				return err
-			}
+		// 	// Uninstall block
+		// 	// pruneBlock constains a boolean triggered by --prune
+		// 	err = block.Uninstall(pruneBlock)
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-			// Now install the wanted version
-			registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
-			registryBlockVersion := blockVersion
+		// 	// Now install the wanted version
+		// 	registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
+		// 	registryBlockVersion := blockVersion
 
-			err = registryBlock.Install(registryBlockDir, registryBlockVersion)
-			if err != nil {
-				return err
-			}
+		// 	err = registryBlock.Install(registryBlockDir, registryBlockVersion)
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-		} else {
-			if pull {
-				// If we pull the container image automatically
-				// We certainly want to install dependencies automatically
+		// } else {
+		// 	if pull {
+		// 		// If we pull the container image automatically
+		// 		// We certainly want to install dependencies automatically
 
-				// Search block in registry
-				registryBlock, err := registry.GetBlock(blockName)
-				if err != nil {
-					return err
-				}
+		// 		// Search block in registry
+		// 		registryBlock, err := registry.GetBlock(blockName)
+		// 		if err != nil {
+		// 			return err
+		// 		}
 
-				// Check if release exists
-				_, err = registryBlock.GetRelease(blockVersion)
-				if err != nil {
-					return err
-				}
-				// Now install the wanted version
-				registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
-				registryBlockVersion := blockVersion
+		// 		// Check if release exists
+		// 		_, err = registryBlock.GetRelease(blockVersion)
+		// 		if err != nil {
+		// 			return err
+		// 		}
+		// 		// Now install the wanted version
+		// 		registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
+		// 		registryBlockVersion := blockVersion
 
-				err = registryBlock.Install(registryBlockDir, registryBlockVersion)
-				if err != nil {
-					return err
-				}
+		// 		err = registryBlock.Install(registryBlockDir, registryBlockVersion)
+		// 		if err != nil {
+		// 			return err
+		// 		}
 
-			} else {
-				err := fmt.Errorf("Block not found: %s. Run 'polycrate block install %s' to install it.", blockName, blockName)
-				return err
-			}
-		}
+		// 	} else {
+		// 		err := fmt.Errorf("Block not found: %s. Run 'polycrate block install %s' to install it.", blockName, blockName)
+		// 		return err
+		// 	}
+		// }
 	}
 	return nil
 }
