@@ -2,15 +2,15 @@
 
 ## Workspace
 
-Whatever you build with Polycrate happens in your **workspace**. The workspace contains configuration and lifecycle artifacts. It's a directory on your filesystem (the so called **workspace directory**; can be specified using `--workspace`) that can be synced and collaborated on via **git** or other tooling.
+Whatever you build with Polycrate happens in your **workspace**. The workspace contains configuration and lifecycle artifacts. It's a directory on your filesystem (the so called **workspace directory**; can be specified using `--workspace/-w`) that can be synced and collaborated on via **git** or other tooling.
 
 The workspace can be assembled using the [workspace configuration](#workspace-configuration).
 
-## Container
+## Polycrate container
 
 Most of the Polycrate magic happens inside of a Docker container running on the system that invokes the `polycrate` command.
 
-The container will be started whenever you run an action. It is based on a public image (`ghcr.io/polycrate/polycrate`) provided by [ayedo](https://www.ayedo.de) ([Dockerfile](https://github.com/polycrate/polycrate/Dockerfile.goreleaser)) and contains most of the best-practice tooling of cloud-native development and operations.
+The container will be started whenever you run an action. It is based on a public image (`cargo.ayedo.cloud/library/polycrate`) provided by [ayedo](https://www.ayedo.de) ([Dockerfile](https://gitlab.ayedo.de/polycrate/polycrate/Dockerfile.goreleaser)) and contains most of the best-practice tooling of cloud-native development and operations.
 
 The container gives you access to a state-of-the-art DevOps runtime. Polycrate exports a [snapshot](#workspace-snapshot) of the workspace in various formats (yaml, json, environment vars, hcl, ...) and makes it available to the tooling inside the container so you can start building right away.
 
@@ -33,7 +33,7 @@ This can be used to persist changes to the workspace, like installing additional
 By convention, the Dockerfile should be built upon the official Polycrate image:
 
 ```
-FROM ghcr.io/polycrate/polycrate:latest
+FROM cargo.ayedo.cloud/library/polycrate:latest
 
 RUN pip install hcloud==1.16.0
 ```
@@ -46,7 +46,7 @@ DEBU[0000] Building image 'polycrate-demo:latest', --build=true
 WARN[0000] Building custom image polycrate-demo:latest  
 DEBU[0000] Assembling docker context                    
 DEBU[0000] Building image                               
-DEBU[0001] Step 1/2 : FROM ghcr.io/polycrate/polycrate  
+DEBU[0001] Step 1/2 : FROM cargo.ayedo.cloud/library/polycrate:latest
 DEBU[0001]  ---> 67237198f4a5                           
 DEBU[0001] Step 2/2 : RUN pip install hcloud==1.16.0    
 DEBU[0001]  ---> Using cache                            
@@ -60,7 +60,7 @@ DEBU[0001] Successfully tagged polycrate-demo:latest
 The **workspace configuration** (default: `workspace.poly`) holds the configuration for a [workspace](#workspace) and must be located inside the workspace directory.
 
 !!! note
-    You can specify a custom workspace configuration by using `--workspace-config YOUR/CUSTOM/workspace-config.yml`. This can be especially helpful when using Polycrate in CI.
+    You can specify a custom workspace configuration file by using `--workspace-config YOUR/CUSTOM/workspace-config.yml`. This can be especially helpful when using Polycrate in CI.
 
 ```yaml
 # workspace.poly
@@ -73,23 +73,63 @@ blocks:
 
 ## Blocks
 
-A Polycrate workspace is a modular system built out of so called **blocks** and their configuration. Blocks can be inherited `from` other blocks which merges configuration of the parent block into its child and changes the workdir to the parent block's workdir whenever an [action](#actions) runs.
+A Polycrate workspace is a modular system built out of so called **blocks**. Blocks are dedicated pieces of code/functionality that can be configured using the `config` stanza in the block configuration file (default: `block.poly`). Blocks expose actions that can be executed using `polycrate run $BLOCK_NAME $ACTION_NAME`. 
+
+### Inheritance
+
+Blocks can be inherited `from` other blocks which merges configuration of the parent block into its child and changes the workdir to the parent block's workdir whenever an [action](#actions) runs. Such blocks that are based on other blocks are called [dynamic blocks](#dynamic-blocks).
 
 !!! note
     When merging a parent block's config into a child block, existing config in the child block will not be overriden. The most common scenario where this is relevant is when you define defaults inside a `block.poly` file and overwrite them in your `workspace.poly` file.
 
-Blocks can be created on the fly by defining their configuration in the workspace configuration directly. If the block is composed of custom code, simply create a directory (the so-called **block directory**) in the **blocks root** (`mkdir blocks/custom-block`) and place your code there.
+```yaml
+...
+blocks:
+  - name: harbor
+    from: ayedo/k8s/harbor
+...
+```
+
+### Dynamic blocks
+
+Blocks can be created manually (i.e. without pulling them from the [registry](#registry)) by defining their configuration in the workspace configuration directly. If the block is composed of custom code, simply create a directory (the so-called **block directory**) in the **blocks root** (`mkdir blocks/custom-block`) and place your code there.
 
 !!! note
-    The name of the directory shoult be the same you defined in the `name` stanza of that Block.
+    By convention, the name of the directory shoult be the same you defined in the `name` stanza of that Block.
 
 When a custom workdir for a block exists, Polycrate will change to this workdir when executing an action of that block.
 
-A block can be configured through a [block configuration](#block-configuration) file (`block.poly`) in its block dir (this is a good way to store defaults) or by adding the block configuration directly to the workspace configuration. Workspace-level configuration will always have precedence over block-level configuration.
+A block can be configured through a [block configuration](#block-configuration) file (defaults to `block.poly`) in its block dir (this is a good way to define defaults) or by adding the block configuration directly to the workspace configuration. Workspace-level configuration will always have precedence over block-level configuration.
+
+### Dependencies
+
+Polycrate supports workspace-level dependencies by using the `dependencies` stanza:
+
+```yaml
+...
+dependencies:
+  - ayedo/hcloud/inventory:0.0.1
+  - ayedo/hcloud/k8s-infra:0.0.2
+  - ayedo/hcloud/k8s:0.0.9
+  - ayedo/k8s/nginx:0.0.2
+  - ayedo/k8s/portainer:0.0.7
+  - ayedo/k8s/cert-manager:0.0.3
+  - ayedo/k8s/external-dns:0.0.21
+  - ayedo/k8s/harbor:0.0.1
+...
+```
+
+Polycrate checks the configured dependencies against the installed blocks in the workspace with every invocation of the `polycrate` command. If a dependency is missing, it will be downloaded.
+
+### Pull blocks
+
+To dynamically add blocks to the workspace from the [registry](#registry), you can run `polycrate pull $BLOCK_NAME:$BLOCK_VERSION`. If `$BLOCK_VERSION` is not defined, `latest` will be assumed.
+
+Blocks can be uninstalled from the workspace by running `polycrate block uninstall BLOCK1 BLOCK2:0.0.1` or simply deleting the block's directory.
 
 ## Block configuration
 
-The **block configuration** (default: `block.poly`) holds the configuration for a single [block](#block) and must be located in the block directory.
+The **block configuration** (defaults to `block.poly`) holds the configuration for a single [block](#block) and must be located in the block directory.
 
 ```yaml
 # block.poly
@@ -105,6 +145,11 @@ actions:
     script:
       - echo "Uninstall"
 ```
+
+!!! note
+    Action names are limited to certain characters: `^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$`.
+
+    This constraint applies to **ALL** `name` stanzas in Polycrate.
 
 ### Actions
 
@@ -131,7 +176,7 @@ The `script` section of an action is a list of commands that will be merged into
     This constraint applies to **ALL** `name` stanzas in Polycrate.
 
 !!! note
-    Polycrate does not persist data between runs apart from changes made to the [workspace](#workspace) directory (mounted at `/workspace`) inside the execution container).
+    Polycrate does not persist data between runs apart from changes made to the [workspace](#workspace) directory (mounted at `/workspace` inside the execution container).
 
 !!! note
     It's fine to write data to the [workspace](#workspace) directory. However it's best-practice to use [Artifacts](#artifacts) to persist custom data.
@@ -144,7 +189,7 @@ By default, Polycrate looks for [Ansible Inventories](#ansible-inventory) and [K
 
 ## Ansible Inventory
 
-Polycrate can consume yaml-formated [Ansible inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html) files inside the artifacts directory of a block. The inventory file **must** be named `inventory.yml`.
+Polycrate can consume yaml-formated [Ansible inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html) files inside the artifacts directory of a block. Polycrate looks for a file named `inventory.yml` by default - this can be overridden using the `inventory.filename` stanza in the block configuration.
 
 An inventory file can be created automatically by a block or provided manually (useful for existing infrastructure).
 
@@ -155,13 +200,14 @@ The inventories can be consumed by the owning block itself or by other blocks us
 name: plugin-a
   inventory:
     from: plugin-b
+    filename: inventory.yml
 ```
 
 This will add an environment variable (`ANSIBLE_INVENTORY=path/to/inventory/of/plugin-b`) to the container that points Ansible to the right inventory to work with.
 
 ## Kubeconfig
 
-Polycrate is integrated with Kubernetes and can connect to a cluster using a [kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) file. By default, Polycrate looks for kubeconfig files inside the artifacts directory of a block. 
+Polycrate is integrated with Kubernetes and can connect to a cluster using a [kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) file. By default, Polycrate looks for kubeconfig files named `kubeconfig.yml` inside the artifacts directory of a block. This can be overridden using the `kubeconfig.filename` stanza in the block configuration.
 
 A kubeconfig file can be created automatically by a block or provided manually (useful for existing infrastructure).
 
@@ -172,6 +218,7 @@ The kubeconfig file can be consumed by the owning block itself or by other block
 name: plugin-a
   kubeconfig:
     from: plugin-b
+    filename: kubeconfig.yml
 ```
 
 This will add an environment variable (`KUBECONFIG=path/to/kubeconfig/of/plugin-b`) to the container that points kubectl, etc to the right kubeconfig to work with.
@@ -212,11 +259,36 @@ You can use the `--snapshot` flag when invoking `polycrate run`. This will preve
 
 ## Loglevel
 
-Polycrate supports 4 loglevel:
+Polycrate supports 3 loglevel:
 
-- Loglevel 0: The default. Will only print logs of type **WARN** or above
-- Loglevel 1: Info-Level. Will be more verbose
+- Loglevel 1: The default. Will only print logs of type **INFO** or above
 - Loglevel 2: Debug-Level. You know ...
 - Loglevel 3: Trace level. 
 
 The loglevel will be mapped to the respective **Ansible verbosity** meaning `--loglevel 3` will result in Ansible executing as if you used `-vvv`.
+
+## Sync
+
+Polycrate can be configured to automatically sync with a git repository whenever it is invoked. Polycrate then writes a history log to `history.log` in the workspace directory and commits and pushes before and after invoking an action, saving the command that has been issued as well as the exit code the command resulted in.
+
+Sync must be enabled in the workspace configuration:
+
+```yaml
+sync:
+  enabled: true
+  auto: true
+  remote:
+    url: ssh://git@gitlab.ayedo.de:10022/devops/workspaces/starkiller.git
+```
+
+If `sync.auto` is false, you need to manually push to the connected git repository. 
+
+With `polycrate log $MESSAGE` you can write and sync arbitrary history logs.
+
+## Registry
+
+Polycrate blocks can be pushed and pulled to and from a OCI-compatible registry. By default, Polycrate uses `cargo.ayedo.cloud` as its registry targets to obtain blocks from. 
+
+You can define your own registry by using `--registry-url` and pointing it to your OCI-compatible registry.
+
+Polycrate does not implement authentication with the registry but instead makes use of your local Docker credential helper. To authenticate against a registry, run `docker login $REGISTRY_URL` before pushing or pulling blocks.
