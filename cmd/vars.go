@@ -12,24 +12,59 @@ import (
 // Constants
 // These are mainly used for setting defaults to the CLI flags
 // As such they can be overriden by the user
-const WorkspaceConfigImageRef string = "ghcr.io/polycrate/polycrate"
+
+// default image to use for the Polycrate container
+const WorkspaceConfigImageRef string = "cargo.ayedo.cloud/library/polycrate"
+
+// default blocks directory inside the workspace
 const WorkspaceConfigBlocksRoot string = "blocks"
+
+// default artifacts directory inside the workspace
 const WorkspaceConfigArtifactsRoot string = "artifacts"
+
+// default workflows directory inside the workspace
 const WorkspaceConfigWorkflowsRoot string = "workflows"
+
+// default remote root (can be used when running commands on remote machines)
 const WorkspaceConfigRemoteRoot string = "/polycrate"
+
+// default Dockerfile inside the workspace
 const WorkspaceConfigDockerfile string = "Dockerfile.poly"
+
+// default root directory inside the Polycrate container
 const WorkspaceContainerRoot string = "/workspace"
+
+// default filename for the ssh public key inside the workspace
 const WorkspaceConfigSshPublicKey string = "id_rsa.pub"
+
+// default filename for the ssh private key inside the workspace
 const WorkspaceConfigSshPrivateKey string = "id_rsa"
+
+// default workspace config file
 const WorkspaceConfigFile string = "workspace.poly"
 
+// default block config file
 const BlocksConfigFile string = "block.poly"
+
+// default env prefix
 const EnvPrefix string = "polycrate"
+
+// default registry url
 const RegistryUrl string = "cargo.ayedo.cloud"
+
+// default registry namespace
 const RegistryBlockNamespace string = "polycrate-blocks"
+
+// default registry api base
 const RegistryApiBase string = "wp-json/wp/v2"
+
+// default registry base image that blocks are packaged with
 const RegistryBaseImage string = "cargo.ayedo.dev/library/scratch:latest"
+
+// default local editor to open when using `workspace edit`
 const DefaultEditor string = "code"
+
+// default exit code for failed commands
 const defaultFailedCode int = 1
 
 const GitLabDefaultUrl string = "https://gitlab.com"
