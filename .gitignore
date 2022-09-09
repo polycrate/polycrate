@@ -216,5 +216,5 @@ package-lock.json
 _.gitlab-ci.yml
 dist/
 
-blocks/
+
 latest.txt
