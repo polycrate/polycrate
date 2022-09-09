@@ -77,7 +77,7 @@ type WorkspaceConfig struct {
 	SshPublicKey    string                 `yaml:"sshpublickey" mapstructure:"sshpublickey" json:"sshpublickey" validate:"required"`
 	RemoteRoot      string                 `yaml:"remoteroot" mapstructure:"remoteroot" json:"remoteroot" validate:"required"`
 	Dockerfile      string                 `yaml:"dockerfile" mapstructure:"dockerfile,omitempty" json:"dockerfile,omitempty"`
-	Globals         map[string]interface{} `yaml:"globals" mapstructure:"globals,remain" json:"globals"`
+	Globals         map[string]interface{} `yaml:"globals" mapstructure:"globals" json:"globals"`
 }
 
 type Workspace struct {
