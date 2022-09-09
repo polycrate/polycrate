@@ -417,7 +417,7 @@ Polycrate makes use of a special [Ansible Vars Plugin](https://docs.ansible.com/
 
     services:
       traefik:
-        image: "traefik:2.7" # (1)
+        image: "traefik:2.7"
         container_name: "traefik"
         command:
           - "--providers.docker=true"
@@ -443,7 +443,5 @@ Polycrate makes use of a special [Ansible Vars Plugin](https://docs.ansible.com/
     volumes:
       traefik-letsencrypt:
     ```
-
-    1.  The image from `block.poly` (traefik:2.6) has been replaced with the one configured in `workspace.poly` (traefik:2.7)
 
 
