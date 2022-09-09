@@ -444,6 +444,6 @@ Polycrate makes use of a special [Ansible Vars Plugin](https://docs.ansible.com/
       traefik-letsencrypt:
     ```
 
-    1. The image from `block.poly` (traefik:2.6) has been replaced with the one configured in `workspace.poly` (traefik:2.7)
+    1.  The image from `block.poly` (traefik:2.6) has been replaced with the one configured in `workspace.poly` (traefik:2.7)
 
 
