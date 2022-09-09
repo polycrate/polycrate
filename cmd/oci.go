@@ -18,6 +18,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func OCIImageExists(name string) bool {
+	_, err := crane.Digest(name)
+	return err == nil
+}
+
 func PullOCIImage(name string) (v1.Image, error) {
 	img, err := crane.Pull(name)
 	if err != nil {
@@ -31,6 +36,24 @@ func WrapOCIImage(path string, imageName string, imageTag string) error {
 	// 1. download nginx
 	// 2. /usr/share/nginx/html <- delete this dir (new layer, appended on top of nginx)
 	// 3. copy my blog there (new layer, appended on top of nginx)
+
+	registryBase := strings.Join([]string{config.Registry.Url, config.Registry.BlockNamespace}, "/")
+	localImageTag := strings.Join([]string{imageName, imageTag}, ":")
+	localImageTagLatest := strings.Join([]string{imageName, "latest"}, ":")
+	tag, err := name.NewTag(strings.Join([]string{registryBase, localImageTag}, "/"))
+	if err != nil {
+		return err
+	}
+
+	latestTag, err := name.NewTag(strings.Join([]string{registryBase, localImageTagLatest}, "/"))
+	if err != nil {
+		return err
+	}
+
+	// Check if the image exists already; fail if it does
+	if OCIImageExists(tag.String()) {
+		return fmt.Errorf("Block %s with version %s already exists in the registry", imageName, imageTag)
+	}
 
 	//log.Debugf("Pulling base image %s", config.Registry.BaseImage)
 	log.WithFields(log.Fields{
@@ -53,19 +76,6 @@ func WrapOCIImage(path string, imageName string, imageTag string) error {
 	newImg, err := mutate.AppendLayers(img, addLayer)
 	if err != nil {
 		panic(err)
-	}
-
-	registryBase := strings.Join([]string{config.Registry.Url, config.Registry.BlockNamespace}, "/")
-	localImageTag := strings.Join([]string{imageName, imageTag}, ":")
-	localImageTagLatest := strings.Join([]string{imageName, "latest"}, ":")
-	tag, err := name.NewTag(strings.Join([]string{registryBase, localImageTag}, "/"))
-	if err != nil {
-		return err
-	}
-
-	latestTag, err := name.NewTag(strings.Join([]string{registryBase, localImageTagLatest}, "/"))
-	if err != nil {
-		return err
 	}
 
 	//log.Debugf("Pushing image %s", tag.String())

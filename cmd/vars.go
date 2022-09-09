@@ -109,6 +109,7 @@ var registry Registry
 
 // Global variable that holds the block paths discovered at block discovery in workspace.load()
 var blockPaths []string
+var installedBlocks []Block
 
 // Global variable that holds the workspace paths discovered at workspace discovery
 var workspacePaths []string

@@ -22,6 +22,7 @@ require (
 	github.com/xanzy/go-gitlab v0.68.2
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/exp v0.0.0-20220518171630-0b5c67f07fdf
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -86,7 +87,6 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/net v0.0.0-20220708220712-1185a9018129 // indirect
 	golang.org/x/oauth2 v0.0.0-20220718184931-c8730f7fcb92 // indirect
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect

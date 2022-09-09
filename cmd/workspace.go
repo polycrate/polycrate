@@ -66,8 +66,9 @@ type Metadata struct {
 }
 
 type WorkspaceConfig struct {
-	Image           ImageConfig            `yaml:"image" mapstructure:"image" json:"image" validate:"required"`
-	BlocksRoot      string                 `yaml:"blocksroot" mapstructure:"blocksroot" json:"blocksroot" validate:"required"`
+	Image      ImageConfig `yaml:"image" mapstructure:"image" json:"image" validate:"required"`
+	BlocksRoot string      `yaml:"blocksroot" mapstructure:"blocksroot" json:"blocksroot" validate:"required"`
+	// The block configuration file (default: block.poly)
 	BlocksConfig    string                 `yaml:"blocksconfig" mapstructure:"blocksconfig" json:"blocksconfig" validate:"required"`
 	WorkspaceConfig string                 `yaml:"workspaceconfig" mapstructure:"workspaceconfig" json:"workspaceconfig" validate:"required"`
 	WorkflowsRoot   string                 `yaml:"workflowsroot" mapstructure:"workflowsroot" json:"workflowsroot" validate:"required"`
@@ -523,17 +524,20 @@ func (c *Workspace) load() *Workspace {
 	// Bootstrap the workspace index
 	c.bootstrapIndex().Flush()
 
-	// Load dependencies
-	c.loadDependencies().Flush()
-
 	// Find all blocks in the workspace
-	c.discoverBlocks().Flush()
+	c.DiscoverInstalledBlocks().Flush()
+
+	// Load installed blocks
+	c.LoadInstalledBlocks().Flush()
+
+	// Pull dependencies
+	c.PullDependencies().Flush()
 
 	// Load all discovered blocks in the workspace
-	c.loadBlockConfigs().Flush()
+	c.ImportInstalledBlocks().Flush()
 
 	// Resolve block dependencies
-	c.resolveBlockDependencies().Flush()
+	c.ResolveBlockDependencies().Flush()
 
 	// Update workflow and step addresses
 	c.resolveWorkflows().Flush()
@@ -625,26 +629,26 @@ func (c *Workspace) Uninstall() error {
 }
 
 // Resolves the 'from:' stanza of all blocks
-func (c *Workspace) resolveBlockDependencies() *Workspace {
-	missing := len(c.Blocks)
+func (w *Workspace) ResolveBlockDependencies() *Workspace {
+	missing := len(w.Blocks)
 
 	log.WithFields(log.Fields{
-		"workspace": c.Name,
+		"workspace": w.Name,
 	}).Debugf("Resolving block dependencies")
 
 	// Iterate over all Blocks in the Workspace
 	// Until nothing is "missing" anymore
 	for missing != 0 {
-		for i := 0; i < len(c.Blocks); i++ {
-			loadedBlock := &c.Blocks[i]
+		for i := 0; i < len(w.Blocks); i++ {
+			loadedBlock := &w.Blocks[i]
 
 			// Block has not been resolved yet
 			if !loadedBlock.resolved {
 				log.WithFields(log.Fields{
 					"block":     loadedBlock.Name,
-					"workspace": c.Name,
+					"workspace": w.Name,
 					"missing":   missing,
-				}).Debugf("Resolving block %d/%d", i+1, len(c.Blocks))
+				}).Debugf("Resolving block %d/%d", i+1, len(w.Blocks))
 
 				// Check if a "from:" stanza is given and not empty
 				// This means that the loadedBlock should inherit from another Block
@@ -653,36 +657,36 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 					log.WithFields(log.Fields{
 						"block":      loadedBlock.Name,
 						"dependency": loadedBlock.From,
-						"workspace":  c.Name,
+						"workspace":  w.Name,
 						"missing":    missing,
 					}).Debugf("Dependency detected")
 
 					// Try to load the referenced Block
-					dependency := c.getBlockByName(loadedBlock.From)
+					dependency := w.getBlockByName(loadedBlock.From)
 
 					if dependency == nil {
 						log.WithFields(log.Fields{
 							"block":      loadedBlock.Name,
 							"dependency": loadedBlock.From,
-							"workspace":  c.Name,
+							"workspace":  w.Name,
 							"missing":    missing,
 						}).Errorf("Dependency not found in the workspace")
 						// There's no Block to load from
 
 						// Let's check if there's one in the registry
 						if _, err := registry.GetBlock(loadedBlock.From); err == nil {
-							c.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name + " or run 'polycrate block install " + loadedBlock.From + "'")
-							return c
+							w.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name + " or run 'polycrate block install " + loadedBlock.From + "'")
+							return w
 						} else {
-							c.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name)
-							return c
+							w.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name)
+							return w
 						}
 					}
 
 					log.WithFields(log.Fields{
 						"block":      loadedBlock.Name,
 						"dependency": loadedBlock.From,
-						"workspace":  c.Name,
+						"workspace":  w.Name,
 						"missing":    missing,
 					}).Debugf("Dependency loaded")
 
@@ -695,7 +699,7 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 						log.WithFields(log.Fields{
 							"block":               loadedBlock.Name,
 							"dependency":          loadedBlock.From,
-							"workspace":           c.Name,
+							"workspace":           w.Name,
 							"missing":             missing,
 							"dependency_resolved": dep.resolved,
 						}).Debugf("Postponing block")
@@ -709,8 +713,8 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 					// The merge works like "loading defaults" for the loaded Block
 					err := loadedBlock.MergeIn(dep)
 					if err != nil {
-						c.err = err
-						return c
+						w.err = err
+						return w
 					}
 
 					// Handle Workdir
@@ -766,14 +770,14 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 					log.WithFields(log.Fields{
 						"block":      loadedBlock.Name,
 						"dependency": loadedBlock.From,
-						"workspace":  c.Name,
+						"workspace":  w.Name,
 						"missing":    missing,
 					}).Debugf("Dependency resolved")
 
 				} else {
 					log.WithFields(log.Fields{
 						"block":     loadedBlock.Name,
-						"workspace": c.Name,
+						"workspace": w.Name,
 						"missing":   missing,
 					}).Debugf("Block has no dependencies")
 
@@ -781,13 +785,13 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 
 				// Register the Block to the Index
 				loadedBlock.address = loadedBlock.Name
-				c.registerBlock(loadedBlock)
+				w.registerBlock(loadedBlock)
 
 				// Update Artifacts, Kubeconfig & Inventory
 				err := loadedBlock.LoadArtifacts()
 				if err != nil {
-					c.err = err
-					return c
+					w.err = err
+					return w
 				}
 				loadedBlock.LoadInventory()
 				loadedBlock.LoadKubeconfig()
@@ -796,9 +800,10 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 				if len(loadedBlock.Actions) > 0 {
 					log.WithFields(log.Fields{
 						"block":     loadedBlock.Name,
-						"workspace": c.Name,
+						"workspace": w.Name,
 						"missing":   missing,
 					}).Debugf("Updating action addresses")
+
 					for _, action := range loadedBlock.Actions {
 
 						existingAction := loadedBlock.getActionByName(action.Name)
@@ -809,7 +814,7 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 							log.WithFields(log.Fields{
 								"block":     loadedBlock.Name,
 								"action":    existingAction.Name,
-								"workspace": c.Name,
+								"workspace": w.Name,
 								"address":   actionAddress,
 								"missing":   missing,
 							}).Debugf("Updated action address")
@@ -820,14 +825,14 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 							log.WithFields(log.Fields{
 								"block":     loadedBlock.Name,
 								"action":    existingAction.Name,
-								"workspace": c.Name,
+								"workspace": w.Name,
 								"address":   actionAddress,
 								"missing":   missing,
 							}).Debugf("Updated action block")
 						}
 
 						// Register the Action to the Index
-						c.registerAction(existingAction)
+						w.registerAction(existingAction)
 					}
 				}
 
@@ -836,7 +841,7 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 
 				log.WithFields(log.Fields{
 					"block":     loadedBlock.Name,
-					"workspace": c.Name,
+					"workspace": w.Name,
 					"missing":   missing,
 				}).Debugf("Block resolved")
 
@@ -848,19 +853,19 @@ func (c *Workspace) resolveBlockDependencies() *Workspace {
 
 		}
 	}
-	return c
+	return w
 }
-func (c *Workspace) resolveWorkflows() *Workspace {
+func (w *Workspace) resolveWorkflows() *Workspace {
 	log.WithFields(log.Fields{
-		"workspace": c.Name,
+		"workspace": w.Name,
 	}).Debugf("Resolving workflows")
 
-	for i := 0; i < len(c.Workflows); i++ {
-		loadedWorkflow := &c.Workflows[i]
+	for i := 0; i < len(w.Workflows); i++ {
+		loadedWorkflow := &w.Workflows[i]
 
 		loadedWorkflow.address = loadedWorkflow.Name
 		// Register the workflow to the Index
-		c.registerWorkflow(loadedWorkflow)
+		w.registerWorkflow(loadedWorkflow)
 
 		// Loop over the steps
 		for _, step := range loadedWorkflow.Steps {
@@ -871,34 +876,34 @@ func (c *Workspace) resolveWorkflows() *Workspace {
 			loadedStep.Workflow = loadedWorkflow.Name
 
 			log.WithFields(log.Fields{
-				"workspace": c.Name,
+				"workspace": w.Name,
 				"workflow":  loadedWorkflow.Name,
 				"step":      loadedStep.Name,
 			}).Debugf("Validating step")
 			if err := loadedStep.validate(); err != nil {
-				c.err = err
-				return c
+				w.err = err
+				return w
 			}
 
 			log.WithFields(log.Fields{
-				"workspace": c.Name,
+				"workspace": w.Name,
 				"workflow":  loadedWorkflow.Name,
 				"step":      loadedStep.Name,
 			}).Debugf("Registering step")
-			c.registerStep(loadedStep)
+			w.registerStep(loadedStep)
 		}
 
 		log.WithFields(log.Fields{
-			"workspace": c.Name,
+			"workspace": w.Name,
 			"workflow":  loadedWorkflow.Name,
 		}).Debugf("Validating workflow")
 		if err := loadedWorkflow.validate(); err != nil {
-			c.err = err
-			return c
+			w.err = err
+			return w
 		}
 
 	}
-	return c
+	return w
 }
 
 func (c *Workspace) validate() error {
@@ -1342,7 +1347,19 @@ func (c *Workspace) Sync() *Workspace {
 	return c
 }
 
-func (c *Workspace) UpdateBlocks(args []string) error {
+func (w *Workspace) IsBlockInstalled(blockName string, blockVersion string) bool {
+	for _, installedBlock := range installedBlocks {
+		if installedBlock.Name == blockName {
+			if installedBlock.Version == blockVersion {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (w *Workspace) UpdateBlocks(args []string) error {
 	eg := new(errgroup.Group)
 	for _, arg := range args {
 		arg := arg // https://go.dev/doc/faq#closures_and_goroutines
@@ -1352,8 +1369,17 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 				return err
 			}
 
+			if w.IsBlockInstalled(blockName, blockVersion) {
+				log.WithFields(log.Fields{
+					"workspace":       w.Name,
+					"block":           blockName,
+					"desired_version": blockVersion,
+				}).Debugf("Block is already installed")
+				return nil
+			}
+
 			log.WithFields(log.Fields{
-				"workspace":       c.Name,
+				"workspace":       w.Name,
 				"block":           blockName,
 				"desired_version": blockVersion,
 			}).Debugf("Updating block")
@@ -1371,7 +1397,7 @@ func (c *Workspace) UpdateBlocks(args []string) error {
 			// }
 
 			// Download blocks from registry
-			err = c.PullBlock(blockName, blockVersion)
+			err = w.PullBlock(blockName, blockVersion)
 			if err != nil {
 				return err
 			}
@@ -1768,65 +1794,65 @@ func (c *Workspace) print() {
 	printObject(c)
 }
 
-func (c *Workspace) loadBlockConfigs() *Workspace {
+func (w *Workspace) ImportInstalledBlocks() *Workspace {
 	log.WithFields(log.Fields{
-		"workspace": c.Name,
-	}).Debugf("Importing blocks")
+		"workspace": w.Name,
+	}).Debugf("Importing installed blocks")
 
-	for _, blockPath := range blockPaths {
-		blockConfigFilePath := filepath.Join(blockPath, c.Config.BlocksConfig)
+	for _, installedBlock := range installedBlocks {
+		// blockConfigFilePath := filepath.Join(blockPath, c.Config.BlocksConfig)
 
-		blockConfigObject := viper.New()
-		blockConfigObject.SetConfigType("yaml")
-		blockConfigObject.SetConfigFile(blockConfigFilePath)
+		// blockConfigObject := viper.New()
+		// blockConfigObject.SetConfigType("yaml")
+		// blockConfigObject.SetConfigFile(blockConfigFilePath)
 
-		log.WithFields(log.Fields{
-			"workspace": c.Name,
-			"path":      blockPath,
-		}).Debugf("Loading block")
-		if err := blockConfigObject.MergeInConfig(); err != nil {
-			c.err = err
-			return c
-		}
+		// log.WithFields(log.Fields{
+		// 	"workspace": c.Name,
+		// 	"path":      blockPath,
+		// }).Debugf("Loading installed block")
+		// if err := blockConfigObject.MergeInConfig(); err != nil {
+		// 	c.err = err
+		// 	return c
+		// }
 
-		var loadedBlock Block
-		if err := blockConfigObject.UnmarshalExact(&loadedBlock); err != nil {
-			c.err = err
-			return c
-		}
-		if err := loadedBlock.validate(); err != nil {
-			c.err = err
-			return c
-		}
-		log.WithFields(log.Fields{
-			"block":     loadedBlock.Name,
-			"workspace": c.Name,
-		}).Debugf("Loaded block")
+		// var loadedBlock Block
+		// if err := blockConfigObject.UnmarshalExact(&loadedBlock); err != nil {
+		// 	c.err = err
+		// 	return c
+		// }
+		// if err := loadedBlock.validate(); err != nil {
+		// 	c.err = err
+		// 	return c
+		// }
+		// log.WithFields(log.Fields{
+		// 	"block":     loadedBlock.Name,
+		// 	"workspace": c.Name,
+		// }).Debugf("Loaded block")
 
-		// Set Block vars
-		loadedBlock.Workdir.LocalPath = blockPath
-		loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, loadedBlock.Name)
+		// // Set Block vars
+		// loadedBlock.Workdir.LocalPath = blockPath
+		// loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, loadedBlock.Name)
 
-		if local {
-			loadedBlock.Workdir.Path = loadedBlock.Workdir.LocalPath
-		} else {
-			loadedBlock.Workdir.Path = loadedBlock.Workdir.ContainerPath
-		}
+		// if local {
+		// 	loadedBlock.Workdir.Path = loadedBlock.Workdir.LocalPath
+		// } else {
+		// 	loadedBlock.Workdir.Path = loadedBlock.Workdir.ContainerPath
+		// }
 
 		// Check if Block exists
-		existingBlock := c.getBlockByName(loadedBlock.Name)
+		existingBlock := w.getBlockByName(installedBlock.Name)
 
 		if existingBlock != nil {
 			// Block exists
 			log.WithFields(log.Fields{
-				"block":     loadedBlock.Name,
-				"workspace": c.Name,
+				"block":     installedBlock.Name,
+				"workspace": w.Name,
 			}).Debugf("Found existing block. Merging.")
 
-			err := existingBlock.MergeIn(loadedBlock)
+			err := existingBlock.MergeIn(installedBlock)
 			if err != nil {
-				c.err = err
-				return c
+				w.err = err
+				return w
 			}
 
 			// // Handle Actions
@@ -1858,14 +1884,65 @@ func (c *Workspace) loadBlockConfigs() *Workspace {
 			// }
 
 		} else {
-			c.Blocks = append(c.Blocks, loadedBlock)
+			w.Blocks = append(w.Blocks, installedBlock)
 		}
+	}
+	return w
+
+}
+func (c *Workspace) LoadInstalledBlocks() *Workspace {
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+	}).Debugf("Loading installed blocks")
+
+	for _, blockPath := range blockPaths {
+		blockConfigFilePath := filepath.Join(blockPath, c.Config.BlocksConfig)
+
+		blockConfigObject := viper.New()
+		blockConfigObject.SetConfigType("yaml")
+		blockConfigObject.SetConfigFile(blockConfigFilePath)
+
+		log.WithFields(log.Fields{
+			"workspace": c.Name,
+			"path":      blockPath,
+		}).Debugf("Loading installed block")
+		if err := blockConfigObject.MergeInConfig(); err != nil {
+			c.err = err
+			return c
+		}
+
+		var loadedBlock Block
+		if err := blockConfigObject.UnmarshalExact(&loadedBlock); err != nil {
+			c.err = err
+			return c
+		}
+		if err := loadedBlock.validate(); err != nil {
+			c.err = err
+			return c
+		}
+		log.WithFields(log.Fields{
+			"block":     loadedBlock.Name,
+			"workspace": c.Name,
+		}).Debugf("Loaded block")
+
+		// Set Block vars
+		loadedBlock.Workdir.LocalPath = blockPath
+		loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, loadedBlock.Name)
+
+		if local {
+			loadedBlock.Workdir.Path = loadedBlock.Workdir.LocalPath
+		} else {
+			loadedBlock.Workdir.Path = loadedBlock.Workdir.ContainerPath
+		}
+
+		// Add block to installedBlocks
+		installedBlocks = append(installedBlocks, loadedBlock)
 	}
 	return c
 
 }
 
-func (c *Workspace) discoverBlocks() *Workspace {
+func (c *Workspace) DiscoverInstalledBlocks() *Workspace {
 	blocksDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot)
 
 	if _, err := os.Stat(blocksDir); !os.IsNotExist(err) {
@@ -1889,7 +1966,7 @@ func (c *Workspace) discoverBlocks() *Workspace {
 	return c
 }
 
-func (c *Workspace) loadDependencies() *Workspace {
+func (c *Workspace) PullDependencies() *Workspace {
 	// Loop through dependencies
 	// Resolve each dep into block/version
 	// Check if block already exists
