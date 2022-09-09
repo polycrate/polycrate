@@ -26,7 +26,7 @@ The container gives you access to a state-of-the-art DevOps runtime. Polycrate e
 
 ## Dockerfile
 
-Polycrate looks for a Dockerfile in your workspace (defaults to `Dockerfile.poly`, can be configured using `--dockerfile`). If it finds one, it will build it and run the [container](#container) based on this image instead of the default image.
+Polycrate looks for a Dockerfile in your workspace (defaults to `Dockerfile.poly`, can be configured using `--dockerfile`). If it finds one, it will build it and run the [container](#polycrate-container) based on this image instead of the default image.
 
 This can be used to persist changes to the workspace, like installing additional tools or libraries.
 
@@ -71,9 +71,19 @@ blocks:
       foo: bar
 ```
 
+!!! note
+    The workspace name is limited to certain characters: `^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$`.
+
+    This constraint applies to **ALL** `name` stanzas in Polycrate.
+
 ## Blocks
 
-A Polycrate workspace is a modular system built out of so called **blocks**. Blocks are dedicated pieces of code/functionality that can be configured using the `config` stanza in the block configuration file (default: `block.poly`). Blocks expose actions that can be executed using `polycrate run $BLOCK_NAME $ACTION_NAME`. 
+A Polycrate workspace is a modular system built out of so called **blocks**. Blocks are dedicated pieces of code/functionality that can be configured using the `config` stanza in the block configuration (default: `block.poly`) or the workspace configuration (default: `workspace.poly`). Blocks expose actions that can be executed using `polycrate run $BLOCK_NAME $ACTION_NAME`. 
+
+Polycrate looks for blocks inside the **blocks root** (defaults to `blocks`). Nested directories (e.g. `blocks/foo/bar/baz`) are allowed. 
+
+!!! note
+    If a block's name contains one or multiple slashes (`/`) and is installed through the registry, it will be saved to a nested directory structure: the block `ayedo/k8s/harbor` will be saved to `blocks/ayedo/k8s/harbor`. This also applies to the block's [artifact directory](#artifacts).
 
 ### Inheritance
 
@@ -92,14 +102,14 @@ blocks:
 
 ### Dynamic blocks
 
-Blocks can be created manually (i.e. without pulling them from the [registry](#registry)) by defining their configuration in the workspace configuration directly. If the block is composed of custom code, simply create a directory (the so-called **block directory**) in the **blocks root** (`mkdir blocks/custom-block`) and place your code there.
+Blocks can be created dynamically by defining their configuration in the workspace configuration directly or creating a directory (the so-called **block directory**) in the **blocks root** (`mkdir blocks/custom-block`). This directory can contain custom code and a block configuration file.
 
 !!! note
     By convention, the name of the directory shoult be the same you defined in the `name` stanza of that Block.
 
-When a custom workdir for a block exists, Polycrate will change to this workdir when executing an action of that block.
+When a custom workdir for a block exists, Polycrate will change to this workdir when executing an action of that block. It's also possible to build blocks that do not use custom code but only rely on the available tooling inside the [Polycrate container](#polycrate-container).
 
-A block can be configured through a [block configuration](#block-configuration) file (defaults to `block.poly`) in its block dir (this is a good way to define defaults) or by adding the block configuration directly to the workspace configuration. Workspace-level configuration will always have precedence over block-level configuration.
+Workspace-level configuration (made in `workspace.poly`) will always have precedence over block-level configuration (made in `block.poly`).
 
 ### Dependencies
 
@@ -146,8 +156,10 @@ actions:
       - echo "Uninstall"
 ```
 
+The `config` stanza of the block configuration is free form and not typed. You can use it to define the configuration structure of your block according to your needs.
+
 !!! note
-    Action names are limited to certain characters: `^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$`.
+    Block names are limited to certain characters: `^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$`.
 
     This constraint applies to **ALL** `name` stanzas in Polycrate.
 
@@ -187,6 +199,8 @@ Artifacts can be stored in the **artifacts root** inside your workspace (which i
 
 By default, Polycrate looks for [Ansible Inventories](#ansible-inventory) and [Kubeconfigs](#kubeconfig) in the Artifacts Directory of a Block.
 
+For each block in the workspace a directory will automatically be created underneath the artifacts root (e.g. `artifacts/block/`).
+
 ## Ansible Inventory
 
 Polycrate can consume yaml-formated [Ansible inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html) files inside the artifacts directory of a block. Polycrate looks for a file named `inventory.yml` by default - this can be overridden using the `inventory.filename` stanza in the block configuration.
@@ -197,13 +211,13 @@ The inventories can be consumed by the owning block itself or by other blocks us
 
 ```yaml
 # block.poly
-name: plugin-a
+name: block-a
   inventory:
-    from: plugin-b
+    from: block-b
     filename: inventory.yml
 ```
 
-This will add an environment variable (`ANSIBLE_INVENTORY=path/to/inventory/of/plugin-b`) to the container that points Ansible to the right inventory to work with.
+This will add an environment variable (`ANSIBLE_INVENTORY=path/to/inventory/of/block-b`) to the container that points Ansible to the right inventory to work with.
 
 ## Kubeconfig
 
@@ -215,13 +229,13 @@ The kubeconfig file can be consumed by the owning block itself or by other block
 
 ```yaml
 # block.poly
-name: plugin-a
+name: block-a
   kubeconfig:
-    from: plugin-b
+    from: block-b
     filename: kubeconfig.yml
 ```
 
-This will add an environment variable (`KUBECONFIG=path/to/kubeconfig/of/plugin-b`) to the container that points kubectl, etc to the right kubeconfig to work with.
+This will add an environment variable (`KUBECONFIG=path/to/kubeconfig/of/block-b`) to the container that points kubectl, etc to the right kubeconfig to work with.
 
 ## Workspace snapshot
 
