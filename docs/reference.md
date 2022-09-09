@@ -292,3 +292,158 @@ Polycrate blocks can be pushed and pulled to and from a OCI-compatible registry.
 You can define your own registry by using `--registry-url` and pointing it to your OCI-compatible registry.
 
 Polycrate does not implement authentication with the registry but instead makes use of your local Docker credential helper. To authenticate against a registry, run `docker login $REGISTRY_URL` before pushing or pulling blocks.
+
+## Ansible
+
+Polycrate provides a special integration with [Ansible](https://www.ansible.com/). The [workspace snapshot](#workspace-snapshot) that is being exported to yaml format and mounted to the Polycrate container will be consumed by Ansible automagically. As a result, the snapshot is available directly as top-level variables in Ansible which can be used in playbooks and templates.
+
+The following example shows:
+
+- the default configuration (`block.poly`) of a block called `traefik`
+- the user-provided configuration for the block in `workspace.poly`
+- the Ansible playbook using the exposed variables ( `block.config...`)
+- an Ansible template using the exposed variables (`templates/docker-compose.yml.j2`)
+- the resulting file `/polycrate/docker-compose.yml` that is templated to a remote host
+
+!!! note
+    Note how in `block.poly` the configured image is `traefik:2.6` but in `workspace.poly` it's `traefik:2.7`. In the resulting `docker-compose.yml`, the image is `traefik:2.7` as defaults in `block.poly` will be overridden by user-provided configuration in `workspace.poly`.
+
+The `block` variable contains the configuration of the current block invoked by `polycrate run traefik install`. Additionally, there's a variable `workspace` available, that contains the fully compiled workspace including additional blocks that are available in the workspace.
+
+Polycrate makes use of a special [Ansible Vars Plugin](https://docs.ansible.com/ansible/latest/plugins/vars.html) to read in the Yaml-Snapshot and expose it as top-level variables to the Ansible facts.
+
+
+=== "block.poly"
+
+    ```yaml
+    name: traefik
+    config:
+      image: "traefik:v2.6"
+      letsencrypt:
+        email: ""
+        resolver: letsencrypt
+    actions:
+      - name: install
+        script:
+          - ansible-playbook install.yml
+      - name: uninstall
+        script:
+          - ansible-playbook uninstall.yml
+      - name: prune
+        script:
+          - ansible-playbook prune.yml
+    ```
+
+=== "workspace.poly"
+
+    ```yaml
+    name: ansible-traefik-demo
+    blocks:
+      - name: traefik
+        inventory:
+          from: inventory-block
+        config:
+          letsencrypt:
+            email: info@example.com
+          image: traefik:2.7
+    ```
+
+=== "install.yml"
+
+    ```yaml
+    - name: "install"
+      hosts: all
+      gather_facts: yes
+      tasks:
+        - name: Create remote block directory
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            mode: '0755'
+          with_items:
+            - "/polycrate/{{ block.name }}"
+
+        - name: Copy compose file
+          ansible.builtin.template:
+            src: docker-compose.yml.j2
+            dest: "/polycrate/{{ block.name }}/docker-compose.yml"
+
+        - name: Deploy compose stack
+          docker_compose:
+            project_src: "/polycrate/{{ block.name }}"
+            remove_orphans: true
+            files:
+              - docker-compose.yml
+    ```
+
+=== "templates/docker-compose.yml.j2"
+
+    ```yaml
+    version: "3.9"
+
+    services:
+      traefik:
+        image: "{{ block.config.image }}"
+        container_name: "traefik"
+        command:
+          - "--providers.docker=true"
+          - "--providers.docker.exposedbydefault=false"
+          - "--entrypoints.web.address=:80"
+          - "--entrypoints.websecure.address=:443"
+          - "--certificatesresolvers.{{ block.config.letsencrypt.resolver }}.acme.email={{ block.config.letsencrypt.email }}"
+          - "--certificatesresolvers.{{ block.config.letsencrypt.resolver }}.acme.storage=/letsencrypt/acme.json"
+          - "--certificatesresolvers.{{ block.config.letsencrypt.resolver }}.acme.tlschallenge=true"
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - "/var/run/docker.sock:/var/run/docker.sock:ro"
+          - "traefik-letsencrypt:/letsencrypt"
+        networks:
+          - traefik
+
+    networks:
+      traefik:
+        name: traefik
+      
+    volumes:
+      traefik-letsencrypt:
+    ```
+
+=== "/polycrate/traefik/docker-compose.yml"
+
+    ```yaml
+    version: "3.9"
+
+    services:
+      traefik:
+        image: "traefik:2.7" # (1)
+        container_name: "traefik"
+        command:
+          - "--providers.docker=true"
+          - "--providers.docker.exposedbydefault=false"
+          - "--entrypoints.web.address=:80"
+          - "--entrypoints.websecure.address=:443"
+          - "--certificatesresolvers.letsencrypt.acme.email=info@example.com"
+          - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+          - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - "/var/run/docker.sock:/var/run/docker.sock:ro"
+          - "traefik-letsencrypt:/letsencrypt"
+        networks:
+          - traefik
+
+    networks:
+      traefik:
+        name: traefik
+      
+    volumes:
+      traefik-letsencrypt:
+    ```
+
+    1. The image from `block.poly` (traefik:2.6) has been replaced with the one configured in `workspace.poly` (traefik:2.7)
+
+
