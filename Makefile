@@ -34,7 +34,7 @@ check:
 serve:
 	mkdocs serve
 
-changelog:
-	git-chglog --next-tag $(shell svu next) --output docs/changelog/$(shell svu next).md $(shell svu next)
-	git add .
-	git commit -am "changelog created $(shell svu next)"
+# changelog:
+# 	git-chglog --next-tag $(shell svu next) --output docs/changelog/$(shell svu next).md $(shell svu next)
+# 	git add .
+# 	git commit -am "changelog created $(shell svu next)"

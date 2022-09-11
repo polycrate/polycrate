@@ -50,7 +50,7 @@ snapshot:
 changelog:
   sort: asc
   skip: true
-  use: gitlab
+  use: github
   filters:
     exclude:
       - "^docs:"
@@ -200,7 +200,7 @@ docker_manifests:
 #     icon_url: ""
 
 release:
-  disable: true
+  disable: false
   github:
     owner: polycrate
     name: polycrate

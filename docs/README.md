@@ -23,3 +23,4 @@ Polycrate is packaged into a portable container that comes with a plethora of us
 
 
 [Get started](getting-started.md){ .md-button .md-button--primary }
+[:simple-discord: Discord](https://discord.gg/8cQZfXWeXP){ .md-button }
