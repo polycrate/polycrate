@@ -8,7 +8,7 @@ description: A framework to build platforms
 Polycrate is a framework to build platforms. A platform can be anything from a bash script to automate your daily tasks, to a full-blown Kubernetes deployment.
 
 <figure markdown>
-  ![Polycrate](logo.png){: style="height:300px;width:300px;"}
+  ![Polycrate](logo.svg){: style="height:150px;width:150px;"}
   <figcaption>Polycrate</figcaption>
 </figure>
 
