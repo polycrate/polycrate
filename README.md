@@ -5,11 +5,12 @@
 
 Polycrate is a framework to build platforms. Read more in the [official docs](https://docs.polycrate.io).
 
+<p align="center">
 ![Discord](https://img.shields.io/discord/971467892447146057?logo=discord)
 ![License](https://img.shields.io/github/license/polycrate/polycrate)
 ![Go version](https://img.shields.io/github/go-mod/go-version/polycrate/polycrate)
 ![Polycrate version](https://img.shields.io/github/v/release/polycrate/polycrate)
-
+</p>
 ## Play with polycrate
 
 - [Installation](https://docs.polycrate.io/getting-started)
