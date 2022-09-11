@@ -16,7 +16,7 @@ If you're working with modern cloud native tooling you most likely know the pain
 
 ![Polycrate highlevel](assets/images/polycrate-highlevel.png)
 
-Polycrate revolves around a [workspace](reference.md#workspace) of [blocks](reference.md#blocks). Blocks have [actions](reference.md#actions) that can be automated using [workflows](reference.md#workflows). This way you can build complex but flexible automations and platforms that you can easily share with your team. 
+Polycrate revolves around a [workspace](2_reference.md#workspace) of [blocks](2_reference.md#blocks). Blocks have [actions](2_reference.md#actions) that can be automated using [workflows](2_reference.md#workflows). This way you can build complex but flexible automations and platforms that you can easily share with your team. 
 
 You can use Polycrate to create an overarching "platform development framework" for your organization - using shared **blocks** and **workspaces** makes it easy to establish common tactics and best-practices for deployment and operations for your team(s).
 
