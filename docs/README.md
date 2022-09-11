@@ -26,5 +26,5 @@ Polycrate executes blocks in a portable container that comes with a plethora of 
 
 
 
-[Get started](getting-started.md){ .md-button .md-button--primary }
+[Get started](1_getting-started.md){ .md-button .md-button--primary }
 [:simple-discord: Discord](https://discord.gg/8cQZfXWeXP){ .md-button }

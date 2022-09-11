@@ -49,7 +49,7 @@ You can share workspaces with your team or customers and make them use pre-defin
 
 ## Play with polycrate
 
-- [Installation](https://docs.polycrate.io/getting-started)
-- [Quick start](https://docs.polycrate.io/getting-started)
+- [Installation](https://docs.polycrate.io/1_getting-started)
+- [Quick start](https://docs.polycrate.io/1_getting-started)
 - [Examples](https://docs.polycrate.io/examples)
 
