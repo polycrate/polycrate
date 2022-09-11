@@ -2,6 +2,8 @@ site_name: Polycrate
 site_description: The DevOps Framework
 site_author: Ayedo Cloud Solutions GmbH
 site_dir: public
+repo_url: https://github.com/polycrate/polycrate
+
 extra:
   analytics:
     provider: custom
@@ -15,6 +17,8 @@ extra:
 theme:
   name: material
   logo: logo.svg
+  icon:
+    repo: fontawesome/brands/github
   features:
     - search.suggest
     - search.share
@@ -80,7 +84,9 @@ copyright: ' Copyright &copy; 2022 Ayedo Cloud Solutions GmbH
 '
 # extend: https://gitlab.com/r2devops/hub/-/blob/latest/mkdocs.yml
 plugins:
-  - git-revision-date-localized
+  - git-revision-date-localized:
+      type: date
+      enable_creation_date: true
   - search
 # nav:
 #   - 'getting-started.md'
