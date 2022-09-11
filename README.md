@@ -14,7 +14,7 @@
     <img src="https://img.shields.io/github/go-mod/go-version/polycrate/polycrate" alt="Go version" />
   </a>
   <a href="https://github.com/polycrate/polycrate/releases" alt="Releases">
-    <img src="https://img.shields.io/github/v/release/polycrate/polycrate" alt="GReleases" />
+    <img src="https://img.shields.io/github/v/release/polycrate/polycrate" alt="Releases" />
   </a>
   <a href="https://docs.polycrate.io" alt="Docs">
     <img src="https://api.netlify.com/api/v1/badges/67a4a921-cfbb-442d-ae7c-a2f9439a4001/deploy-status" alt="Docs" />
@@ -24,6 +24,8 @@
 Polycrate is a framework that lets you package, integrate and automate complex applications and infrastructure. With Polycrate you can bundle dependencies, tools, cofiguration and deployment logic for any kind of IT system in a single workspace and expose reusable actions that enable a streamlined DevOps workflow.
 
 ## What is Polycrate
+
+![Polycrate highlevel](docs/assets/images/polycrate-highlevel.png)
 
 If you're working with modern cloud native tooling you most likely know the pain of dependency- and tool-management, the mess of git-repositories to get Infrastructure-as-Code working and the leaking portability when it comes to working in a team. Polycrate helps you to glue all the command-line tools, configuration files, secrets and deployment scripts together, package it into a version-controlled workspace and provide a seemless way to expose well-defined actions that allow for easy replication and low-risk execution of common workflows.
 
@@ -43,6 +45,7 @@ You can share workspaces with your team or customers and make them use pre-defin
 - Use tools like Ansible to achieve idempotent deployments inside your blocks
 - Share common logic by pushing blocks to an OCI-comptabible registry
 - Share workspaces through git-repositories
+- Automatically persist and sync workspace changes to a git-repository when running an action
 
 ## Play with polycrate
 

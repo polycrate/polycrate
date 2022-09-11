@@ -14,6 +14,8 @@ Polycrate is a framework that lets you package, integrate and automate complex a
 
 If you're working with modern cloud native tooling you most likely know the pain of dependency- and tool-management, the mess of git-repositories to get Infrastructure-as-Code working and the leaking portability when it comes to working in a team. Polycrate helps you to glue all the command-line tools, configuration files, secrets and deployment scripts together, package it into a version-controlled workspace and provide a seemless way to expose well-defined actions that allow for easy replication and low-risk execution of common workflows.
 
+![Polycrate highlevel](assets/images/polycrate-highlevel.png)
+
 Polycrate revolves around a [workspace](reference.md#workspace) of [blocks](reference.md#blocks). Blocks have [actions](reference.md#actions) that can be automated using [workflows](reference.md#workflows). This way you can build complex but flexible automations and platforms that you can easily share with your team. 
 
 You can use Polycrate to create an overarching "platform development framework" for your organization - using shared **blocks** and **workspaces** makes it easy to establish common tactics and best-practices for deployment and operations for your team(s).
