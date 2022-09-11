@@ -49,7 +49,7 @@ snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
-  skip: true
+  skip: false
   use: github
   filters:
     exclude:
@@ -204,3 +204,23 @@ release:
   github:
     owner: polycrate
     name: polycrate
+  header: |
+    ## Polycrate v{{ .Version }} ({{ .Date }})
+
+    Here are the most relevant changes:
+  footer: |
+    ## Docker Images
+
+    - `cargo.ayedo.cloud/library/polycrate:v{{ .Version }}`
+    - `cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}`
+    - `cargo.ayedo.cloud/library/polycrate:v{{ .Major }}`
+    - `cargo.ayedo.cloud/library/polycrate:latest`
+    - `ghcr.io/polycrate/polycrate:v{{ .Version }}`
+    - `ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}`
+    - `ghcr.io/polycrate/polycrate:v{{ .Major }}`
+    - `ghcr.io/polycrate/polycrate:latest`
+
+    ## Get support
+
+    - [Discord](https://discord.gg/8cQZfXWeXP)
+    - [GitHub Issues](https://github.com/polycrate/polycrate/issues)
