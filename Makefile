@@ -16,7 +16,7 @@ docker-login:
 snapshot:
 	goreleaser release --snapshot --rm-dist --debug
 
-unexport GITHUB_TOKEN
+unexport GITLAB_TOKEN
 release: latest
 	git push origin main
 	goreleaser release --rm-dist --debug
