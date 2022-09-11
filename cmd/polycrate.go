@@ -12,7 +12,7 @@ import (
 type PolycrateSync struct {
 	Provider PolycrateProvider
 	Repo     *git.Repository
-	err      error
+	//err      error
 }
 
 type PolycrateSyncConfig struct {
