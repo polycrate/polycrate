@@ -3,14 +3,23 @@
         height="75">
 </p>
 
-Polycrate is a framework to build platforms. Read more in the [official docs](https://docs.polycrate.io).
-
 <p align="center">
-![Discord](https://img.shields.io/discord/971467892447146057?logo=discord)
-![License](https://img.shields.io/github/license/polycrate/polycrate)
-![Go version](https://img.shields.io/github/go-mod/go-version/polycrate/polycrate)
-![Polycrate version](https://img.shields.io/github/v/release/polycrate/polycrate)
+  <a href="https://discord.gg/8cQZfXWeXP" alt="Discord">
+    <img src="https://img.shields.io/discord/971467892447146057?logo=discord" alt="Discord" />
+  </a>
+  <a href="https://github.com/polycrate/polycrate/blob/main/LICENSE" alt="License">
+    <img src="https://img.shields.io/github/license/polycrate/polycrate" alt="License" />
+  </a>
+  <a href="https://github.com/polycrate/polycrate/blob/main/go.mod" alt="Go version">
+    <img src="https://img.shields.io/github/go-mod/go-version/polycrate/polycrate" alt="Go version" />
+  </a>
+  <a href="https://github.com/polycrate/polycrate/releases" alt="Releases">
+    <img src="https://img.shields.io/github/v/release/polycrate/polycrate" alt="GReleases" />
+  </a>
 </p>
+
+Polycrate is a framework to build platforms. A platform can be anything from a bash script to automate your daily tasks, to a full-blown Kubernetes deployment.
+
 ## Play with polycrate
 
 - [Installation](https://docs.polycrate.io/getting-started)
