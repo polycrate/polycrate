@@ -22,14 +22,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var workspaceVersion string
+//var workspaceVersion string
 
 // installCmd represents the install command
 var workspaceInstallCmd = &cobra.Command{
-	Use:   "install BLOCK1 BLOCK2:0.0.1",
-	Short: "Install Blocks",
-	Long:  ``,
-	Args:  cobra.ExactArgs(1),
+	Hidden: true,
+	Use:    "install BLOCK1 BLOCK2:0.0.1",
+	Short:  "Install Blocks",
+	Long:   ``,
+	Args:   cobra.ExactArgs(1),
 	//Args: cobra.RangeArgs(1, 2), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 

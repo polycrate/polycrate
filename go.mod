@@ -3,7 +3,6 @@ module polycrate
 go 1.18
 
 require (
-	github.com/Masterminds/semver v1.5.0
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-playground/validator/v10 v10.9.0
