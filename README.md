@@ -1,4 +1,7 @@
-# Polycrate
+<p align="center">
+    <img src="https://raw.githubusercontent.com/polycrate/polycrate/main/logo.svg?sanitize=true"
+        height="75">
+</p>
 
 Polycrate is a framework to build platforms. Read more in the [official docs](https://docs.polycrate.io).
 
