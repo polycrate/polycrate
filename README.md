@@ -21,7 +21,28 @@
   </a>
 </p>
 
-Polycrate is a framework to build platforms. A platform can be anything from a bash script to automate your daily tasks, to a full-blown Kubernetes deployment.
+Polycrate is a framework that lets you package, integrate and automate complex applications and infrastructure. With Polycrate you can bundle dependencies, tools, cofiguration and deployment logic for any kind of IT system in a single workspace and expose reusable actions that enable a streamlined DevOps workflow.
+
+## What is Polycrate
+
+If you're working with modern cloud native tooling you most likely know the pain of dependency- and tool-management, the mess of git-repositories to get Infrastructure-as-Code working and the leaking portability when it comes to working in a team. Polycrate helps you to glue all the command-line tools, configuration files, secrets and deployment scripts together, package it into a version-controlled workspace and provide a seemless way to expose well-defined actions that allow for easy replication and low-risk execution of common workflows.
+
+Polycrate does this by wrapping logic in so called blocks - custom code that you can write in the language of your choice - and execute them inside a Docker container that provides well-integrated best-of-breed tooling of modern infrastructure development. These blocks can be shared through a standard OCI registry or git-repositories, making a workspace portable between any system that supports Docker.
+
+You can share workspaces with your team or customers and make them use pre-defined actions that setup, change or destroy the systems defined in it with simple commands like `polycrate run docker install`.
+
+## Why Polycrate
+
+- Simple commands to execute complex, pre-configured deployment or installation logic
+- No need to locally install abstract toolchains and conflicting dependencies when working with tools like Ansible, Kubernetes or Terraform
+- No knowledge of the logic of single blocks is necessary to use the exposed actions
+- Build complex but well-integrated systems based on a single configuration file
+- No custom DSL or complex configuration structure to learn: Polycrate lets you build on your own terms with minimum constraints, giving you the ability to configure your workspace and blocks the way YOU need to
+- Share the operational load of managing complex systems in production with your team
+- Works with and improves existing tools - no need to rewrite existing code to work with Polycrate. Just make a block out of it and expose it as an action
+- Use tools like Ansible to achieve idempotent deployments inside your blocks
+- Share common logic by pushing blocks to an OCI-comptabible registry
+- Share workspaces through git-repositories
 
 ## Play with polycrate
 
@@ -29,34 +50,3 @@ Polycrate is a framework to build platforms. A platform can be anything from a b
 - [Quick start](https://docs.polycrate.io/getting-started)
 - [Examples](https://docs.polycrate.io/examples)
 
-## Develop polycrate
-
-You need:
-
-- Go
-- Docker
-- [goreleaser](https://goreleaser.com/quick-start/)
-- [svu](https://github.com/caarlos0/svu)
-- [upx](https://upx.github.io/)
-
-### Local testing
-
-Run `make snapshot` - this will create a `dist` dir that contains the bundled artifacts. The command also builds the required docker images locally, but doesn't push them
-
-### Release a new version
-
-- Create a changelog and fill in necessary information for the release: `make changelog`
-- Make sure the workspace is clean: `git status`
-- Once the workspace is clean, run `make next` to see the next computed version
-- If everything fits, run `make tag` - this will create and push a new tag
-- Next, run `make release`
-
-### Troubleshooting
-
-#### error=git tag v0.2.0 was not made against commit $COMMIT
-
-This happens if you pushed a tag and then made new changes before running `make release`. This can be solved running the following commands after cleaning the workspace:
-
-- `make delete-tag`
-- `make tag`
-- `make release`

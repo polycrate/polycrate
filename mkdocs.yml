@@ -3,7 +3,7 @@ site_description: The DevOps Framework
 site_author: Ayedo Cloud Solutions GmbH
 site_dir: public
 repo_url: https://github.com/polycrate/polycrate
-
+repo_name: polycrate/polycrate
 extra:
   analytics:
     provider: custom
