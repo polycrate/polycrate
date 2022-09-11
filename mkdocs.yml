@@ -5,6 +5,13 @@ site_dir: public
 extra:
   analytics:
     provider: custom
+  social:
+    - icon: fontawesome/brands/twitter 
+      link: https://twitter.com/weareayedo
+    - icon: fontawesome/brands/discord 
+      link: https://discord.gg/8cQZfXWeXP
+    - icon: fontawesome/brands/github 
+      link: https://github.com/polycrate/polycrate
 theme:
   name: material
   logo: logo.svg

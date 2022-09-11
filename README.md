@@ -16,6 +16,9 @@
   <a href="https://github.com/polycrate/polycrate/releases" alt="Releases">
     <img src="https://img.shields.io/github/v/release/polycrate/polycrate" alt="GReleases" />
   </a>
+  <a href="https://docs.polycrate.io" alt="Docs">
+    <img src="https://api.netlify.com/api/v1/badges/67a4a921-cfbb-442d-ae7c-a2f9439a4001/deploy-status)](https://app.netlify.com/sites/admirable-lollipop-18a701/deploys" alt="Docs" />
+  </a>
 </p>
 
 Polycrate is a framework to build platforms. A platform can be anything from a bash script to automate your daily tasks, to a full-blown Kubernetes deployment.
