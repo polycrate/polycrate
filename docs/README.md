@@ -8,7 +8,7 @@ description: A framework to package, integrate and automate complex applications
 Polycrate is a framework that lets you package, integrate and automate complex applications and infrastructure. With Polycrate you can bundle dependencies, tools, cofiguration and deployment logic for any kind of IT system in a single workspace and expose reusable actions that enable a streamlined DevOps workflow.
 
 <figure markdown>
-  ![Polycrate](logo.svg){: style="height:75px;"}
+  ![Polycrate](polycrate-color.svg){: style="height:75px;"}
   <figcaption>Polycrate</figcaption>
 </figure>
 
