@@ -16,7 +16,7 @@ extra:
       link: https://github.com/polycrate/polycrate
 theme:
   name: material
-  logo: logo.svg
+  logo: polycrate-green-white.svg
   icon:
     repo: fontawesome/brands/github
   features:
