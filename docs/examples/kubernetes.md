@@ -2,7 +2,7 @@
 
 ```yaml
 # workspace.poly
-name: transnetbw-techpreview-qa
+name: kubernetes-workspace
 config:
   globals:
     letsencrypt:

@@ -36,6 +36,7 @@ For more information on the included tools and their respective versions refer t
 - [cryptography](https://pypi.org/project/cryptography/)
 - [hcloud](https://pypi.org/project/hcloud/)
 - [netaddr](https://pypi.org/project/netaddr/)
+- [boto](https://pypi.org/project/boto/)
 
 For more information on the included modules and their respective versions refer to the [requirements.txt](https://github.com/polycrate/polycrate/blob/main/python-requirements.txt) file.
 
