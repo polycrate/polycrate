@@ -86,6 +86,9 @@ func (c *Workflow) run() error {
 		if err != nil {
 			return err
 		}
+
+		// reloading workspace to account for new artifacts
+		workspace.load()
 	}
 
 	return nil
