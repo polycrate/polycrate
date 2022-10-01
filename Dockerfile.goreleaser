@@ -38,7 +38,7 @@ RUN apt-get update &&\
   rsync=3.2.3-4+deb11u1 \
   openssh-client=1:8.4p1-5+deb11u1 \
   sshpass \
-  unzip=6.0-27 \
+  unzip=6.0-26+deb11u1 \
   wget=1.21-1+deb11u1 \
   less=551-2 \
   build-essential=12.9 \
