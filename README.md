@@ -7,9 +7,6 @@
   <a href="https://discord.gg/8cQZfXWeXP" alt="Discord">
     <img src="https://img.shields.io/discord/971467892447146057?logo=discord" alt="Discord" />
   </a>
-  <a href="https://github.com/polycrate/polycrate/blob/main/LICENSE" alt="License">
-    <img src="https://img.shields.io/github/license/polycrate/polycrate" alt="License" />
-  </a>
   <a href="https://github.com/polycrate/polycrate/blob/main/go.mod" alt="Go version">
     <img src="https://img.shields.io/github/go-mod/go-version/polycrate/polycrate" alt="Go version" />
   </a>
