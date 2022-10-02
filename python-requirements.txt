@@ -21,4 +21,4 @@ docker-compose
 cryptography
 hcloud
 netaddr
-boto
+boto3

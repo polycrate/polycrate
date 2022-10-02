@@ -31,7 +31,7 @@ func PullOCIImage(name string) (v1.Image, error) {
 	return img, nil
 }
 
-func WrapOCIImage(path string, imageName string, imageTag string) error {
+func WrapOCIImage(path string, imageName string, imageTag string, labels map[string]string) error {
 	// goal:
 	// 1. download nginx
 	// 2. /usr/share/nginx/html <- delete this dir (new layer, appended on top of nginx)
@@ -76,6 +76,36 @@ func WrapOCIImage(path string, imageName string, imageTag string) error {
 	newImg, err := mutate.AppendLayers(img, addLayer)
 	if err != nil {
 		panic(err)
+	}
+
+	origConfig, err := newImg.ConfigFile()
+	if err != nil {
+		return err
+	}
+	origConfig = origConfig.DeepCopy()
+
+	if labels != nil {
+		// Set labels.
+		if origConfig.Config.Labels == nil {
+			origConfig.Config.Labels = map[string]string{}
+		}
+
+		// if err := validateKeyVals(labels); err != nil {
+		// 	return err
+		// }
+
+		for k, v := range labels {
+			log.WithFields(log.Fields{
+				"key":   k,
+				"value": v,
+			}).Debugf("Adding label to image")
+			origConfig.Config.Labels[k] = v
+		}
+	}
+
+	newImg, err = mutate.Config(newImg, origConfig.Config)
+	if err != nil {
+		return err
 	}
 
 	//log.Debugf("Pushing image %s", tag.String())

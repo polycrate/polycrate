@@ -1627,7 +1627,7 @@ func (c *Workspace) PushBlock(blockName string) error {
 		"path":    block.Workdir.LocalPath,
 	}).Debugf("Pushing block")
 
-	err := WrapOCIImage(block.Workdir.LocalPath, block.Name, block.Version)
+	err := WrapOCIImage(block.Workdir.LocalPath, block.Name, block.Version, block.Labels)
 	if err != nil {
 		return err
 	}
