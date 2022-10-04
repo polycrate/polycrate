@@ -79,7 +79,7 @@ Now run the following commands:
 - `polycrate run hello-world greet-me2`
 - `polycrate run hello-world show-workspace`
 
-### What happened?
+### TL;DR
 
 - The first action simply echoes `Hello World` because you defined it like that.
 - The second action took an additional environment variable that you defined at workspace level and echoed what you set as a value. With `polycrate --env "ANOTHER_NAME=Santa Claus" --env "YET_ANOTHER_NAME=John Doe"` you can inject further environment variables at runtime.
@@ -104,9 +104,21 @@ For more examples on how to get started, please visit our [docs](https://docs.po
 - Share workspaces through git-repositories
 - Automatically persist and sync workspace changes to a git-repository when running an action
 
-## Play with polycrate
+## Play with Polycrate
 
 - [Installation](https://docs.polycrate.io/6_installation)
 - [Quick start](https://docs.polycrate.io/1_getting-started)
 - [Examples](https://docs.polycrate.io/examples)
 
+## Support
+
+For community support, please visit the following places:
+
+- [GitHub Issues](https://github.com/polycrate/polycrate/issues)
+- [Discord](https://discord.gg/8cQZfXWeXP)
+
+For enterprise support, please contact us at [hello@ayedo.de](mailto:hello@ayedo.de) or visit [www.ayedo.de](https://www.ayedo.de) for further information.
+
+## Copyright & License
+
+Copyright (c) 2021-2022 Ayedo Cloud Solutions GmbH - Released under the Sustainable Use License. Polycrate and the Polycrate Logo are trademarks of Ayedo Cloud Solutions GmbH.
