@@ -30,6 +30,66 @@ Polycrate does this by wrapping logic in so called blocks - custom code that you
 
 You can share workspaces with your team or customers and make them use pre-defined actions that setup, change or destroy the systems defined in it with simple commands like `polycrate run docker install`.
 
+## Quick start
+
+### Install Polycrate
+
+To see more examples on how to install Polycrate, please refer to our [docs](https://docs.polycrate.io/6_installation)
+
+```bash
+curl https://docs.polycrate.io/get-polycrate.sh | bash
+polycrate version
+```
+
+### Create your first workspace
+
+- Create a workspace directory: `mkdir -p $HOME/.polycrate/workspaces/my-workspace`
+- Enter the directory: `cd $HOME/.polycrate/workspaces/my-workspace`
+- Create the workspace configuration and a first block:
+
+```yaml
+cat <<EOF > workspace.poly
+name: my-workspace
+extraenv:
+  - "YOUR_NAME=Max Mustermann"
+blocks:
+  - name: hello-world
+    config:
+      your_name: "Max Mustermann"
+    actions:
+      - name: greet
+        script:
+          - echo "HELLO WORLD"
+      - name: greet-me
+        script:
+          - echo "HELLO $YOUR_NAME"
+      - name: greet-me2
+        script:
+          - echo "HELLO $BLOCK_CONFIG_YOUR_NAME"
+      - name: show-workspace
+        script:
+          - echo "This is workspace '$WORKSPACE_NAME'"
+EOF
+```
+
+Now run the following commands:
+
+- `polycrate run hello-world greet`
+- `polycrate run hello-world greet-me`
+- `polycrate run hello-world greet-me2`
+- `polycrate run hello-world show-workspace`
+
+### What happened?
+
+- The first action simply echoes `Hello World` because you defined it like that.
+- The second action took an additional environment variable that you defined at workspace level and echoed what you set as a value. With `polycrate --env "ANOTHER_NAME=Santa Claus" --env "YET_ANOTHER_NAME=John Doe"` you can inject further environment variables at runtime.
+- The third action echoed the content of another environment variable that Polycrate automatically created for you by converting the block's config path to env vars: `block.config.your_name` -> `BLOCK_CONFIG_YOUR_NAME`. 
+- The fourth action shows that the magic from action number 3 works with every stanza in a workspace configuration, even with workspace-level settings like `workspace.name` which converts to `WORKSPACE_NAME`.
+
+---
+
+For more examples on how to get started, please visit our [docs](https://docs.polycrate.io/1_getting-started)
+
 ## Why Polycrate
 
 - Simple commands to execute complex, pre-configured deployment or installation logic
@@ -46,7 +106,7 @@ You can share workspaces with your team or customers and make them use pre-defin
 
 ## Play with polycrate
 
-- [Installation](https://docs.polycrate.io/1_getting-started)
+- [Installation](https://docs.polycrate.io/6_installation)
 - [Quick start](https://docs.polycrate.io/1_getting-started)
 - [Examples](https://docs.polycrate.io/examples)
 
