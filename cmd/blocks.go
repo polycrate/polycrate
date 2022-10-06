@@ -370,7 +370,7 @@ func (c *Block) LoadKubeconfig() {
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
 			"block":     c.Name,
-			"path":      blockKubeconfigFile,
+			"path":      c.Kubeconfig.Path,
 		}).Debugf("Kubeconfig loaded")
 	} else {
 		c.Kubeconfig.exists = false

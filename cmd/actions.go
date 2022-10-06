@@ -293,7 +293,7 @@ func (c *Action) Run() error {
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", workspace.currentBlock.getInventoryPath())
 
 	// 4. Determine kubeconfig path
-	log.Debugf("Curren Block: %s", workspace.currentBlock)
+	log.Debugf("Current Block: %s", workspace.currentBlock)
 	log.WithFields(log.Fields{
 		"workspace":  c.Name,
 		"action":     c.Name,
