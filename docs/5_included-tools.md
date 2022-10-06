@@ -18,6 +18,7 @@
 - [rsync](https://linux.die.net/man/1/rsync)
 - [ssh](https://www.openssh.com/)
 - [Docker CLI](https://github.com/docker/cli)
+- [aws-iam-authenticator](https://github.com/kubernetes-sigs/aws-iam-authenticator)
 
 For more information on the included tools and their respective versions refer to the [Dockerfile](https://github.com/polycrate/polycrate/blob/main/Dockerfile.goreleaser).
 
@@ -36,7 +37,8 @@ For more information on the included tools and their respective versions refer t
 - [cryptography](https://pypi.org/project/cryptography/)
 - [hcloud](https://pypi.org/project/hcloud/)
 - [netaddr](https://pypi.org/project/netaddr/)
-- [boto](https://pypi.org/project/boto/)
+- [boto3](https://pypi.org/project/boto3/)
+- [azure-cli](https://pypi.org/project/azure-cli/)
 
 For more information on the included modules and their respective versions refer to the [requirements.txt](https://github.com/polycrate/polycrate/blob/main/python-requirements.txt) file.
 
@@ -44,6 +46,7 @@ For more information on the included modules and their respective versions refer
 
 These can be used from within Ansible directly without the need to install them first.
 
+- [Azure Collection](https://docs.ansible.com/ansible/latest/collections/azure/azcollection/index.html)
 - [darkwizard242.mc](https://github.com/darkwizard242/ansible-role-mc)
 - [ericsysmin.kubectl](https://github.com/ericsysmin/ansible-collection-kubernetes)
 - [geerlingguy.docker](https://github.com/geerlingguy/ansible-role-docker)
