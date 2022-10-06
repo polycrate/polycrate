@@ -149,7 +149,7 @@ Due to the fact that **workspace configuration overwrites block configuration**,
 Well, the Python example might be a bit dull, I agree. Here's a few examples to outline how this can be used:
 
 - create a base block that contains code to deploy S3 buckets, then create 3 dynamic blocks for `dev`, `qa` and `prod` with different configuration to create those buckets for each environment without replicating code
-- use Ansible to write a Playbook that deploys a Pod on Kubernetes, then create dynamic blocks with different configuration for namespace and Pod-name to deploy that Pod for different teams or customers (see how Polycrate integrates with [Ansible](2_reference.md#ansible) to see how that works)
+- use Ansible to write a Playbook that deploys a Pod on Kubernetes, then create dynamic blocks with different configuration for namespace and Pod-name to deploy that Pod for different teams or customers (see [how Polycrate integrates with Ansible](2_reference.md#ansible) to see how that works)
 - use kubectl to manage resources in different Kubernetes clusters from the same set of actions (see how Polycrate integrates with [Kubernetes](2_reference.md#kubeconfig) to learn how that works)
 
 There are certainly many more use-cases. If you find one, [join our Discord](https://discord.gg/8cQZfXWeXP) and let us know about it so we can add it here.
@@ -177,6 +177,64 @@ You can get a representation of the workspace snapshot by running these commands
 
 - `polycrate workspace snapshot` (doesn't contain current block/action info)
 - `polycrate run block action --snapshot` (contains info on the current block and action; DOES NOT EXECUTE THE ACTION!)
+
+## Play with Ansible
+
+Polycrate has a very special integration with Ansible in that the workspace snapshot is available as Ansible facts automatically. Polycrate provides an [Ansible Vars Plugin](https://docs.ansible.com/ansible/latest/plugins/vars.html) to make that happen. Let's see what that can do for us.
+
+```yaml
+# blocks/ansible/playbook.yml
+- name: "Debug workspace"
+  hosts: localhost
+  tasks:
+    - name: Show current block
+      ansible.builtin.debug:
+        var: block
+    
+    - name: Show current block name
+      ansible.builtin.debug:
+        var: block.name
+    
+    - name: Show current action name
+      ansible.builtin.debug:
+        var: action.name
+    
+    - name: Show current block config
+      ansible.builtin.debug:
+        var: block.config
+
+    - name: Show workspace
+      ansible.builtin.debug:
+        var: workspace
+
+    - name: Get config from block with name 'custom-block'
+      ansible.builtin.debug:
+        var: (workspace.blocks | selectattr('name', 'match', 'custom-block') | first).config
+    
+    - name: Show 'greeter' stanza of all blocks that have it
+      ansible.builtin.debug:
+        var: item
+      loop: "{{ workspace | community.general.json_query('blocks[*].config.greeter') }}"
+```
+
+If you run `polycrate run block action` you will see 4 top-level keys that will also be available directly from within Ansible:
+
+- `workspace`
+- `block`
+- `action`
+- `env`
+
+### What is it good for?
+
+This allows you to access the configuration of one block from another one by simply querying the workspace for the requested block's config. One way we use this is for example to have a block that provides configuration for LetsEncrypt and then reference this in each block that makes use of an ingress or Traefik labels to get the e-mail address or cert-manager issuer without the need to redefine it in each block. We can simply reference the block that holds the information and take it from there.
+
+Also it's very convenient to access the configuration of the current block (from `polycrate run current-block action`) in a template by simply using `{{ block.config.greeter }}`. The same goes for workspace-level configuration, e.g. `{{ workspace.name }}` which we often use in Kubernetes labels or resource groups at cloud providers to reference the created resources back to the workspace they originate from.
+
+Either way, this allows you to feed a crazy amount of variables to Ansible without using `-e extra-vars-file.yml` or any other mechanism. The whole workspace is directly at your hands when you use Ansible inside a block.
+
+
+!!! note
+    Polycrate provides additional integrations with Ansible, especially for using an inventory or a kubeconfig file. You can learn more about that [here](2_reference.md#ansible).
 
 ## Wrapup
 
