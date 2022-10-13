@@ -59,7 +59,7 @@ const RegistryBlockNamespace string = "polycrate-blocks"
 const RegistryApiBase string = "wp-json/wp/v2"
 
 // default registry base image that blocks are packaged with
-const RegistryBaseImage string = "cargo.ayedo.dev/library/scratch:latest"
+const RegistryBaseImage string = "cargo.ayedo.cloud/library/scratch:latest"
 
 // default local editor to open when using `workspace edit`
 const DefaultEditor string = "code"
