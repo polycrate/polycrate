@@ -210,11 +210,12 @@ An inventory file can be created automatically by a block or provided manually (
 The inventories can be consumed by the owning block itself or by other blocks using the `inventory` stanza in the block configuration:
 
 ```yaml
-# block.poly
-name: block-a
-  inventory:
-    from: block-b
-    filename: inventory.yml
+# workspace.poly
+blocks:
+  - namename: block-a
+    inventory:
+      from: block-b
+      filename: inventory.yml
 ```
 
 This will add an environment variable (`ANSIBLE_INVENTORY=path/to/inventory/of/block-b`) to the container that points Ansible to the right inventory to work with.
