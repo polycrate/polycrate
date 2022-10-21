@@ -108,7 +108,9 @@ type Workspace struct {
 	ExtraMounts []string `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
 	containerID string
 	loaded      bool
-	Version     string `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
+	Version     string                 `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
+	Identifier  string                 `yaml:"identifier,omitempty" mapstructure:"identifier,omitempty" json:"identifier,omitempty"`
+	Meta        map[string]interface{} `yaml:"meta,omitempty" mapstructure:"meta,omitempty" json:"meta,omitempty"`
 }
 
 type WorkspaceIndex struct {
