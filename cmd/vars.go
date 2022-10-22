@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -161,3 +162,6 @@ var polycrateWorkspaceDir = filepath.Join(polycrateHome, "workspaces")
 var polycrateRuntimeDir = filepath.Join(polycrateHome, "run")
 var polycrateConfigFilePath = filepath.Join(polycrateHome, "polycrate.yml")
 var config PolycrateConfig
+
+// Errors
+var DependencyNotResolved = errors.New("Block dependency not resolved")

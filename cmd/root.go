@@ -197,7 +197,7 @@ func initConfig() {
 	// Register the custom validators to the global validator variable
 	validate.RegisterValidation("metadata_name", validateMetadataName)
 
-	// Discover local workspaces
+	// Discover local workspaces and load to localWorkspaceIndex
 	err = discoverWorkspaces()
 	if err != nil {
 		log.Fatal(err)

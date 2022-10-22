@@ -20,7 +20,6 @@ import (
 )
 
 var blockVersion string
-var download bool = false
 
 // installCmd represents the install command
 var blocksInstallCmd = &cobra.Command{

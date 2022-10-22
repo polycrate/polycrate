@@ -339,11 +339,28 @@ func walkWorkspacesDir(path string, d fs.DirEntry, err error) error {
 	if !d.IsDir() {
 		fileinfo, _ := d.Info()
 
-		if fileinfo.Name() == "workspace.poly" {
+		if fileinfo.Name() == WorkspaceConfigFile {
 			workspaceConfigFileDir := filepath.Dir(path)
 			log.WithFields(log.Fields{
 				"path": workspaceConfigFileDir,
-			}).Debugf("Local workspace detected")
+			}).Tracef("Local workspace detected")
+
+			w := Workspace{}
+			w.LocalPath = workspaceConfigFileDir
+			w.Path = workspaceConfigFileDir
+
+			log.WithFields(log.Fields{
+				"path": w.Path,
+			}).Tracef("Reading in local workspace")
+
+			w.SoftloadWorkspaceConfig().Flush()
+
+			// Check if the workspace has already been loaded to the local workspace index
+			if localWorkspaceIndex[w.Name] != "" {
+				err := fmt.Errorf("Workspace already exists: %s", w.Path)
+				return err
+			}
+			localWorkspaceIndex[w.Name] = w.LocalPath
 			workspacePaths = append(workspacePaths, workspaceConfigFileDir)
 		}
 	}
@@ -539,36 +556,6 @@ func discoverWorkspaces() error {
 		log.WithFields(log.Fields{
 			"path": workspacesDir,
 		}).Debugf("Skipping workspace discovery. Local workspaces directory not found")
-	}
-
-	for _, workspacePath := range workspacePaths {
-		w := Workspace{}
-		w.LocalPath = workspacePath
-		log.WithFields(log.Fields{
-			"path": w.LocalPath,
-		}).Debugf("Loading workspace")
-		w.loadWorkspaceConfig()
-
-		if w.err != nil {
-			log.WithFields(log.Fields{
-				"path":      w.LocalPath,
-				"workspace": w.Name,
-				"error":     w.err,
-			}).Warnf("Failed to load workspace")
-			return w.err
-		} else {
-			log.WithFields(log.Fields{
-				"path":      w.LocalPath,
-				"workspace": w.Name,
-			}).Debugf("Loaded workspace")
-
-			if localWorkspaceIndex[w.Name] != "" {
-				err := fmt.Errorf("Workspace already exists: %s", w.LocalPath)
-				return err
-			}
-			localWorkspaceIndex[w.Name] = w.LocalPath
-
-		}
 	}
 
 	return nil

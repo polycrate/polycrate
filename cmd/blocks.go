@@ -17,6 +17,7 @@ package cmd
 
 import (
 	goErrors "errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"github.com/imdario/mergo"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var pruneBlock bool
@@ -94,7 +96,205 @@ type Block struct {
 	Kubeconfig  BlockKubeconfig `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
 	Artifacts   BlockArtifacts  `yaml:"artifacts,omitempty" mapstructure:"artifacts,omitempty" json:"artifacts,omitempty"`
 	address     string
-	//err         error
+	err         error
+}
+
+func (b *Block) Flush() *Block {
+	if b.err != nil {
+		log.Fatal(b.err)
+	}
+	return b
+}
+
+func (b *Block) Resolve() *Block {
+	if !b.resolved {
+		log.WithFields(log.Fields{
+			"block":     b.Name,
+			"workspace": workspace.Name,
+		}).Debugf("Resolving block %s", b.Name)
+
+		// Check if a "from:" stanza is given and not empty
+		// This means that the loadedBlock should inherit from another Block
+		if b.From != "" {
+			// a "from:" stanza is given
+			log.WithFields(log.Fields{
+				"block":      b.Name,
+				"dependency": b.From,
+				"workspace":  workspace.Name,
+			}).Debugf("Dependency detected")
+
+			// Try to load the referenced Block
+			dependency := workspace.getBlockByName(b.From)
+
+			if dependency == nil {
+				log.WithFields(log.Fields{
+					"block":      b.Name,
+					"dependency": b.From,
+					"workspace":  workspace.Name,
+				}).Errorf("Dependency not found in the workspace")
+
+				b.err = fmt.Errorf("Block '%s' not found in the Workspace. Please check the 'from' stanza of Block", b.From, b.Name)
+				return b
+			}
+
+			log.WithFields(log.Fields{
+				"block":      b.Name,
+				"dependency": b.From,
+				"workspace":  workspace.Name,
+			}).Debugf("Dependency loaded")
+
+			dep := *dependency
+
+			// Check if the dependency Block has already been resolved
+			// If not, re-queue the loaded Block so it can be resolved in another iteration
+			if !dep.resolved {
+				// Needed Block from 'from' stanza is not yet resolved
+				log.WithFields(log.Fields{
+					"block":               b.Name,
+					"dependency":          b.From,
+					"workspace":           workspace.Name,
+					"dependency_resolved": dep.resolved,
+				}).Debugf("Dependency not resolved")
+				b.resolved = false
+				b.err = DependencyNotResolved
+				return b
+			}
+
+			// Merge the dependency Block into the loaded Block
+			// We do NOT OVERWRITE existing values in the loaded Block because we must assume
+			// That this is configuration that has been explicitly set by the user
+			// The merge works like "loading defaults" for the loaded Block
+			err := b.MergeIn(dep)
+			if err != nil {
+				b.err = err
+				return b
+			}
+
+			// Handle Workdir
+			b.Workdir.LocalPath = dep.Workdir.LocalPath
+			b.Workdir.ContainerPath = dep.Workdir.ContainerPath
+
+			log.WithFields(log.Fields{
+				"block":      b.Name,
+				"dependency": b.From,
+				"workspace":  workspace.Name,
+			}).Debugf("Dependency resolved")
+
+		} else {
+			log.WithFields(log.Fields{
+				"block":     b.Name,
+				"workspace": workspace.Name,
+			}).Debugf("Block has no dependencies")
+
+		}
+
+		// Register the Block to the Index
+		b.address = b.Name
+		workspace.registerBlock(b)
+
+		// Update Artifacts, Kubeconfig & Inventory
+		err := b.LoadArtifacts()
+		if err != nil {
+			b.err = err
+			return b
+		}
+		b.LoadInventory()
+		b.LoadKubeconfig()
+
+		// Update Action addresses for all blocks not covered by dependencies
+		if len(b.Actions) > 0 {
+			log.WithFields(log.Fields{
+				"block":     b.Name,
+				"workspace": workspace.Name,
+			}).Debugf("Updating action addresses")
+
+			for _, action := range b.Actions {
+
+				existingAction := b.getActionByName(action.Name)
+
+				actionAddress := strings.Join([]string{b.Name, existingAction.Name}, ".")
+				if existingAction.address != actionAddress {
+					existingAction.address = actionAddress
+					log.WithFields(log.Fields{
+						"block":     b.Name,
+						"action":    existingAction.Name,
+						"workspace": workspace.Name,
+						"address":   actionAddress,
+					}).Debugf("Updated action address")
+				}
+
+				if existingAction.Block != b.Name {
+					existingAction.Block = b.Name
+					log.WithFields(log.Fields{
+						"block":     b.Name,
+						"action":    existingAction.Name,
+						"workspace": workspace.Name,
+						"address":   actionAddress,
+					}).Debugf("Updated action block")
+				}
+
+				// Register the Action to the Index
+				workspace.registerAction(existingAction)
+			}
+		}
+
+	}
+	b.resolved = true
+	return b
+}
+
+func (b *Block) Load() *Block {
+	blockConfigFilePath := filepath.Join(b.Workdir.LocalPath, workspace.Config.BlocksConfig)
+
+	blockConfigObject := viper.New()
+	blockConfigObject.SetConfigType("yaml")
+	blockConfigObject.SetConfigFile(blockConfigFilePath)
+
+	log.WithFields(log.Fields{
+		"workspace": workspace.Name,
+		"path":      b.Workdir.LocalPath,
+	}).Debugf("Loading installed block")
+
+	if err := blockConfigObject.MergeInConfig(); err != nil {
+		b.err = err
+		return b
+	}
+
+	if err := blockConfigObject.UnmarshalExact(&b); err != nil {
+		b.err = err
+		return b
+	}
+	if err := b.validate(); err != nil {
+		b.err = err
+		return b
+	}
+
+	// Set Block vars
+	b.Workdir.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.BlocksRoot, filepath.Base(b.Workdir.LocalPath))
+
+	if local {
+		b.Workdir.Path = b.Workdir.LocalPath
+	} else {
+		b.Workdir.Path = b.Workdir.ContainerPath
+	}
+
+	log.WithFields(log.Fields{
+		"block":     b.Name,
+		"workspace": workspace.Name,
+	}).Debugf("Loaded block")
+
+	return b
+}
+
+func (b *Block) Reload() *Block {
+	// Update Artifacts, Kubeconfig & Inventory
+	err := b.LoadArtifacts()
+	if err != nil {
+		b.err = err
+		return b
+	}
+	b.LoadInventory()
+	b.LoadKubeconfig()
 }
 
 func (c *Block) getInventoryPath() string {

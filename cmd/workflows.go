@@ -101,7 +101,7 @@ func (c *Step) run() error {
 	log.Debugf("Running step '%s' of workflow '%s'", c.Name, workflow.Name)
 
 	// Reloading Workspace to discover new files
-	workspace.load().Flush()
+	//workspace.load().Flush()
 
 	// Check if an a block and an action have been configured
 	if c.Block == "" {

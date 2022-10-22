@@ -17,8 +17,10 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	goErrors "errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -99,6 +101,7 @@ type Workspace struct {
 	mounts          map[string]string
 	err             error
 	runtimeDir      string
+	installedBlocks []Block
 	Path            string      `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	SyncOptions     SyncOptions `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	LocalPath       string      `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
@@ -245,6 +248,9 @@ func (c *Workspace) RunAction(address string) *Workspace {
 			}
 			sync.Log(fmt.Sprintf("Action %s of block %s was successful", action.Name, block.Name)).Flush()
 		}
+
+		// Reload Block after action execution to update artifacts, inventory and kubeconfig
+		block.Reload()
 	} else {
 		c.err = goErrors.New("cannot find Action with address " + address)
 		return c
@@ -328,7 +334,28 @@ func (c *Workspace) LookupStep(address string) *Step {
 	return c.index.Steps[address]
 }
 
-func (c *Workspace) loadWorkspaceConfig() *Workspace {
+func (w *Workspace) SoftloadWorkspaceConfig() *Workspace {
+	var workspaceConfig = viper.New()
+	workspaceConfigFilePath := filepath.Join(w.Path, WorkspaceConfigFile)
+
+	workspaceConfig.SetConfigType("yaml")
+	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
+
+	err := workspaceConfig.MergeInConfig()
+	if err != nil {
+		w.err = err
+		return w
+	}
+
+	if err := workspaceConfig.Unmarshal(&w); err != nil {
+		w.err = err
+		return w
+	}
+
+	return w
+}
+
+func (w *Workspace) LoadWorkspaceConfig() *Workspace {
 	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
 	var workspaceConfig = viper.New()
 
@@ -352,19 +379,19 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 	workspaceConfig.AutomaticEnv()
 
 	// Check if a full path has been given
-	workspaceConfigFilePath := filepath.Join(c.LocalPath, workspace.Config.WorkspaceConfig)
+	workspaceConfigFilePath := filepath.Join(w.LocalPath, workspace.Config.WorkspaceConfig)
 
 	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
 		// The config file does not exist
 		// We try to look in the list of workspaces in $HOME/.polycrate/workspaces
 
 		// Assuming the "path" given is actually the name of a workspace
-		workspaceName := c.LocalPath
+		workspaceName := w.LocalPath
 
 		log.WithFields(log.Fields{
 			"path":      workspaceConfigFilePath,
 			"workspace": workspaceName,
-		}).Debugf("Workspace config not found. Looking in the local workspace index", workspaceName)
+		}).Debugf("Workspace config not found. Looking in the local workspace index")
 
 		// Check if workspaceName exists in the local workspace index (see discoverWorkspaces())
 		if localWorkspaceIndex[workspaceName] != "" {
@@ -376,11 +403,11 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 			}).Debugf("Found workspace in the local workspace index")
 
 			// Update the workspace config file path with the local workspace path from the index
-			c.LocalPath = path
-			workspaceConfigFilePath = filepath.Join(c.LocalPath, workspace.Config.WorkspaceConfig)
+			w.LocalPath = path
+			workspaceConfigFilePath = filepath.Join(w.LocalPath, WorkspaceConfigFile)
 		} else {
-			c.err = fmt.Errorf("couldn't find workspace config at %s", workspaceConfigFilePath)
-			return c
+			w.err = fmt.Errorf("couldn't find workspace config at %s", workspaceConfigFilePath)
+			return w
 		}
 	}
 
@@ -389,29 +416,24 @@ func (c *Workspace) loadWorkspaceConfig() *Workspace {
 
 	err := workspaceConfig.MergeInConfig()
 	if err != nil {
-		// log.Warnf("Couldn't find workspace config at %s: %s", workspaceConfigFilePath, err.Error())
-		// log.Warnf("Creating ad-hoc workspace with name %s", filepath.Base(cwd))
-
-		// workspaceConfig.SetDefault("name", filepath.Base(cwd))
-		// workspaceConfig.SetDefault("description", "Ad-hoc Workspace in "+cwd)
-		c.err = err
-		return c
+		w.err = err
+		return w
 	}
 
-	if err := workspaceConfig.Unmarshal(&c); err != nil {
-		c.err = err
-		return c
+	if err := workspaceConfig.Unmarshal(&w); err != nil {
+		w.err = err
+		return w
 	}
 
-	if err := c.validate(); err != nil {
-		c.err = err
-		return c
+	if err := w.validate(); err != nil {
+		w.err = err
+		return w
 	}
 
 	// set runtime dir
-	c.runtimeDir = filepath.Join(polycrateRuntimeDir, c.Name)
+	w.runtimeDir = filepath.Join(polycrateRuntimeDir, w.Name)
 
-	return c
+	return w
 }
 
 func (c *Workspace) saveWorkspace(path string) *Workspace {
@@ -501,65 +523,64 @@ func (c *Workspace) updateConfig(path string, value string) *Workspace {
 	return c
 }
 
-func (c *Workspace) load() *Workspace {
-	if c.loaded {
-		return c
+func (w *Workspace) load() *Workspace {
+	// Return the workspace if it has been already loaded
+	if w.loaded {
+		return w
 	}
 
+	// Set workspace.Path depending on --local
 	if local {
-		c.Path = c.LocalPath
+		w.Path = w.LocalPath
 	} else {
-		c.Path = c.ContainerPath
+		w.Path = w.ContainerPath
 	}
 
 	log.WithFields(log.Fields{
-		"path": workspace.LocalPath,
+		"path": w.LocalPath,
 	}).Debugf("Loading workspace")
 
 	// Load Workspace config (e.g. workspace.poly)
-	c.loadWorkspaceConfig().Flush()
+	w.LoadWorkspaceConfig().Flush()
 
-	// Cleanup workspace runtime
-	c.cleanup().Flush()
+	// Cleanup workspace runtime dir
+	w.Cleanup().Flush()
 
 	// Bootstrap the workspace index
-	c.bootstrapIndex().Flush()
+	w.BootstrapIndex().Flush()
 
 	// Find all blocks in the workspace
-	c.DiscoverInstalledBlocks().Flush()
-
-	// Load installed blocks
-	c.LoadInstalledBlocks().Flush()
+	w.DiscoverInstalledBlocks().Flush()
 
 	// Pull dependencies
-	c.PullDependencies().Flush()
+	w.PullDependencies().Flush()
 
 	// Load all discovered blocks in the workspace
-	c.ImportInstalledBlocks().Flush()
+	w.ImportInstalledBlocks().Flush()
 
 	// Resolve block dependencies
-	c.ResolveBlockDependencies().Flush()
+	w.ResolveBlockDependencies().Flush()
 
 	// Update workflow and step addresses
-	c.resolveWorkflows().Flush()
+	w.resolveWorkflows().Flush()
 
 	// Bootstrap env vars
-	c.bootstrapEnvVars().Flush()
+	w.bootstrapEnvVars().Flush()
 
 	// Bootstrap container mounts
-	c.bootstrapMounts().Flush()
+	w.bootstrapMounts().Flush()
 
 	// Template action scripts
-	c.templateActionScripts().Flush()
+	w.templateActionScripts().Flush()
 
 	log.WithFields(log.Fields{
-		"workspace": c.Name,
+		"workspace": w.Name,
 		"blocks":    len(workspace.Blocks),
 		"workflows": len(workspace.Workflows),
 	}).Debugf("Workspace ready")
 
 	// Mark workspace as loaded
-	c.loaded = true
+	w.loaded = true
 
 	// Load sync
 	sync.Load().Flush()
@@ -567,41 +588,41 @@ func (c *Workspace) load() *Workspace {
 		sync.Sync().Flush()
 	}
 
-	return c
+	return w
 }
 
-func (c *Workspace) cleanup() *Workspace {
+func (w *Workspace) Cleanup() *Workspace {
 	// Create runtime dir
 	log.WithFields(log.Fields{
-		"workspace": c.Name,
-		"path":      c.runtimeDir,
+		"workspace": w.Name,
+		"path":      w.runtimeDir,
 	}).Debugf("Creating runtime directory")
 
-	err := os.MkdirAll(c.runtimeDir, os.ModePerm)
+	err := os.MkdirAll(w.runtimeDir, os.ModePerm)
 	if err != nil {
-		c.err = err
-		return c
+		w.err = err
+		return w
 	}
 
 	// Purge all contents of runtime dir
-	dir, err := ioutil.ReadDir(c.runtimeDir)
+	dir, err := ioutil.ReadDir(w.runtimeDir)
 	if err != nil {
-		c.err = err
-		return c
+		w.err = err
+		return w
 	}
 	for _, d := range dir {
 		log.WithFields(log.Fields{
-			"workspace": c.Name,
-			"path":      c.runtimeDir,
+			"workspace": w.Name,
+			"path":      w.runtimeDir,
 			"file":      d.Name(),
 		}).Debugf("Cleaning runtime directory")
-		err := os.RemoveAll(filepath.Join([]string{c.runtimeDir, d.Name()}...))
+		err := os.RemoveAll(filepath.Join([]string{w.runtimeDir, d.Name()}...))
 		if err != nil {
-			c.err = err
-			return c
+			w.err = err
+			return w
 		}
 	}
-	return c
+	return w
 }
 
 func (c *Workspace) Uninstall() error {
@@ -635,223 +656,35 @@ func (w *Workspace) ResolveBlockDependencies() *Workspace {
 
 	log.WithFields(log.Fields{
 		"workspace": w.Name,
+		"missing":   missing,
 	}).Debugf("Resolving block dependencies")
 
 	// Iterate over all Blocks in the Workspace
 	// Until nothing is "missing" anymore
-	for missing != 0 {
+	for missing > 0 {
 		for i := 0; i < len(w.Blocks); i++ {
-			loadedBlock := &w.Blocks[i]
+			loadedBlock := w.Blocks[i]
 
-			// Block has not been resolved yet
 			if !loadedBlock.resolved {
-				log.WithFields(log.Fields{
-					"block":     loadedBlock.Name,
-					"workspace": w.Name,
-					"missing":   missing,
-				}).Debugf("Resolving block %d/%d", i+1, len(w.Blocks))
-
-				// Check if a "from:" stanza is given and not empty
-				// This means that the loadedBlock should inherit from another Block
-				if loadedBlock.From != "" {
-					// a "from:" stanza is given
-					log.WithFields(log.Fields{
-						"block":      loadedBlock.Name,
-						"dependency": loadedBlock.From,
-						"workspace":  w.Name,
-						"missing":    missing,
-					}).Debugf("Dependency detected")
-
-					// Try to load the referenced Block
-					dependency := w.getBlockByName(loadedBlock.From)
-
-					if dependency == nil {
-						log.WithFields(log.Fields{
-							"block":      loadedBlock.Name,
-							"dependency": loadedBlock.From,
-							"workspace":  w.Name,
-							"missing":    missing,
-						}).Errorf("Dependency not found in the workspace")
-						// There's no Block to load from
-
-						// Let's check if there's one in the registry
-						if _, err := registry.GetBlock(loadedBlock.From); err == nil {
-							w.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name + " or run 'polycrate block install " + loadedBlock.From + "'")
-							return w
-						} else {
-							w.err = goErrors.New("Block '" + loadedBlock.From + "' not found in the Workspace. Please check the 'from' stanza of Block " + loadedBlock.Name)
-							return w
-						}
-					}
-
-					log.WithFields(log.Fields{
-						"block":      loadedBlock.Name,
-						"dependency": loadedBlock.From,
-						"workspace":  w.Name,
-						"missing":    missing,
-					}).Debugf("Dependency loaded")
-
-					dep := *dependency
-
-					// Check if the dependency Block has already been resolved
-					// If not, re-queue the loaded Block so it can be resolved in another iteration
-					if !dep.resolved {
-						// Needed Block from 'from' stanza is not yet resolved
-						log.WithFields(log.Fields{
-							"block":               loadedBlock.Name,
-							"dependency":          loadedBlock.From,
-							"workspace":           w.Name,
-							"missing":             missing,
-							"dependency_resolved": dep.resolved,
-						}).Debugf("Postponing block")
+				loadedBlock.Resolve()
+				if loadedBlock.err != nil {
+					switch {
+					case errors.Is(loadedBlock.err, DependencyNotResolved):
 						loadedBlock.resolved = false
 						continue
-					}
-
-					// Merge the dependency Block into the loaded Block
-					// We do NOT OVERWRITE existing values in the loaded Block because we must assume
-					// That this is configuration that has been explicitly set by the user
-					// The merge works like "loading defaults" for the loaded Block
-					err := loadedBlock.MergeIn(dep)
-					if err != nil {
-						w.err = err
+					default:
+						w.err = loadedBlock.err
 						return w
 					}
-
-					// Handle Workdir
-					loadedBlock.Workdir.LocalPath = dep.Workdir.LocalPath
-					loadedBlock.Workdir.ContainerPath = dep.Workdir.ContainerPath
-
-					// Handle Actions
-					// Iterate over the dependency Block's Actions
-					// and check if the Action exists in the loaded Block
-					// If not, add it
-					// If yes, merge it
-					// for _, blockAction := range dep.Actions {
-					// 	//blockAction := dep.getActionByName(action.Name)
-					// 	log.Debugf("Analyzing action '%s' (%p) of dependency '%s' (%p)", blockAction.Name, &blockAction, dep.Name, &dep)
-					// 	log.Debugf("Dependency action before merge (%p):", &blockAction)
-					// 	printObject(blockAction)
-
-					// 	existingAction := loadedBlock.getActionByName(blockAction.Name)
-
-					// 	if existingAction != nil {
-					// 		log.Debugf("Existing action before merge (%p):", existingAction)
-					// 		printObject(existingAction)
-					// 		log.Debugf("Found existing action '%s' in the block. Merging with loaded action", existingAction.Name)
-					// 		// An Action with the same name exists
-					// 		// We merge!
-					// 		err := existingAction.MergeIn(blockAction)
-					// 		if err != nil {
-					// 			c.err = err
-					// 			return c
-					// 		}
-					// 		existingAction.address = strings.Join([]string{loadedBlock.Name, existingAction.Name}, ".")
-					// 		existingAction.Block = loadedBlock.Name
-					// 		log.Debugf("Existing action after merge (%p):", existingAction)
-					// 		printObject(existingAction)
-
-					// 	} else {
-					// 		log.Debugf("No user-provided action with that name found. Adding '%s' to the workspace.", blockAction.Name)
-					// 		blockAction.address = strings.Join([]string{loadedBlock.Name, blockAction.Name}, ".")
-					// 		blockAction.Block = loadedBlock.Name
-					// 		loadedBlock.Actions = append(loadedBlock.Actions, blockAction)
-					// 		log.Debugf("Dependency action without merge (%p):", &blockAction)
-					// 		printObject(blockAction)
-					// 	}
-					// 	log.Debugf("Dependency action after merge (%p):", &blockAction)
-					// 	printObject(blockAction)
-
-					// }
-					// opts := conjungo.NewOptions()
-					// opts.Overwrite = false // do not overwrite existing values in workspaceConfig
-					// if err := conjungo.Merge(loadedBlock, dependency, opts); err != nil {
-					// 	return err
-					// }
-					log.WithFields(log.Fields{
-						"block":      loadedBlock.Name,
-						"dependency": loadedBlock.From,
-						"workspace":  w.Name,
-						"missing":    missing,
-					}).Debugf("Dependency resolved")
-
-				} else {
-					log.WithFields(log.Fields{
-						"block":     loadedBlock.Name,
-						"workspace": w.Name,
-						"missing":   missing,
-					}).Debugf("Block has no dependencies")
-
 				}
 
-				// Register the Block to the Index
-				loadedBlock.address = loadedBlock.Name
-				w.registerBlock(loadedBlock)
-
-				// Update Artifacts, Kubeconfig & Inventory
-				err := loadedBlock.LoadArtifacts()
-				if err != nil {
-					w.err = err
-					return w
-				}
-				loadedBlock.LoadInventory()
-				loadedBlock.LoadKubeconfig()
-
-				// Update Action addresses for all blocks not covered by dependencies
-				if len(loadedBlock.Actions) > 0 {
-					log.WithFields(log.Fields{
-						"block":     loadedBlock.Name,
-						"workspace": w.Name,
-						"missing":   missing,
-					}).Debugf("Updating action addresses")
-
-					for _, action := range loadedBlock.Actions {
-
-						existingAction := loadedBlock.getActionByName(action.Name)
-
-						actionAddress := strings.Join([]string{loadedBlock.Name, existingAction.Name}, ".")
-						if existingAction.address != actionAddress {
-							existingAction.address = actionAddress
-							log.WithFields(log.Fields{
-								"block":     loadedBlock.Name,
-								"action":    existingAction.Name,
-								"workspace": w.Name,
-								"address":   actionAddress,
-								"missing":   missing,
-							}).Debugf("Updated action address")
-						}
-
-						if existingAction.Block != loadedBlock.Name {
-							existingAction.Block = loadedBlock.Name
-							log.WithFields(log.Fields{
-								"block":     loadedBlock.Name,
-								"action":    existingAction.Name,
-								"workspace": w.Name,
-								"address":   actionAddress,
-								"missing":   missing,
-							}).Debugf("Updated action block")
-						}
-
-						// Register the Action to the Index
-						w.registerAction(existingAction)
-					}
-				}
-
-				loadedBlock.resolved = true
 				missing--
-
 				log.WithFields(log.Fields{
 					"block":     loadedBlock.Name,
 					"workspace": w.Name,
 					"missing":   missing,
 				}).Debugf("Block resolved")
-
-				// log.WithFields(log.Fields{
-				// 	"workspace": c.Name,
-				// 	"missing":   missing,
-				// }).Debugf("%d blocks left", missing)
 			}
-
 		}
 	}
 	return w
@@ -966,13 +799,13 @@ func (c *Workspace) ListActions() *Workspace {
 	return c
 }
 
-func (c *Workspace) bootstrapIndex() *Workspace {
-	c.index = &WorkspaceIndex{}
-	c.index.Actions = make(map[string]*Action)
-	c.index.Blocks = make(map[string]*Block)
-	c.index.Workflows = make(map[string]*Workflow)
-	c.index.Steps = make(map[string]*Step)
-	return c
+func (w *Workspace) BootstrapIndex() *Workspace {
+	w.index = &WorkspaceIndex{}
+	w.index.Actions = make(map[string]*Action)
+	w.index.Blocks = make(map[string]*Block)
+	w.index.Workflows = make(map[string]*Workflow)
+	w.index.Steps = make(map[string]*Step)
+	return w
 }
 
 func (c *Workspace) bootstrapMounts() *Workspace {
@@ -1349,7 +1182,7 @@ func (c *Workspace) Sync() *Workspace {
 }
 
 func (w *Workspace) IsBlockInstalled(blockName string, blockVersion string) bool {
-	for _, installedBlock := range installedBlocks {
+	for _, installedBlock := range w.installedBlocks {
 		if installedBlock.Name == blockName {
 			if installedBlock.Version == blockVersion {
 				return true
@@ -1385,18 +1218,6 @@ func (w *Workspace) UpdateBlocks(args []string) error {
 				"desired_version": blockVersion,
 			}).Debugf("Updating block")
 
-			// create block runtime dir
-			// blockRuntimeDir := filepath.Join(c.runtimeDir, blockName)
-			// log.WithFields(log.Fields{
-			// 	"block":       blockName,
-			// 	"workspace":   c.Name,
-			// 	"runtime-dir": blockRuntimeDir,
-			// }).Debugf("Creating block runtime dir")
-			// err = os.MkdirAll(blockRuntimeDir, os.ModePerm)
-			// if err != nil {
-			// 	return err
-			// }
-
 			// Download blocks from registry
 			err = w.PullBlock(blockName, blockVersion)
 			if err != nil {
@@ -1404,114 +1225,7 @@ func (w *Workspace) UpdateBlocks(args []string) error {
 			}
 			return nil
 		})
-
-		// NOT NEEDED ANYMORE
-
-		// block := c.getBlockByName(blockName)
-		// if block != nil {
-		// 	// Check if block already has the desired version
-		// 	if block.Version == blockVersion {
-		// 		log.WithFields(log.Fields{
-		// 			"workspace":       c.Name,
-		// 			"block":           block.Name,
-		// 			"path":            block.Workdir.LocalPath,
-		// 			"current_version": block.Version,
-		// 			"desired_version": blockVersion,
-		// 		}).Debugf("Block is already installed")
-		// 		return nil
-		// 	}
-
-		// 	log.WithFields(log.Fields{
-		// 		"workspace":       c.Name,
-		// 		"block":           block.Name,
-		// 		"path":            block.Workdir.LocalPath,
-		// 		"current_version": block.Version,
-		// 		"desired_version": blockVersion,
-		// 	}).Infof("Updating block")
-
-		// 	// Download blocks from registry
-		// 	err = c.PullBlock(blockName, blockVersion)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	return nil
-
-		// 	// NOT NEEDED ANYMORE
-
-		// 	// Search block in registry
-		// 	registryBlock, err := registry.GetBlock(blockName)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	// Check if release exists
-		// 	registryRelease, err := registryBlock.GetRelease(blockVersion)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	// Check again if we're already on the desired version
-		// 	// At this point "latest" has been resolved to a specific release version
-		// 	if block.Version == registryRelease.Version {
-		// 		log.WithFields(log.Fields{
-		// 			"workspace":       c.Name,
-		// 			"block":           block.Name,
-		// 			"path":            block.Workdir.LocalPath,
-		// 			"current_version": block.Version,
-		// 			"desired_version": registryRelease.Version,
-		// 		}).Infof("Block already has desired version")
-		// 		return nil
-		// 	}
-
-		// 	// Uninstall block
-		// 	// pruneBlock constains a boolean triggered by --prune
-		// 	err = block.Uninstall(pruneBlock)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	// Now install the wanted version
-		// 	registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
-		// 	registryBlockVersion := blockVersion
-
-		// 	err = registryBlock.Install(registryBlockDir, registryBlockVersion)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// } else {
-		// 	if pull {
-		// 		// If we pull the container image automatically
-		// 		// We certainly want to install dependencies automatically
-
-		// 		// Search block in registry
-		// 		registryBlock, err := registry.GetBlock(blockName)
-		// 		if err != nil {
-		// 			return err
-		// 		}
-
-		// 		// Check if release exists
-		// 		_, err = registryBlock.GetRelease(blockVersion)
-		// 		if err != nil {
-		// 			return err
-		// 		}
-		// 		// Now install the wanted version
-		// 		registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
-		// 		registryBlockVersion := blockVersion
-
-		// 		err = registryBlock.Install(registryBlockDir, registryBlockVersion)
-		// 		if err != nil {
-		// 			return err
-		// 		}
-
-		// 	} else {
-		// 		err := fmt.Errorf("Block not found: %s. Run 'polycrate block install %s' to install it.", blockName, blockName)
-		// 		return err
-		// 	}
-		// }
 	}
-	//return nil
 
 	if err := eg.Wait(); err != nil {
 		return err
@@ -1529,67 +1243,14 @@ func (w *Workspace) UpdateBlocks(args []string) error {
 // - Downloads the release bundle
 // - If download succeeds, creates a block dir for the block
 // - unpacks the release bundle to the block dir
-func (c *Workspace) InstallBlocks(args []string) error {
-	for _, arg := range args {
-		blockName, blockVersion, err := registry.resolveArg(arg)
-		if err != nil {
-			return err
-		}
+// func (c *Workspace) InstallBlocks(args []string) error {
+// 	for _, arg := range args {
+// 		blockName, blockVersion, err := registry.resolveArg(arg)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		block := c.getBlockByName(blockName)
-		if block != nil {
-			// A block exists already
-			// Let's check if it has a workdir
-			if block.Workdir.LocalPath != "" {
-				// The block has a workdir
-				// Let's check if it exists
-				if _, err := os.Stat(block.Workdir.LocalPath); !os.IsNotExist(err) {
-					// The workdir exists
-					// We're done here
-					log.WithFields(log.Fields{
-						"workspace": c.Name,
-						"block":     block.Name,
-						"path":      block.Workdir.LocalPath,
-					}).Debugf("Block is already installed. Use 'polycrate block update %s' to update it", block.Name)
-				} else {
-					// The workdir does not exist
-					// We can download the block
-					download = true
-				}
-			} else {
-				download = true
-			}
-
-		} else {
-			download = true
-		}
-
-		// Search block in registry
-		if download {
-			registryBlock, err := registry.GetBlock(blockName)
-			if err != nil {
-				log.WithFields(log.Fields{
-					"workspace": c.Name,
-					"block":     blockName,
-				}).Debug(err)
-				return err
-			}
-
-			registryBlockDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
-			registryBlockVersion := blockVersion
-
-			err = registryBlock.Install(registryBlockDir, registryBlockVersion)
-			if err != nil {
-				return err
-			}
-
-		}
-
-	}
-	return nil
-}
-
-func (c *Workspace) PullBlock(blockName string, blockVersion string) error {
+func (w *Workspace) PullBlock(blockName string, blockVersion string) error {
 	targetDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
 
 	//log.Debugf("Pulling block %s:%s", blockName, blockVersion)
@@ -1601,6 +1262,15 @@ func (c *Workspace) PullBlock(blockName string, blockVersion string) error {
 	if err != nil {
 		return err
 	}
+
+	// Load Block
+	var block Block
+	block.Workdir.LocalPath = targetDir
+	block.Load().Flush()
+
+	// Register installed block
+	w.installedBlocks = append(w.installedBlocks, block)
+
 	return nil
 }
 
@@ -1634,133 +1304,6 @@ func (c *Workspace) PushBlock(blockName string) error {
 		return err
 	}
 	return nil
-
-	// // NOT NEEDED ANYMORE
-
-	// // Search block in registry
-	// registryBlock, err := config.Registry.GetBlock(blockName)
-	// if err != nil {
-	// 	// Block not found should lead to the creation of the block
-	// 	// WIP
-	// 	log.WithFields(log.Fields{
-	// 		"workspace": c.Name,
-	// 		"block":     blockName,
-	// 	}).Debug(err)
-
-	// 	// Create block
-	// 	registryBlock, err = registry.AddBlock(blockName)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// printObject(registryBlock)
-
-	// _, err = registryBlock.GetRelease(block.Version)
-	// if err == nil {
-	// 	err := fmt.Errorf("release with version %s of block %s already exists in the registry", block.Version, block.Name)
-	// 	// Release already exists
-	// 	log.WithFields(log.Fields{
-	// 		"workspace": c.Name,
-	// 		"block":     block.Name,
-	// 		"version":   block.Version,
-	// 	}).Debug(err)
-	// 	return err
-	// }
-
-	// // No release exists with that version
-	// // Now let's see if there's a latest release
-	// latestRelease, err := registryBlock.GetRelease("latest")
-	// if err != nil {
-	// 	// Latest release does not exist
-	// 	// This means that the block has just been created or there haven't been any releases yet
-	// 	log.WithFields(log.Fields{
-	// 		"workspace": c.Name,
-	// 		"block":     block.Name,
-	// 		"version":   block.Version,
-	// 	}).Debug(err)
-	// }
-
-	// // Compare version if there's a release
-	// if latestRelease != nil {
-	// 	// Check if our version is bigger than the current version
-	// 	blockSemVer, err := semver.NewVersion(block.Version)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	log.WithFields(log.Fields{
-	// 		"workspace": c.Name,
-	// 		"block":     block.Name,
-	// 		"version":   block.Version,
-	// 	}).Debugf("Current block version: %s", blockSemVer.String())
-
-	// 	latestReleaseSemVer, err := semver.NewVersion(latestRelease.Version)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	log.WithFields(log.Fields{
-	// 		"workspace": c.Name,
-	// 		"block":     block.Name,
-	// 		"version":   block.Version,
-	// 	}).Debugf("Latest registry release version: %s", latestReleaseSemVer.String())
-
-	// 	// Compare versions
-	// 	comparison := fmt.Sprintf("> %s", latestReleaseSemVer)
-	// 	constraint, err := semver.NewConstraint(comparison)
-	// 	if err != nil {
-	// 		log.WithFields(log.Fields{
-	// 			"workspace": c.Name,
-	// 			"block":     block.Name,
-	// 			"version":   block.Version,
-	// 		}).Debugf(err.Error())
-	// 		return err
-	// 	}
-	// 	isGreater := constraint.Check(blockSemVer)
-
-	// 	if !isGreater {
-
-	// 		err := fmt.Errorf("block version (%s) is lower than registry version (%s)", blockSemVer.String(), latestReleaseSemVer.String())
-	// 		return err
-	// 	}
-	// }
-
-	// // Zip the block workdir
-	// log.WithFields(log.Fields{
-	// 	"workspace": c.Name,
-	// 	"block":     block.Name,
-	// 	"version":   block.Version,
-	// }).Debugf("Creating release bundle")
-
-	// blockFileName := slugify([]string{block.Name, block.Version})
-	// zipFilePath, err := createZipFile(block.Workdir.LocalPath, blockFileName)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// log.WithFields(log.Fields{
-	// 	"workspace": c.Name,
-	// 	"block":     block.Name,
-	// 	"version":   block.Version,
-	// 	"path":      zipFilePath,
-	// }).Debugf("Saved release bundle to %s", zipFilePath)
-
-	// release, err := registryBlock.AddRelease(block.Version, zipFilePath, blockFileName)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// printObject(release)
-
-	// log.WithFields(log.Fields{
-	// 	"workspace": c.Name,
-	// 	"block":     block.Name,
-	// 	"version":   block.Version,
-	// 	//"id":        release.Id,
-	// }).Debugf("Successfully pushed release to registry")
-
-	// // Create / Upload attachment, save id (registry.CreateAttachment(path string) string)
-	// // Create Release, link to attachment and Block ID
-
-	// return nil
 }
 
 func (c *Workspace) UninstallBlocks(args []string) error {
@@ -1800,7 +1343,40 @@ func (w *Workspace) ImportInstalledBlocks() *Workspace {
 		"workspace": w.Name,
 	}).Debugf("Importing installed blocks")
 
-	for _, installedBlock := range installedBlocks {
+	for _, installedBlock := range w.installedBlocks {
+
+		// Check if Block exists
+		existingBlock := w.getBlockByName(installedBlock.Name)
+
+		if existingBlock != nil {
+			// Block exists
+			log.WithFields(log.Fields{
+				"block":     installedBlock.Name,
+				"workspace": w.Name,
+			}).Debugf("Found existing block. Merging.")
+
+			err := existingBlock.MergeIn(installedBlock)
+			if err != nil {
+				w.err = err
+				return w
+			}
+		} else {
+			w.Blocks = append(w.Blocks, installedBlock)
+		}
+	}
+	return w
+
+}
+func (c *Workspace) LoadInstalledBlocks() *Workspace {
+	log.WithFields(log.Fields{
+		"workspace": c.Name,
+	}).Debugf("Loading installed blocks")
+
+	for _, blockPath := range blockPaths {
+		var loadedBlock Block
+		loadedBlock.Workdir.LocalPath = filepath.Join(blockPath, c.Config.BlocksConfig)
+		loadedBlock.Load().Flush()
+
 		// blockConfigFilePath := filepath.Join(blockPath, c.Config.BlocksConfig)
 
 		// blockConfigObject := viper.New()
@@ -1816,7 +1392,6 @@ func (w *Workspace) ImportInstalledBlocks() *Workspace {
 		// 	return c
 		// }
 
-		// var loadedBlock Block
 		// if err := blockConfigObject.UnmarshalExact(&loadedBlock); err != nil {
 		// 	c.err = err
 		// 	return c
@@ -1840,131 +1415,60 @@ func (w *Workspace) ImportInstalledBlocks() *Workspace {
 		// 	loadedBlock.Workdir.Path = loadedBlock.Workdir.ContainerPath
 		// }
 
-		// Check if Block exists
-		existingBlock := w.getBlockByName(installedBlock.Name)
-
-		if existingBlock != nil {
-			// Block exists
-			log.WithFields(log.Fields{
-				"block":     installedBlock.Name,
-				"workspace": w.Name,
-			}).Debugf("Found existing block. Merging.")
-
-			err := existingBlock.MergeIn(installedBlock)
-			if err != nil {
-				w.err = err
-				return w
-			}
-
-			// // Handle Actions
-			// // Iterate over the loaded Block's Actions
-			// // and check if it exists in the existing Block
-			// // If not, add it
-			// log.Debugf("Merging actions")
-			// for _, loadedAction := range loadedBlock.Actions {
-			// 	existingAction := existingBlock.getActionByName(loadedAction.Name)
-
-			// 	if existingAction != nil {
-			// 		log.Debugf("Analyzing Action '%s' (%p) of block '%s' (%p)", existingAction.Name, existingAction, loadedBlock.Name, &loadedBlock)
-
-			// 		// An Action with the same name exists
-			// 		// We merge!
-			// 		log.Debugf("Existing Action (%p) before merge:", &existingAction)
-			// 		printObject(existingAction)
-			// 		err := existingAction.MergeIn(loadedAction)
-			// 		if err != nil {
-			// 			c.err = err
-			// 			return c
-			// 		}
-			// 		log.Debugf("Existing Action (%p) after merge:", &existingAction)
-			// 		printObject(existingAction)
-			// 	} else {
-			// 		log.Debugf("No existing Action found. Adding '%s'", loadedAction.Name)
-			// 		existingBlock.Actions = append(existingBlock.Actions, loadedAction)
-			// 	}
-			// }
-
-		} else {
-			w.Blocks = append(w.Blocks, installedBlock)
-		}
-	}
-	return w
-
-}
-func (c *Workspace) LoadInstalledBlocks() *Workspace {
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-	}).Debugf("Loading installed blocks")
-
-	for _, blockPath := range blockPaths {
-		blockConfigFilePath := filepath.Join(blockPath, c.Config.BlocksConfig)
-
-		blockConfigObject := viper.New()
-		blockConfigObject.SetConfigType("yaml")
-		blockConfigObject.SetConfigFile(blockConfigFilePath)
-
-		log.WithFields(log.Fields{
-			"workspace": c.Name,
-			"path":      blockPath,
-		}).Debugf("Loading installed block")
-		if err := blockConfigObject.MergeInConfig(); err != nil {
-			c.err = err
-			return c
-		}
-
-		var loadedBlock Block
-		if err := blockConfigObject.UnmarshalExact(&loadedBlock); err != nil {
-			c.err = err
-			return c
-		}
-		if err := loadedBlock.validate(); err != nil {
-			c.err = err
-			return c
-		}
-		log.WithFields(log.Fields{
-			"block":     loadedBlock.Name,
-			"workspace": c.Name,
-		}).Debugf("Loaded block")
-
-		// Set Block vars
-		loadedBlock.Workdir.LocalPath = blockPath
-		loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, loadedBlock.Name)
-
-		if local {
-			loadedBlock.Workdir.Path = loadedBlock.Workdir.LocalPath
-		} else {
-			loadedBlock.Workdir.Path = loadedBlock.Workdir.ContainerPath
-		}
-
-		// Add block to installedBlocks
-		installedBlocks = append(installedBlocks, loadedBlock)
+		// // Add block to installedBlocks
+		// c.installedBlocks = append(installedBlocks, loadedBlock)
 	}
 	return c
 
 }
 
-func (c *Workspace) DiscoverInstalledBlocks() *Workspace {
+func (w *Workspace) DiscoverInstalledBlocks() *Workspace {
 	blocksDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot)
 
 	if _, err := os.Stat(blocksDir); !os.IsNotExist(err) {
 		log.WithFields(log.Fields{
-			"workspace": c.Name,
+			"workspace": w.Name,
 			"path":      blocksDir,
 		}).Debugf("Discovering blocks")
 
 		// This function adds all valid Blocks to the list of
-		err := filepath.WalkDir(blocksDir, walkBlocksDir)
+		err := filepath.WalkDir(blocksDir, w.WalkBlocksDir)
 		if err != nil {
-			c.err = err
+			w.err = err
 		}
 	} else {
 		log.WithFields(log.Fields{
-			"workspace": c.Name,
+			"workspace": w.Name,
 			"path":      blocksDir,
 		}).Debugf("Skipping block discovery. Blocks directory not found")
 	}
 
-	return c
+	return w
+}
+
+func (w *Workspace) WalkBlocksDir(path string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if !d.IsDir() {
+		fileinfo, _ := d.Info()
+
+		if fileinfo.Name() == w.Config.BlocksConfig {
+			blockConfigFileDir := filepath.Dir(path)
+			log.WithFields(log.Fields{
+				"path": blockConfigFileDir,
+			}).Debugf("Block detected")
+
+			var block Block
+			block.Workdir.LocalPath = blockConfigFileDir
+			block.Load().Flush()
+
+			// Add block to installedBlocks
+			w.installedBlocks = append(w.installedBlocks, block)
+		}
+	}
+	return nil
 }
 
 func (c *Workspace) PullDependencies() *Workspace {
