@@ -133,7 +133,7 @@ func (b *Block) Resolve() *Block {
 					"workspace":  workspace.Name,
 				}).Errorf("Dependency not found in the workspace")
 
-				b.err = fmt.Errorf("Block '%s' not found in the Workspace. Please check the 'from' stanza of Block", b.From, b.Name)
+				b.err = fmt.Errorf("Block '%s' not found in the Workspace. Please check the 'from' stanza of Block '%s'", b.From, b.Name)
 				return b
 			}
 
@@ -295,6 +295,8 @@ func (b *Block) Reload() *Block {
 	}
 	b.LoadInventory()
 	b.LoadKubeconfig()
+
+	return b
 }
 
 func (c *Block) getInventoryPath() string {
