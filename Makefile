@@ -12,6 +12,7 @@ next:
 
 docker-login:
 	echo ${GITHUB_TOKEN} | docker login ghcr.io -u ${GHCR_USER} --password-stdin
+	echo ${AYEDO_CARGO_PASSWORD} | docker login cargo.ayedo.cloud -u ${AYEDO_CARGO_USERNAME} --password-stdin
 
 snapshot:
 	goreleaser release --snapshot --rm-dist --debug
