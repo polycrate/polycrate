@@ -238,8 +238,8 @@ func (b *Block) Resolve() *Block {
 			}
 		}
 
+		b.resolved = true
 	}
-	b.resolved = true
 	return b
 }
 
@@ -270,7 +270,12 @@ func (b *Block) Load() *Block {
 	}
 
 	// Set Block vars
-	b.Workdir.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.BlocksRoot, filepath.Base(b.Workdir.LocalPath))
+	relativeBlockPath, err := filepath.Rel(filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot), b.Workdir.LocalPath)
+	if err != nil {
+		b.err = err
+		return b
+	}
+	b.Workdir.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.BlocksRoot, relativeBlockPath)
 
 	if local {
 		b.Workdir.Path = b.Workdir.LocalPath

@@ -663,7 +663,7 @@ func (w *Workspace) ResolveBlockDependencies() *Workspace {
 	// Until nothing is "missing" anymore
 	for missing > 0 {
 		for i := 0; i < len(w.Blocks); i++ {
-			loadedBlock := w.Blocks[i]
+			loadedBlock := &w.Blocks[i]
 
 			if !loadedBlock.resolved {
 				loadedBlock.Resolve()
@@ -678,13 +678,13 @@ func (w *Workspace) ResolveBlockDependencies() *Workspace {
 					}
 				}
 
-				missing--
 				log.WithFields(log.Fields{
 					"block":     loadedBlock.Name,
 					"workspace": w.Name,
 					"missing":   missing,
 				}).Debugf("Block resolved")
 			}
+			missing--
 		}
 	}
 	return w
