@@ -87,7 +87,7 @@ Polycrate looks for blocks inside the **blocks root** (defaults to `blocks`). Ne
 
 ### Inheritance
 
-Blocks can be inherited `from` other blocks which merges configuration of the parent block into its child and changes the workdir to the parent block's workdir whenever an [action](#actions) runs. Such blocks that are based on other blocks are called [dynamic blocks](#dynamic-blocks).
+Blocks can be inherited `from` other blocks which merges configuration of the parent block (typically a block you installed or created inside the blocks directory) into its child and changes the workdir to the parent block's workdir whenever an [action](#actions) runs. Such blocks that are based on other blocks are called [dynamic blocks](#dynamic-blocks).
 
 !!! note
     When merging a parent block's config into a child block, existing config in the child block will not be overriden. The most common scenario where this is relevant is when you define defaults inside a `block.poly` file and overwrite them in your `workspace.poly` file.
@@ -102,18 +102,13 @@ blocks:
 
 ### Dynamic blocks
 
-Blocks can be created dynamically by defining their configuration in the workspace configuration directly or creating a directory (the so-called **block directory**) in the **blocks root** (`mkdir blocks/custom-block`). This directory can contain custom code and a block configuration file.
+Blocks can be created dynamically by defining their configuration in the workspace configuration directly. These blocks do not use custom code but only rely on the available tooling inside the [Polycrate container](#polycrate-container).
 
-!!! note
-    By convention, the name of the directory shoult be the same you defined in the `name` stanza of that Block.
-
-When a custom workdir for a block exists, Polycrate will change to this workdir when executing an action of that block. It's also possible to build blocks that do not use custom code but only rely on the available tooling inside the [Polycrate container](#polycrate-container).
-
-Workspace-level configuration (made in `workspace.poly`) will always have precedence over block-level configuration (made in `block.poly`).
+Dynamic blocks can also [inherit](#inheritance) their default configuration and workdir from blocks that already exist in the blocks root by using the `from:` stanza in the block definition.
 
 ### Dependencies
 
-Polycrate supports workspace-level dependencies by using the `dependencies` stanza:
+Polycrate supports workspace-level block dependencies by using the `dependencies` stanza:
 
 ```yaml
 ...
@@ -125,7 +120,7 @@ dependencies:
   - ayedo/k8s/portainer:0.0.7
   - ayedo/k8s/cert-manager:0.0.3
   - ayedo/k8s/external-dns:0.0.21
-  - ayedo/k8s/harbor:0.0.1
+  - cargo.ayedo.cloud/ayedo/k8s/harbor:0.0.1
 ...
 ```
 
@@ -135,11 +130,29 @@ Polycrate checks the configured dependencies against the installed blocks in the
 
 To dynamically add blocks to the workspace from the [registry](#registry), you can run `polycrate pull $BLOCK_NAME:$BLOCK_VERSION`. If `$BLOCK_VERSION` is not defined, `latest` will be assumed.
 
-Blocks can be uninstalled from the workspace by running `polycrate block uninstall BLOCK1 BLOCK2:0.0.1` or simply deleting the block's directory.
+Blocks can be uninstalled from the workspace by running `polycrate block uninstall BLOCK1` or simply deleting the block's directory.
+
+If you want to use a custom registry, reference it when pulling blocks or adding them to the workspace dependencies: `polycrate block pull index.docker.io/my-block`
+
+## Push blocks
+
+To push a block to an OCI-compatible registry, run the following command: `polycrate block push $BLOCK_NAME`. 
+
+If you want to push it to a custom registry (see the [default registry](#registry)), add a second argument to the push command referencing the registry and image name: `polycrate block push $BLOCK_NAME index.docker.io/$BLOCK_NAME`.
+
+!!! note
+    When pushing a block, omit the `tag` (what's coming after the `:`) as Polycrate will automatically add the `version` defined in the block's `block.poly` to the image.
+
+## Block directory
+
+The block directory is the directory that contains custom code and the `block.poly` file of a block underneath the blocks root.
+
+!!! note
+    By convention, the name of the block directory should be the same you defined in the `name` stanza of that Block.
 
 ## Block configuration
 
-The **block configuration** (defaults to `block.poly`) holds the configuration for a single [block](#block) and must be located in the block directory.
+The **block configuration** (defaults to `block.poly`) holds the configuration for a single [block](#block) and must be located in the [block directory](#block-directory).
 
 ```yaml
 # block.poly
@@ -304,7 +317,7 @@ With `polycrate log $MESSAGE` you can write and sync arbitrary history logs.
 
 Polycrate blocks can be pushed and pulled to and from a OCI-compatible registry. By default, Polycrate uses `cargo.ayedo.cloud` as its registry targets to obtain blocks from. 
 
-You can define your own registry by using `--registry-url` and pointing it to your OCI-compatible registry.
+You can define your own registry by using `--registry-url` and pointing it to your OCI-compatible registry or simply add the registry URL when pushing/pulling blocks, just like with Docker.
 
 Polycrate does not implement authentication with the registry but instead makes use of your local Docker credential helper. To authenticate against a registry, run `docker login $REGISTRY_URL` before pushing or pulling blocks.
 
