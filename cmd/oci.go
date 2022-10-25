@@ -31,28 +31,39 @@ func PullOCIImage(name string) (v1.Image, error) {
 	return img, nil
 }
 
-func WrapOCIImage(path string, imageName string, imageTag string, labels map[string]string) error {
-	// goal:
-	// 1. download nginx
-	// 2. /usr/share/nginx/html <- delete this dir (new layer, appended on top of nginx)
-	// 3. copy my blog there (new layer, appended on top of nginx)
+func WrapOCIImage(path string, imageName string, imageTag string, labels map[string]string, registryTag string) error {
+	registryBase := config.Registry.Url
+	var tag name.Tag
+	var latestTag name.Tag
+	var err error
 
-	registryBase := strings.Join([]string{config.Registry.Url, config.Registry.BlockNamespace}, "/")
-	localImageTag := strings.Join([]string{imageName, imageTag}, ":")
-	localImageTagLatest := strings.Join([]string{imageName, "latest"}, ":")
-	tag, err := name.NewTag(strings.Join([]string{registryBase, localImageTag}, "/"))
-	if err != nil {
-		return err
-	}
+	if registryTag != "" {
+		tag, err = name.NewTag(strings.Join([]string{registryTag, imageTag}, ":"))
+		if err != nil {
+			return err
+		}
 
-	latestTag, err := name.NewTag(strings.Join([]string{registryBase, localImageTagLatest}, "/"))
-	if err != nil {
-		return err
+		latestTag, err = name.NewTag(strings.Join([]string{registryTag, "latest"}, ":"))
+		if err != nil {
+			return err
+		}
+	} else {
+		localImageTag := strings.Join([]string{imageName, imageTag}, ":")
+		localImageTagLatest := strings.Join([]string{imageName, "latest"}, ":")
+		tag, err = name.NewTag(strings.Join([]string{registryBase, localImageTag}, "/"))
+		if err != nil {
+			return err
+		}
+
+		latestTag, err = name.NewTag(strings.Join([]string{registryBase, localImageTagLatest}, "/"))
+		if err != nil {
+			return err
+		}
 	}
 
 	// Check if the image exists already; fail if it does
 	if OCIImageExists(tag.String()) {
-		return fmt.Errorf("Block %s with version %s already exists in the registry", imageName, imageTag)
+		return fmt.Errorf("tag %s already exists in the registry", tag.String())
 	}
 
 	//log.Debugf("Pulling base image %s", config.Registry.BaseImage)
@@ -127,8 +138,13 @@ func WrapOCIImage(path string, imageName string, imageTag string, labels map[str
 	return nil
 }
 
-func UnwrapOCIImage(path string, imageName string, imageTag string) error {
-	registryBase := strings.Join([]string{config.Registry.Url, config.Registry.BlockNamespace}, "/")
+func UnwrapOCIImage(path string, registryUrl string, imageName string, imageTag string) error {
+	registryBase := config.Registry.Url
+
+	if registryUrl != "" {
+		registryBase = registryUrl
+	}
+
 	localImageTag := strings.Join([]string{imageName, imageTag}, ":")
 	tag, err := name.NewTag(strings.Join([]string{registryBase, localImageTag}, "/"))
 	if err != nil {

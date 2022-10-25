@@ -59,6 +59,15 @@ func CreateDir(path string) error {
 	return err
 }
 
+func mapDockerTag(tag string) (string, string, string, string) {
+	regex := regexp.MustCompile(`([^\/]+\.[^\/.]+)?\/?([^:]+):?(.+)?`)
+
+	rs := regex.FindStringSubmatch(tag)
+	fmt.Println(rs)
+	return rs[0], rs[1], rs[2], rs[3]
+	//return regex.MatchString(tag)
+}
+
 func CreateFile(path string) error {
 	file, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {

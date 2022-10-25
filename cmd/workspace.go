@@ -1198,10 +1198,8 @@ func (w *Workspace) UpdateBlocks(args []string) error {
 	for _, arg := range args {
 		arg := arg // https://go.dev/doc/faq#closures_and_goroutines
 		eg.Go(func() error {
-			blockName, blockVersion, err := registry.resolveArg(arg)
-			if err != nil {
-				return err
-			}
+			fullTag, registryUrl, blockName, blockVersion := mapDockerTag(arg)
+			//blockName, blockVersion, err := registry.resolveArg(arg)
 
 			if w.IsBlockInstalled(blockName, blockVersion) {
 				log.WithFields(log.Fields{
@@ -1219,7 +1217,7 @@ func (w *Workspace) UpdateBlocks(args []string) error {
 			}).Debugf("Updating block")
 
 			// Download blocks from registry
-			err = w.PullBlock(blockName, blockVersion)
+			err := w.PullBlock(fullTag, registryUrl, blockName, blockVersion)
 			if err != nil {
 				return err
 			}
@@ -1250,15 +1248,19 @@ func (w *Workspace) UpdateBlocks(args []string) error {
 // 			return err
 // 		}
 
-func (w *Workspace) PullBlock(blockName string, blockVersion string) error {
-	targetDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, blockName)
+func (w *Workspace) PullBlock(fullTag string, registryUrl string, blockName string, blockVersion string) error {
+	if registryUrl == "" {
+		registryUrl = config.Registry.Url
+	}
+	targetDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, registryUrl, blockName)
 
 	//log.Debugf("Pulling block %s:%s", blockName, blockVersion)
 	log.WithFields(log.Fields{
 		"block":   blockName,
 		"version": blockVersion,
 	}).Debugf("Pulling block")
-	err := UnwrapOCIImage(targetDir, blockName, blockVersion)
+
+	err := UnwrapOCIImage(targetDir, registryUrl, blockName, blockVersion)
 	if err != nil {
 		return err
 	}
@@ -1274,7 +1276,7 @@ func (w *Workspace) PullBlock(blockName string, blockVersion string) error {
 	return nil
 }
 
-func (c *Workspace) PushBlock(blockName string) error {
+func (c *Workspace) PushBlock(blockName string, registryTag string) error {
 	// Get the block
 	// Check that it has a version
 	// Check if release with new version exists in registry
@@ -1297,9 +1299,10 @@ func (c *Workspace) PushBlock(blockName string) error {
 		"block":   block.Name,
 		"version": block.Version,
 		"path":    block.Workdir.LocalPath,
+		"tag":     registryTag,
 	}).Debugf("Pushing block")
 
-	err := WrapOCIImage(block.Workdir.LocalPath, block.Name, block.Version, block.Labels)
+	err := WrapOCIImage(block.Workdir.LocalPath, block.Name, block.Version, block.Labels, registryTag)
 	if err != nil {
 		return err
 	}

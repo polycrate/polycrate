@@ -30,12 +30,15 @@ var blocksPullCmd = &cobra.Command{
 		workspace.load().Flush()
 		blockInfo := args[0]
 
-		blockName, blockVersion, err := registry.resolveArg(blockInfo)
-		if err != nil {
-			log.Fatal(err)
-		}
+		fullTag, registryUrl, blockName, blockVersion := mapDockerTag(blockInfo)
+		log.Debugf("tag: %s, registry: %s, block: %s, version: %s", fullTag, registryUrl, blockName, blockVersion)
 
-		err = workspace.PullBlock(blockName, blockVersion)
+		// blockName, blockVersion, err := registry.resolveArg(blockInfo)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+
+		err := workspace.PullBlock(fullTag, registryUrl, blockName, blockVersion)
 		if err != nil {
 			log.Fatal(err)
 		}

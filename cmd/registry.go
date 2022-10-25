@@ -63,12 +63,12 @@ type RegistryWorkspace struct {
 }
 
 type Registry struct {
-	Url            string `yaml:"url" mapstructure:"url" json:"url" validate:"required"`
-	BlockNamespace string `yaml:"block_namespace" mapstructure:"block_namespace" json:"block_namespace" validate:"required"`
-	ApiBase        string `yaml:"api_base" mapstructure:"api_base" json:"api_base" validate:"required"`
-	BaseImage      string `yaml:"base_image" mapstructure:"base_image" json:"base_image" validate:"required"`
-	Username       string `yaml:"username,omitempty" mapstructure:"username,omitempty" json:"username,omitempty"`
-	Password       string `yaml:"password,omitempty" mapstructure:"password,omitempty" json:"password,omitempty"`
+	Url string `yaml:"url" mapstructure:"url" json:"url" validate:"required"`
+	//BlockNamespace string `yaml:"block_namespace" mapstructure:"block_namespace" json:"block_namespace" validate:"required"`
+	ApiBase   string `yaml:"api_base" mapstructure:"api_base" json:"api_base" validate:"required"`
+	BaseImage string `yaml:"base_image" mapstructure:"base_image" json:"base_image" validate:"required"`
+	Username  string `yaml:"username,omitempty" mapstructure:"username,omitempty" json:"username,omitempty"`
+	Password  string `yaml:"password,omitempty" mapstructure:"password,omitempty" json:"password,omitempty"`
 }
 
 func (rb *RegistryBlock) UnmarshalJSON(b []byte) error {
