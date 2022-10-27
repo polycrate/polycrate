@@ -1181,9 +1181,33 @@ func (c *Workspace) Sync() *Workspace {
 	return c
 }
 
-func (w *Workspace) IsBlockInstalled(blockName string, blockVersion string) bool {
+func (w *Workspace) IsBlockInstalled(fullTag string, registryUrl string, blockName string, blockVersion string) bool {
+	// Options for fullTag:
+	// - cargo.ayedo.cloud/block/name:0.0.1
+	// - cargo.ayedo.cloud/block/name --> latest
+	// - block/name:0.0.1
+	// - block/name --> latest
+	var fullBlockName string
+	var installedBlockFullName string
+
+	if registryUrl != "" {
+		fullBlockName = strings.Join([]string{registryUrl, blockName}, "/")
+	} else {
+		// Prepend default registry URL
+		fullBlockName = strings.Join([]string{config.Registry.Url, blockName}, "/")
+	}
+
 	for _, installedBlock := range w.installedBlocks {
-		if installedBlock.Name == blockName {
+		_, installedBlockRegistryUrl, installedBlockName, _ := mapDockerTag(installedBlock.Name)
+
+		if installedBlockRegistryUrl != "" {
+			installedBlockFullName = strings.Join([]string{installedBlockRegistryUrl, installedBlockName}, "/")
+		} else {
+			// Prepend default registry URL
+			installedBlockFullName = strings.Join([]string{config.Registry.Url, installedBlockName}, "/")
+		}
+
+		if installedBlockFullName == fullBlockName {
 			if installedBlock.Version == blockVersion {
 				return true
 			}
@@ -1201,14 +1225,14 @@ func (w *Workspace) UpdateBlocks(args []string) error {
 			fullTag, registryUrl, blockName, blockVersion := mapDockerTag(arg)
 			//blockName, blockVersion, err := registry.resolveArg(arg)
 
-			if w.IsBlockInstalled(blockName, blockVersion) {
-				log.WithFields(log.Fields{
-					"workspace":       w.Name,
-					"block":           blockName,
-					"desired_version": blockVersion,
-				}).Debugf("Block is already installed")
-				return nil
-			}
+			// if w.IsBlockInstalled(fullTag, registryUrl, blockName, blockVersion) {
+			// 	log.WithFields(log.Fields{
+			// 		"workspace":       w.Name,
+			// 		"block":           blockName,
+			// 		"desired_version": blockVersion,
+			// 	}).Debugf("Block is already installed")
+			// 	return nil
+			// }
 
 			log.WithFields(log.Fields{
 				"workspace":       w.Name,
@@ -1249,9 +1273,21 @@ func (w *Workspace) UpdateBlocks(args []string) error {
 // 		}
 
 func (w *Workspace) PullBlock(fullTag string, registryUrl string, blockName string, blockVersion string) error {
-	if registryUrl == "" {
-		registryUrl = config.Registry.Url
+	// if registryUrl == "" {
+	// 	// Set default registry URL when no registry has been given in the tag
+	// 	registryUrl = config.Registry.Url
+	// }
+
+	if w.IsBlockInstalled(fullTag, registryUrl, blockName, blockVersion) {
+		log.WithFields(log.Fields{
+			"workspace":       w.Name,
+			"block":           blockName,
+			"desired_version": blockVersion,
+			"registry":        registryUrl,
+		}).Debugf("Block is already installed")
+		return nil
 	}
+
 	targetDir := filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot, registryUrl, blockName)
 
 	//log.Debugf("Pulling block %s:%s", blockName, blockVersion)
@@ -1487,11 +1523,11 @@ func (c *Workspace) PullDependencies() *Workspace {
 		"workspace": c.Name,
 	}).Debugf("Resolving workspace dependencies")
 
-	err := c.UpdateBlocks(c.Dependencies)
-	if err != nil {
-		c.err = err
-		return c
-	}
+	// err := c.UpdateBlocks(c.Dependencies)
+	// if err != nil {
+	// 	c.err = err
+	// 	return c
+	// }
 	return c
 }
 

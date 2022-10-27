@@ -21,21 +21,21 @@ import (
 )
 
 // installCmd represents the install command
-var blocksUpdateCmd = &cobra.Command{
-	Hidden: true,
-	Use:    "update BLOCK_NAME",
-	Short:  "Update a block",
-	Long:   ``,
+var workspaceUpdateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update workspace dependencies",
+	Long:  ``,
+	Args:  cobra.ExactArgs(0),
 	//Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
-		if len(args) == 0 {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-			}).Fatalf("No blocks given")
-		}
+		// if len(args) == 0 {
+		// 	log.WithFields(log.Fields{
+		// 		"workspace": workspace.Name,
+		// 	}).Fatalf("No blocks given")
+		// }
 
-		err := workspace.UpdateBlocks(args)
+		err := workspace.UpdateBlocks(workspace.Dependencies)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
@@ -45,5 +45,5 @@ var blocksUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksUpdateCmd)
+	workspaceCmd.AddCommand(workspaceUpdateCmd)
 }

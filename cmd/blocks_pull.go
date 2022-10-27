@@ -31,7 +31,6 @@ var blocksPullCmd = &cobra.Command{
 		blockInfo := args[0]
 
 		fullTag, registryUrl, blockName, blockVersion := mapDockerTag(blockInfo)
-		log.Debugf("tag: %s, registry: %s, block: %s, version: %s", fullTag, registryUrl, blockName, blockVersion)
 
 		// blockName, blockVersion, err := registry.resolveArg(blockInfo)
 		// if err != nil {

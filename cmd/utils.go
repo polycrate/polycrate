@@ -63,8 +63,22 @@ func mapDockerTag(tag string) (string, string, string, string) {
 	regex := regexp.MustCompile(`([^\/]+\.[^\/.]+)?\/?([^:]+):?(.+)?`)
 
 	rs := regex.FindStringSubmatch(tag)
-	fmt.Println(rs)
-	return rs[0], rs[1], rs[2], rs[3]
+
+	fullTag := rs[0]
+	registryUrl := rs[1]
+	name := rs[2]
+	version := rs[3]
+
+	if registryUrl == "" {
+		// Set default registry URL when no registry has been given in the tag
+		registryUrl = config.Registry.Url
+	}
+
+	if version == "" {
+		version = "latest"
+	}
+
+	return fullTag, registryUrl, name, version
 	//return regex.MatchString(tag)
 }
 
@@ -542,10 +556,24 @@ func ValidateMetaDataName(name string) bool {
 	return regex.MatchString(name)
 }
 
+func ValidateBlockName(name string) bool {
+	regex := regexp.MustCompile(`([^\/]+\.[^\/.]+)?\/?([^:]+):?(.+)?`)
+	//regex := regexp.MustCompile("^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$")
+	// (?!.*--.*)^(?!.*__.*)
+
+	return regex.MatchString(name)
+}
+
 func validateMetadataName(fl validator.FieldLevel) bool {
 	name := fl.Field().String()
 
 	return ValidateMetaDataName(name)
+}
+
+func validateBlockName(fl validator.FieldLevel) bool {
+	name := fl.Field().String()
+
+	return ValidateBlockName(name)
 }
 
 func discoverWorkspaces() error {
