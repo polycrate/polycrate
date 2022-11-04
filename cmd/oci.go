@@ -31,34 +31,38 @@ func PullOCIImage(name string) (v1.Image, error) {
 	return img, nil
 }
 
-func WrapOCIImage(path string, imageName string, imageTag string, labels map[string]string, registryTag string) error {
-	registryBase := config.Registry.Url
+func WrapOCIImage(path string, registryUrl string, imageName string, imageTag string, labels map[string]string) error {
 	var tag name.Tag
 	var latestTag name.Tag
 	var err error
 
-	if registryTag != "" {
-		tag, err = name.NewTag(strings.Join([]string{registryTag, imageTag}, ":"))
-		if err != nil {
-			return err
-		}
+	log.WithFields(log.Fields{
+		"registryUrl": registryUrl,
+		"imageName":   imageName,
+		"imageTag":    imageTag,
+	}).Debugf("Preparing to push image")
 
-		latestTag, err = name.NewTag(strings.Join([]string{registryTag, "latest"}, ":"))
-		if err != nil {
-			return err
-		}
-	} else {
-		localImageTag := strings.Join([]string{imageName, imageTag}, ":")
-		localImageTagLatest := strings.Join([]string{imageName, "latest"}, ":")
-		tag, err = name.NewTag(strings.Join([]string{registryBase, localImageTag}, "/"))
-		if err != nil {
-			return err
-		}
+	// if registryTag != "" {
+	// 	tag, err = name.NewTag(strings.Join([]string{registryTag, imageTag}, ":"))
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		latestTag, err = name.NewTag(strings.Join([]string{registryBase, localImageTagLatest}, "/"))
-		if err != nil {
-			return err
-		}
+	// 	latestTag, err = name.NewTag(strings.Join([]string{registryTag, "latest"}, ":"))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// } else {
+	localImageTag := strings.Join([]string{imageName, imageTag}, ":")
+	localImageTagLatest := strings.Join([]string{imageName, "latest"}, ":")
+	tag, err = name.NewTag(strings.Join([]string{registryUrl, localImageTag}, "/"))
+	if err != nil {
+		return err
+	}
+
+	latestTag, err = name.NewTag(strings.Join([]string{registryUrl, localImageTagLatest}, "/"))
+	if err != nil {
+		return err
 	}
 
 	// Check if the image exists already; fail if it does

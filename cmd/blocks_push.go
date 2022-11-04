@@ -25,17 +25,17 @@ var blocksPushCmd = &cobra.Command{
 	Use:   "push BLOCK",
 	Short: "Upload a block to the registry",
 	Long:  ``,
-	Args:  cobra.RangeArgs(1, 2),
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		workspace.load().Flush()
 		blockName := args[0]
-		registryTag := ""
+		//registryTag := ""
 
-		if len(args) == 2 {
-			registryTag = args[1]
-		}
+		// if len(args) == 2 {
+		// 	registryTag = args[1]
+		// }
 
-		err := workspace.PushBlock(blockName, registryTag)
+		err := workspace.PushBlock(blockName)
 		if err != nil {
 			log.Fatal(err)
 		}

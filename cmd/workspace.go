@@ -1312,7 +1312,7 @@ func (w *Workspace) PullBlock(fullTag string, registryUrl string, blockName stri
 	return nil
 }
 
-func (c *Workspace) PushBlock(blockName string, registryTag string) error {
+func (c *Workspace) PushBlock(blockName string) error {
 	// Get the block
 	// Check that it has a version
 	// Check if release with new version exists in registry
@@ -1335,10 +1335,10 @@ func (c *Workspace) PushBlock(blockName string, registryTag string) error {
 		"block":   block.Name,
 		"version": block.Version,
 		"path":    block.Workdir.LocalPath,
-		"tag":     registryTag,
 	}).Debugf("Pushing block")
 
-	err := WrapOCIImage(block.Workdir.LocalPath, block.Name, block.Version, block.Labels, registryTag)
+	_, registryUrl, blockName, _ := mapDockerTag(block.Name)
+	err := WrapOCIImage(block.Workdir.LocalPath, registryUrl, blockName, block.Version, block.Labels)
 	if err != nil {
 		return err
 	}
