@@ -27,6 +27,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 var pruneBlock bool
@@ -97,6 +98,7 @@ type Block struct {
 	Artifacts   BlockArtifacts  `yaml:"artifacts,omitempty" mapstructure:"artifacts,omitempty" json:"artifacts,omitempty"`
 	address     string
 	err         error
+	schema      string
 }
 
 func (b *Block) Flush() *Block {
@@ -188,12 +190,19 @@ func (b *Block) Resolve() *Block {
 
 		}
 
+		// Validate schema
+		err := b.ValidateSchema()
+		if err != nil {
+			b.err = err
+			return b
+		}
+
 		// Register the Block to the Index
 		b.address = b.Name
 		workspace.registerBlock(b)
 
 		// Update Artifacts, Kubeconfig & Inventory
-		err := b.LoadArtifacts()
+		err = b.LoadArtifacts()
 		if err != nil {
 			b.err = err
 			return b
@@ -233,6 +242,12 @@ func (b *Block) Resolve() *Block {
 					}).Debugf("Updated action block")
 				}
 
+				err := existingAction.validate()
+				if err != nil {
+					b.err = err
+					return b
+				}
+
 				// Register the Action to the Index
 				workspace.registerAction(existingAction)
 			}
@@ -264,6 +279,19 @@ func (b *Block) Load() *Block {
 		b.err = err
 		return b
 	}
+
+	// Load schema
+	schemaFilePath := filepath.Join(b.Workdir.LocalPath, "schema.json")
+	if _, err := os.Stat(schemaFilePath); !os.IsNotExist(err) {
+		b.schema = schemaFilePath
+
+		log.WithFields(log.Fields{
+			"block":       b.Name,
+			"workspace":   workspace.Name,
+			"schema_path": schemaFilePath,
+		}).Debugf("Loaded schema")
+	}
+
 	if err := b.validate(); err != nil {
 		b.err = err
 		return b
@@ -289,6 +317,38 @@ func (b *Block) Load() *Block {
 	}).Debugf("Loaded block")
 
 	return b
+}
+
+func (b *Block) ValidateSchema() error {
+	if b.schema == "" {
+		return nil
+	}
+
+	log.WithFields(log.Fields{
+		"block":       b.Name,
+		"workspace":   workspace.Name,
+		"schema_path": b.schema,
+	}).Debugf("Validating schema")
+	schemaLoader := gojsonschema.NewReferenceLoader("file://" + b.schema)
+
+	rawData := gojsonschema.NewGoLoader(b.Config)
+	result, err := gojsonschema.Validate(schemaLoader, rawData)
+	if err != nil {
+		return err
+	}
+
+	//state := rs.Validate(ctx, b.Config)
+	if !result.Valid() {
+		for _, desc := range result.Errors() {
+			log.WithFields(log.Fields{
+				"block":     b.Name,
+				"workspace": workspace.Name,
+			}).Errorf("%s", desc)
+		}
+		return fmt.Errorf("failed to validate schema for block '%s'", b.Name)
+	}
+
+	return nil
 }
 
 func (b *Block) Reload() *Block {
@@ -367,8 +427,8 @@ func (c *Block) getActionByName(actionName string) *Action {
 	return nil
 }
 
-func (c *Block) validate() error {
-	err := validate.Struct(c)
+func (b *Block) validate() error {
+	err := validate.Struct(b)
 
 	if err != nil {
 
@@ -410,6 +470,11 @@ func (c *Block) MergeIn(block Block) error {
 	// Description
 	if block.Description != "" && c.Description == "" {
 		c.Description = block.Description
+	}
+
+	// Schema
+	if block.schema != "" && c.schema == "" {
+		c.schema = block.schema
 	}
 
 	// Labels

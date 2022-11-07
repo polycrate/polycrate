@@ -28,6 +28,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/go-playground/validator/v10"
 	"github.com/imdario/mergo"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -52,28 +53,30 @@ func init() {
 	rootCmd.AddCommand(actionsCmd)
 }
 
-type ActionAnsibleConfig struct {
-	Inventory string `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
-	Hosts     string `yaml:"hosts,omitempty" mapstructure:"hosts,omitempty" json:"hosts,omitempty"`
-}
+// type ActionAnsibleConfig struct {
+// 	Inventory string `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
+// 	Hosts     string `yaml:"hosts,omitempty" mapstructure:"hosts,omitempty" json:"hosts,omitempty"`
+// }
 
-type ActionKubernetesConfig struct {
-	Kubeconfig string `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
-	Context    string `yaml:"context,omitempty" mapstructure:"context,omitempty" json:"context,omitempty"`
-}
+// type ActionKubernetesConfig struct {
+// 	Kubeconfig string `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
+// 	Context    string `yaml:"context,omitempty" mapstructure:"context,omitempty" json:"context,omitempty"`
+// }
 type Action struct {
 	//Metadata            Metadata               `mapstructure:"metadata,squash" json:"metadata" validate:"required"`
-	Name                string                 `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
-	Description         string                 `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
-	Labels              map[string]string      `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
-	Alias               []string               `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
-	Interactive         bool                   `yaml:"interactive,omitempty" mapstructure:"interactive,omitempty" json:"interactive,omitempty"`
-	Script              []string               `yaml:"script,omitempty" mapstructure:"script,omitempty" json:"script,omitempty" validate:"required_if=Action"`
-	Ansible             ActionAnsibleConfig    `yaml:"ansible,omitempty" mapstructure:"ansible,omitempty" json:"ansible,omitempty"`
-	Kubernetes          ActionKubernetesConfig `yaml:"kubernetes,omitempty" mapstructure:"kubernetes,omitempty" json:"kubernetes,omitempty"`
+	Name        string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Interactive bool              `yaml:"interactive,omitempty" mapstructure:"interactive,omitempty" json:"interactive,omitempty"`
+	Script      []string          `yaml:"script,omitempty" mapstructure:"script,omitempty" json:"script,omitempty" validate:"required_without=Playbook,excluded_with=Playbook"`
+	Playbook    string            `yaml:"playbook,omitempty" mapstructure:"playbook,omitempty" json:"playbook,omitempty" validate:"required_without=Script,excluded_with=Script"`
+	//Ansible             ActionAnsibleConfig    `yaml:"ansible,omitempty" mapstructure:"ansible,omitempty" json:"ansible,omitempty"`
+	//Kubernetes          ActionKubernetesConfig `yaml:"kubernetes,omitempty" mapstructure:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	executionScriptPath string
 	address             string
-	Block               string `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
+	Block               string                 `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
+	Config              map[string]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 }
 
 func (c *Action) MergeIn(action Action) error {
@@ -316,18 +319,8 @@ func (c *Action) Run() error {
 	}).Debugf("Setting Helm repo config file path")
 	workspace.registerEnvVar("HELM_REPOSITORY_CONFIG", filepath.Join(workspace.currentBlock.Artifacts.Path, "repositories.yaml"))
 
-	// Save execution script
-	err := c.saveExecutionScript()
-
-	if err != nil {
-		return err
-	}
-
 	// register environment variables
 	workspace.registerEnvVar("POLYCRATE_RUNTIME_SCRIPT_PATH", c.executionScriptPath)
-
-	// register mounts
-	workspace.registerMount(c.executionScriptPath, c.executionScriptPath)
 
 	// Wrapup
 	if c.Interactive {
@@ -339,9 +332,28 @@ func (c *Action) Run() error {
 		workspace.Snapshot()
 	} else {
 		// Save snapshot before running the action
-		if err := workspace.SaveSnapshot(); err != nil {
+		if snapshotContainerPath, err := workspace.SaveSnapshot(); err != nil {
 			return err
 		} else {
+			// Save execution script
+			var err error
+			if len(c.Script) > 0 {
+				err = c.saveExecutionScript()
+				// We use the vars plugin in "script" mode
+				workspace.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
+			} else if c.Playbook != "" {
+				err = c.saveAnsibleScript(snapshotContainerPath)
+			} else {
+				err = fmt.Errorf("neither 'script' nor 'playbook' have been defined")
+			}
+
+			if err != nil {
+				return err
+			}
+
+			// register mounts
+			workspace.registerMount(c.executionScriptPath, c.executionScriptPath)
+
 			if !local {
 				err := c.RunContainer()
 				return err
@@ -414,6 +426,73 @@ func (c *Action) saveExecutionScript() error {
 
 }
 
+func (a *Action) saveAnsibleScript(snapshotContainerPath string) error {
+	// Prepare script
+	scriptSlice := []string{
+		"#!/bin/bash",
+		"set -euo pipefail",
+	}
+
+	scriptString := fmt.Sprintf("ansible-playbook -e '@%s' %s", snapshotContainerPath, a.Playbook)
+	script := append(scriptSlice, scriptString)
+	snapshot := workspace.GetSnapshot()
+
+	scriptSlug := slugify([]string{workspace.Name, workspace.currentBlock.Name, a.Name})
+	scriptFilename := strings.Join([]string{scriptSlug, "sh"}, ".")
+
+	if script != nil {
+		f, err := workspace.getTempFile(scriptFilename)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("Script not empty, saving to %s", f.Name())
+		datawriter := bufio.NewWriter(f)
+
+		for _, data := range script {
+			// Load the script line into a template object and parse it
+			// return an error if the parsing fails
+			t, err := template.New("script-line").Parse(data)
+			if err != nil {
+				return err
+			}
+
+			// Execute the template and save the substituted content to a var
+			var substitutedScriptLine bytes.Buffer
+			err = t.Execute(&substitutedScriptLine, snapshot)
+			if err != nil {
+				return err
+			}
+			// Append the substituted script line to the script
+			_, _ = datawriter.WriteString(substitutedScriptLine.String() + "\n")
+		}
+
+		datawriter.Flush()
+		log.Debug("Saved temporary execution script to " + f.Name())
+
+		// Make executable
+		err = os.Chmod(f.Name(), 0755)
+		if err != nil {
+			return err
+		}
+
+		// Closing file descriptor
+		// Getting fatal errors on windows WSL2 when accessing
+		// the mounted script file from inside the container if
+		// the file descriptor is still open
+		// Works flawlessly with open file descriptor on M1 Mac though
+		// It's probably safer to close the fd anyways
+		f.Close()
+
+		// Set executionScriptPath
+		a.executionScriptPath = f.Name()
+		return nil
+	} else {
+		return fmt.Errorf("ansible: 'script' section of Action is empty")
+	}
+
+}
+
 func (c *Action) GetExecutionScript() []string {
 	// Prepare script
 	scriptSlice := []string{
@@ -435,10 +514,52 @@ func (c *Action) GetExecutionScript() []string {
 	return nil
 }
 
-func (c *Action) validate() error {
-	if c.Script == nil {
-		return goErrors.New("no script found for Action")
+func (c *Action) GetAnsibleScript(varsPath string, playbook string) []string {
+	// Prepare script
+	scriptSlice := []string{
+		"#!/bin/bash",
+		"set -euo pipefail",
 	}
+
+	scriptString := fmt.Sprintf("ansible-playbook -e '@%s' %s", varsPath, playbook)
+	script := append(scriptSlice, scriptString)
+
+	return script
+}
+
+func (a *Action) validate() error {
+	err := validate.Struct(a)
+	if err != nil {
+
+		// this check is only needed when your code could produce
+		// an invalid value for validation such as interface with nil
+		// value most including myself do not usually have code like this.
+		if _, ok := err.(*validator.InvalidValidationError); ok {
+			log.Error(err)
+			return nil
+		}
+
+		for _, err := range err.(validator.ValidationErrors) {
+			if err.Tag() == "excluded_with" {
+				log.WithFields(log.Fields{
+					"workspace": workspace.Name,
+					"action":    a.Name,
+					"block":     a.Block,
+					"namespace": strings.ToLower(err.Namespace()),
+				}).Errorf("Configuration option '%s' is mutually exclusive with '%s'", strings.ToLower(err.Field()), strings.ToLower(err.Param()))
+				//log.Errorf("Configuration option '%s' is mutually exclusive with '%s'", strings.ToLower(err.Namespace()), strings.ToLower(err.Param()))
+				err.Field()
+			} else {
+				log.Error("Configuration option `" + strings.ToLower(err.Namespace()) + "` failed to validate: " + err.Tag() + "=" + strings.ToLower(err.Param()))
+			}
+		}
+
+		// from here you can create your own error messages in whatever language you wish
+		return fmt.Errorf("error validating Action '%s' of Block '%s'", a.Name, a.Block)
+	}
+	// if a.Script == nil {
+	// 	return goErrors.New("no script found for Action")
+	// }
 	return nil
 }
 

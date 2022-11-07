@@ -933,7 +933,7 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 	c.registerEnvVar("ANSIBLE_VERBOSITY", logLevel)
 	c.registerEnvVar("ANSIBLE_SSH_PRIVATE_KEY_FILE", filepath.Join(c.ContainerPath, c.Config.SshPrivateKey))
 	c.registerEnvVar("ANSIBLE_PRIVATE_KEY_FILE", filepath.Join(c.ContainerPath, c.Config.SshPrivateKey))
-	c.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
+	//c.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
 	c.registerEnvVar("ANSIBLE_RUN_VARS_PLUGINS", "start")
 	c.registerEnvVar("ANSIBLE_VARS_PLUGINS", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
 	c.registerEnvVar("DEFAULT_VARS_PLUGIN_PATH", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
@@ -986,7 +986,7 @@ func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
 	return snapshot
 }
 
-func (c *Workspace) SaveSnapshot() error {
+func (c *Workspace) SaveSnapshot() (string, error) {
 	snapshot := c.GetSnapshot()
 
 	//c.RegisterSnapshotEnv(snapshot).Flush()
@@ -994,16 +994,16 @@ func (c *Workspace) SaveSnapshot() error {
 	// Marshal the snapshot to yaml
 	data, err := yaml.Marshal(snapshot)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if data != nil {
-		snapshotSlug := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+		snapshotSlug := slugify([]string{c.Name, workspace.currentBlock.Name})
 		snapshotFilename := strings.Join([]string{snapshotSlug, "yml"}, ".")
 
 		f, err := workspace.getTempFile(snapshotFilename)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		// Create a viper config object
@@ -1012,7 +1012,7 @@ func (c *Workspace) SaveSnapshot() error {
 		snapshotConfig.ReadConfig(bytes.NewBuffer(data))
 		err = snapshotConfig.WriteConfigAs(f.Name())
 		if err != nil {
-			return err
+			return "", err
 		}
 		log.Debugf("Saved snapshot to %s", f.Name())
 
@@ -1027,9 +1027,9 @@ func (c *Workspace) SaveSnapshot() error {
 		c.registerEnvVar("POLYCRATE_WORKSPACE_SNAPSHOT_YAML", f.Name())
 		c.registerMount(f.Name(), f.Name())
 
-		return nil
+		return f.Name(), nil
 	} else {
-		return fmt.Errorf("cannot save snapshot")
+		return "", fmt.Errorf("cannot save snapshot")
 	}
 
 }
