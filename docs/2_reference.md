@@ -178,9 +178,17 @@ The `config` stanza of the block configuration is free form and not typed. You c
 
 ### Actions
 
+```yaml
+actions:
+  - name: install
+    playbook: install.yml
+```
+
 A block can expose an arbitrary amount of actions. Actions are used to implement the actual functionality of a block. Examples would be `install` or `uninstall`, but also `status` or `init`.
 
-The `script` section of an action is a list of commands that will be merged into a Bash script and executed inside the Polycrate container (or locally if you specifiy `--local`) when you run the action.
+To execute a certain playbook, specify its name in the `playbook` stanza of an action. Polycrate will create the respective `ansible-playbook` command and make the [workspace snapshot](#workspace-snapshot) available as extra-vars to the playbook so they can be used even in the `host` stanza of a playbook.
+
+Actions also support a `script` stanza which contains a list of commands that will be merged into a Bash script and executed inside the Polycrate container (or locally if you specifiy `--local`) when you run the action. The `script` stanza is mutually exclusive with the `playbook` stanza.
 
 !!! note
     You can use [Go Templates](https://learn.hashicorp.com/tutorials/nomad/go-template-syntax) in your action scripts. 
