@@ -24,7 +24,6 @@ require (
 	golang.org/x/exp v0.0.0-20220518171630-0b5c67f07fdf
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	gopkg.in/yaml.v2 v2.4.0
-	sigs.k8s.io/yaml v1.2.0
 )
 
 require (
@@ -78,8 +77,6 @@ require (
 	github.com/opencontainers/runc v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/qri-io/jsonpointer v0.1.1 // indirect
-	github.com/qri-io/jsonschema v0.2.1 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect

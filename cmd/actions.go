@@ -303,21 +303,21 @@ func (c *Action) Run() error {
 	}).Debugf("Updating kubeconfig")
 	workspace.registerEnvVar("KUBECONFIG", workspace.currentBlock.getKubeconfigPath())
 
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-		"action":    c.Name,
-		"block":     c.Block,
-		"path":      workspace.currentBlock.Artifacts.Path,
-	}).Debugf("Setting Helm repo cache path")
-	workspace.registerEnvVar("HELM_REPOSITORY_CACHE", workspace.currentBlock.Artifacts.Path)
+	// log.WithFields(log.Fields{
+	// 	"workspace": c.Name,
+	// 	"action":    c.Name,
+	// 	"block":     c.Block,
+	// 	"path":      workspace.currentBlock.Artifacts.Path,
+	// }).Debugf("Setting Helm repo cache path")
+	// workspace.registerEnvVar("HELM_REPOSITORY_CACHE", workspace.currentBlock.Artifacts.Path)
 
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-		"action":    c.Name,
-		"block":     c.Block,
-		"path":      filepath.Join(workspace.currentBlock.Artifacts.Path, "registry.json"),
-	}).Debugf("Setting Helm repo config file path")
-	workspace.registerEnvVar("HELM_REPOSITORY_CONFIG", filepath.Join(workspace.currentBlock.Artifacts.Path, "repositories.yaml"))
+	// log.WithFields(log.Fields{
+	// 	"workspace": c.Name,
+	// 	"action":    c.Name,
+	// 	"block":     c.Block,
+	// 	"path":      filepath.Join(workspace.currentBlock.Artifacts.Path, "registry.json"),
+	// }).Debugf("Setting Helm repo config file path")
+	// workspace.registerEnvVar("HELM_REPOSITORY_CONFIG", filepath.Join(workspace.currentBlock.Artifacts.Path, "repositories.yaml"))
 
 	// register environment variables
 	workspace.registerEnvVar("POLYCRATE_RUNTIME_SCRIPT_PATH", c.executionScriptPath)
