@@ -114,6 +114,7 @@ RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernet
   ./aws/install && \
   rm -rf /tmp/*
 
+
 WORKDIR /workspace
 
 COPY polycrate /usr/local/bin/polycrate
