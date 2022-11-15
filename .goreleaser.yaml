@@ -84,6 +84,7 @@ dockers:
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--build-arg=AWS_ARCH=x86_64"
     extra_files:
       - python-requirements.txt
       - ansible-requirements.yml
@@ -105,6 +106,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--platform=linux/arm64/v8"
+      - "--build-arg=AWS_ARCH=aarch64"
     goarch: arm64
     dockerfile: Dockerfile.goreleaser
     extra_files:
