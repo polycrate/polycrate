@@ -15,7 +15,7 @@ docker-login:
 	echo ${AYEDO_CARGO_PASSWORD} | docker login cargo.ayedo.cloud -u ${AYEDO_CARGO_USERNAME} --password-stdin
 
 snapshot:
-	goreleaser release --snapshot --rm-dist --debug
+	goreleaser release --snapshot --rm-dist --debug --timeout 120m
 
 unexport GITLAB_TOKEN
 release: latest
