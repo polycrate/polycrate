@@ -20,8 +20,7 @@ snapshot:
 unexport GITLAB_TOKEN
 release: latest
 	git push origin main
-	goreleaser release --rm-dist --debug
-	
+	goreleaser release --rm-dist --debug --timeout 120m
 	
 latest: tag
 	echo "$(shell svu --strip-prefix)" > latest
