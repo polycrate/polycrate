@@ -88,8 +88,6 @@ dockers:
     extra_files:
       - python-requirements.txt
       - ansible-requirements.yml
-      - package.json
-      - package-lock.json
       - hack/ansible/plugins/vars/polycrate_vars.py
       - hack/ansible/inventory
   - image_templates:
@@ -114,8 +112,6 @@ dockers:
     extra_files:
       - python-requirements.txt
       - ansible-requirements.yml
-      - package.json
-      - package-lock.json
       - hack/ansible/plugins/vars/polycrate_vars.py
       - hack/ansible/inventory
 docker_manifests:
