@@ -1,4 +1,5 @@
 FROM docker:dind as docker
+FROM quay.io/git-chglog/git-chglog:latest as git-chglog
 FROM python:3.10.4-slim-bullseye
 
 ARG TERRAFORM_VERSION=1.0.7
@@ -26,6 +27,7 @@ ENV PATH=$PATH:/usr/local/go/bin
 
 # Copy Docker Client CLI from docker:dind
 COPY --from=docker /usr/local/bin/docker /usr/local/bin/
+COPY --from=git-chglog /usr/local/bin/git-chglog /usr/local/bin/
 
 RUN apt-get update &&\
   apt-get -y --no-install-recommends install \
@@ -57,13 +59,13 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY python-requirements.txt python-requirements.txt
 COPY ansible-requirements.yml ansible-requirements.yml
-COPY package.json package.json
-COPY package-lock.json package-lock.json
+#COPY package.json package.json
+#COPY package-lock.json package-lock.json
 COPY hack/ansible/plugins/vars/polycrate_vars.py /usr/share/ansible/plugins/vars/polycrate_vars.py
 COPY hack/ansible/inventory /etc/ansible/hosts
 
-RUN npm ci && \
-    rm package.json package-lock.json
+# RUN npm ci && \
+#     rm package.json package-lock.json
 
 RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace /polycrate /usr/share/ansible/plugins/vars && \
   #pip install --no-cache-dir cffi && \
