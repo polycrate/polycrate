@@ -208,7 +208,7 @@ fabric.properties
 kubeconfig
 *.code-workspace
 
-package-lock.json
+#package-lock.json
 
 **/.terraform
 **/*.tfstate*

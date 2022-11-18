@@ -1,0 +1,12 @@
+{
+  "name": "polycrate",
+  "dependencies": {
+    "@semantic-release/changelog": "^5.0.1",
+    "@semantic-release/exec": "^5.0.0",
+    "@semantic-release/git": "^9.0.0",
+    "@semantic-release/gitlab": "^6.2.2",
+    "semantic-release": "^17.4.5",
+    "conventional-changelog-conventionalcommits": "^4.6.0",
+    "replace-json-property": "1.8.0"
+  }
+}
