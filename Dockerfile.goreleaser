@@ -47,7 +47,6 @@ RUN apt-get update &&\
   less=551-2 \
   build-essential=12.9 \
   mtr=0.94-1+deb11u1 && \
-  npm && \
   rm -rf /var/lib/apt/lists/* &&\
   apt-get clean
 
