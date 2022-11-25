@@ -108,6 +108,29 @@ func (b *Block) Flush() *Block {
 	return b
 }
 
+func (b *Block) SSH(hostname string) *Block {
+	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath())
+	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath())
+	workspace.registerCurrentBlock(b)
+	interactive = true
+
+	if _, err := workspace.SaveSnapshot(); err != nil {
+		b.err = err
+		return b
+	}
+
+	cmd := "python3 /opt/plycrt/main.py ssh shell " + hostname
+
+	if !local {
+		workspace.RunContainer(slugify([]string{workspace.Name, b.Name, "ssh", hostname}), b.Workdir.ContainerPath, cmd, workspace.mounts).Flush()
+		return b
+	} else {
+		err := fmt.Errorf("'local' mode not yet implemented")
+		b.err = err
+		return b
+	}
+}
+
 func (b *Block) Resolve() *Block {
 	if !b.resolved {
 		log.WithFields(log.Fields{

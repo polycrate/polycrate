@@ -24,34 +24,32 @@ import (
 	"github.com/spf13/viper"
 )
 
+var _sshBlock string = ""
+
 // installCmd represents the install command
 var sshCmd = &cobra.Command{
 	Use:    "ssh",
 	Short:  "SSH into a node",
 	Hidden: true,
 	Long:   ``,
+	Args:   cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		//loadWorkspace()
-		var node string
-		if len(args) == 0 {
-			node = "master-0"
-		} else {
-			node = args[0]
-		}
-		log.Debug(node)
-		loadInventory()
-		log.Debug(inventoryConfigObject)
-		interactive = true
-		connectWithSSH(node)
-		// load inventory
-		// determine default node
-		// determine ssh params
-		// connect
+
+		hostname := args[0]
+
+		workspace.load().Flush()
+
+		block := workspace.GetBlockFromIndex(_sshBlock)
+		block.SSH(hostname).Flush()
+
+		//workspace.RunAction(args[0]).Flush()
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(sshCmd)
+
+	sshCmd.PersistentFlags().StringVar(&_sshBlock, "block", "", "Block to load inventory from")
 }
 
 func connectWithSSH(node string) {

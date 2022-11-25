@@ -29,6 +29,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/client"
 	"github.com/jeremywohl/flatten"
 
 	"github.com/go-playground/validator/v10"
@@ -259,6 +262,180 @@ func (c *Workspace) RunAction(address string) *Workspace {
 		sync.Sync().Flush()
 	}
 	return c
+}
+
+func (w *Workspace) RunContainer(name string, workdir string, cmd string, mounts map[string]string) *Workspace {
+	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+
+	if err != nil {
+		w.err = err
+		return w
+	}
+
+	log.WithFields(log.Fields{
+		"workspace": w.Name,
+		"build":     build,
+		"pull":      pull,
+	}).Debugf("Running container")
+
+	// Check if a Dockerfile is configured in the Workspace
+	if w.Config.Dockerfile != "" {
+		// Create the filepath
+		dockerfilePath := filepath.Join(w.LocalPath, w.Config.Dockerfile)
+
+		// Check if the file exists
+		if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
+			if build {
+				// We need to build and tag this
+				log.WithFields(log.Fields{
+					"workspace": w.Name,
+					"path":      dockerfilePath,
+					"build":     build,
+					"pull":      pull,
+				}).Debugf("Dockerfile detected")
+
+				tag := workspace.Name + ":" + version
+				log.WithFields(log.Fields{
+					"workspace": workspace.Name,
+					"path":      dockerfilePath,
+					"image":     tag,
+					"build":     build,
+					"pull":      pull,
+				}).Warnf("Building image")
+
+				tags := []string{tag}
+				containerImage, err = buildContainerImage(w.Config.Dockerfile, tags)
+				if err != nil {
+					w.err = err
+					return w
+				}
+			} else {
+				if pull {
+					log.WithFields(log.Fields{
+						"workspace": w.Name,
+						"image":     containerImage,
+						"build":     build,
+						"pull":      pull,
+					}).Debugf("Pulling image")
+					err := pullContainerImage(containerImage)
+
+					if err != nil {
+						w.err = err
+						return w
+					}
+				} else {
+					log.WithFields(log.Fields{
+						"workspace": w.Name,
+						"image":     containerImage,
+						"build":     build,
+						"pull":      pull,
+					}).Debugf("Not pulling/building image")
+				}
+			}
+		} else {
+			if pull {
+				log.WithFields(log.Fields{
+					"workspace": w.Name,
+					"image":     containerImage,
+					"build":     build,
+					"pull":      pull,
+				}).Debugf("Pulling image")
+				err := pullContainerImage(containerImage)
+
+				if err != nil {
+					w.err = err
+					return w
+				}
+			} else {
+				log.WithFields(log.Fields{
+					"workspace": w.Name,
+					"image":     containerImage,
+					"build":     build,
+					"pull":      pull,
+				}).Debugf("Not pulling/building image")
+			}
+		}
+	} else {
+		if pull {
+			log.WithFields(log.Fields{
+				"workspace": w.Name,
+				"image":     containerImage,
+				"build":     build,
+				"pull":      pull,
+			}).Debugf("Pulling image")
+			err := pullContainerImage(containerImage)
+
+			if err != nil {
+				w.err = err
+				return w
+			}
+		} else {
+			log.WithFields(log.Fields{
+				"workspace": w.Name,
+				"image":     containerImage,
+				"build":     build,
+				"pull":      pull,
+			}).Debugf("Not pulling/building image")
+		}
+	}
+
+	entrypoint := []string{"bash", "-c"}
+	runCommand := []string{}
+
+	if cmd != "" {
+		runCommand = append(runCommand, cmd)
+	} else {
+		w.err = goErrors.New("no execution script path given. Nothing to do")
+		return w
+	}
+
+	log.WithFields(log.Fields{
+		"workspace": workspace.Name,
+	}).Debugf("Running entrypoint %s", entrypoint)
+
+	log.WithFields(log.Fields{
+		"workspace": workspace.Name,
+	}).Debugf("Running command %s", runCommand)
+
+	cc := &container.Config{
+		Image:        containerImage,
+		Entrypoint:   entrypoint,
+		Cmd:          runCommand,
+		Tty:          true,
+		AttachStderr: true,
+		AttachStdin:  interactive,
+		AttachStdout: true,
+		StdinOnce:    interactive,
+		OpenStdin:    interactive,
+		Env:          w.DumpEnv(),
+		WorkingDir:   workdir,
+	}
+
+	// Setup mounts
+	containerMounts := []mount.Mount{}
+	for containerMount := range mounts {
+		m := mount.Mount{
+			Type:   mount.TypeBind,
+			Source: containerMount,
+			Target: workspace.mounts[containerMount],
+		}
+		containerMounts = append(containerMounts, m)
+	}
+
+	hc := &container.HostConfig{
+		Mounts: containerMounts,
+	}
+
+	containerName := name
+
+	err = runContainer(cli, cc, hc, containerName)
+
+	if err != nil {
+		w.err = err
+		return w
+	}
+	return w
 }
 
 func (c *Workspace) RunWorkflow(name string) *Workspace {
@@ -998,6 +1175,7 @@ func (c *Workspace) SaveSnapshot() (string, error) {
 	}
 
 	if data != nil {
+
 		snapshotSlug := slugify([]string{c.Name, workspace.currentBlock.Name})
 		snapshotFilename := strings.Join([]string{snapshotSlug, "yml"}, ".")
 
