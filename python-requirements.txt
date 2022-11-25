@@ -13,6 +13,10 @@ PyYAML #5.4.1
 kubernetes # 24.2.0
 cffi #1.15.1
 openshift # 0.13.1
+typer
+rich
+shellingham
+loguru
 ansible
 pywinrm
 jmespath

@@ -27,7 +27,7 @@
   "git.autofetch": true,
   "go.formatTool": "goimports",
   "go.useLanguageServer": true,
-  "python.formatting.provider": "black",
+  "python.formatting.provider": "yapf",
   "terminal.integrated.tabs.title": "${cwdFolder}",
   "terminal.integrated.tabs.description": "${task}${separator}${local}${separator}${cwdFolder}",
   "workbench.editor.highlightModifiedTabs": true
