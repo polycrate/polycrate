@@ -3,7 +3,7 @@ module polycrate
 go 1.18
 
 require (
-	github.com/docker/docker v20.10.17+incompatible
+	github.com/docker/docker v20.10.21+incompatible
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-playground/validator/v10 v10.9.0
 	github.com/google/go-containerregistry v0.11.0
@@ -97,3 +97,5 @@ require (
 	gopkg.in/ini.v1 v1.63.2 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
+
+//replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.0

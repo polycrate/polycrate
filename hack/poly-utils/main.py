@@ -5,13 +5,19 @@ from rich import print
 from ansible.inventory.manager import InventoryManager
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
-
+from ansible import context
+from ansible.cli import CLI
 from types import SimpleNamespace
 from typing import Optional
+import yaml
+from pathlib import Path
+from benedict import benedict
+
+
 import ansible_inventory
+import ansible_config
 import ssh
 import utils
-import ansible_config
 from pathlib import Path
 import os
 import sys
@@ -46,28 +52,25 @@ def root(
 
     ctx.obj = SimpleNamespace()
 
-    ctx.obj.inventory_path = inventory_path
+    ctx.obj.ansible_inventory_path = inventory_path
     ctx.obj.snapshot_path = snapshot_path
     ctx.obj.verbosity = verbosity
     ctx.obj.ssh_port = ssh_port
     ctx.obj.ssh_user = ssh_user
     ctx.obj.ssh_private_key_file = ssh_private_key_file
-    ctx.obj.config = utils.loadConfig()
+    ctx.obj.ansible_config = ansible_config.load()
+    ctx.obj.ansible_dataloader = DataLoader()
 
-    if not snapshot_path:
-      logger.warning(f"No snapshot path given")
+    logger.debug(f"Inventory path: {inventory_path}")
+    logger.debug(f"Snapshot path: {snapshot_path}")
+    # ctx.obj.inventory = InventoryManager(loader=ctx.obj.ansible_dataloader,
+    #                       sources=[inventory_path])
 
-    if inventory_path:
-        logger.debug(f"Inventory path: {inventory_path}")
-        dl = DataLoader()
-        ctx.obj.inventory = InventoryManager(loader=dl,
-                                             sources=[inventory_path])
-
-        ctx.obj.vars = VariableManager(loader=dl, inventory=ctx.obj.inventory)
-    else:
-        logger.warning(f"No inventory path given")
-        #raise typer.Exit(code=1)
-
+    # ctx.obj.vars = VariableManager(loader=ctx.obj.ansible_dataloader, inventory=ctx.obj.inventory)
+    
+    ctx.obj.snapshot = ansible_config.loadSnapshot(snapshot_path)
+    
+    
 
 app = typer.Typer(callback=root)
 app.add_typer(ansible_inventory.app, name="ansible_inventory")

@@ -8,6 +8,8 @@ from types import SimpleNamespace
 from typing import Optional
 import subprocess
 
+import ansible_inventory
+
 app = typer.Typer()
 
 
@@ -18,12 +20,14 @@ def exec(ctx: typer.Context):
 
 @app.command()
 def shell(ctx: typer.Context, hostname: str = typer.Argument("")):
-    host = ctx.obj.inventory.get_host(hostname)
+    ansible_inventory.load(ctx)
+
+    host = ctx.obj.ansible_inventory.get_host(hostname)
 
     if not host:
         raise SystemExit(f"Host not found: {hostname}")
 
-    host_vars = ctx.obj.vars.get_vars(host=host)
+    host_vars = ctx.obj.ansible_vars.get_vars(host=host)
     user = ""
 
     if 'ansible_user' in host_vars.keys():
@@ -37,7 +41,7 @@ def shell(ctx: typer.Context, hostname: str = typer.Argument("")):
             _v = "-"
             _v = _v.ljust(ctx.obj.verbosity + len(_v), "v")
 
-        ssh_cmd = f"ssh {_v} -i {ctx.obj.ssh_private_key_file} -o StrictHostKeyChecking=no -o BatchMode=yes -p {ctx.obj.ssh_port} {user}@{host_vars['ansible_host']}"
+        ssh_cmd = f"ssh -t {_v} -i {ctx.obj.ssh_private_key_file} -o StrictHostKeyChecking=no -o BatchMode=yes -p {ctx.obj.ssh_port} {user}@{host_vars['ansible_host']}"
 
         logger.debug(f"Executing ssh command: {ssh_cmd}")
         subprocess.run(ssh_cmd, shell=True)
@@ -48,12 +52,13 @@ def shell(ctx: typer.Context, hostname: str = typer.Argument("")):
 
 @app.command()
 def cmd(ctx: typer.Context, hostname: str = typer.Argument("")):
-    host = ctx.obj.inventory.get_host(hostname)
+    ansible_inventory.load(ctx)
+    host = ctx.obj.ansible_inventory.get_host(hostname)
 
     if not host:
         raise SystemExit(f"Host not found: {hostname}")
 
-    host_vars = ctx.obj.vars.get_vars(host=host)
+    host_vars = ctx.obj.ansible_vars.get_vars(host=host)
     user = ""
 
     if 'ansible_user' in host_vars.keys():
@@ -67,7 +72,7 @@ def cmd(ctx: typer.Context, hostname: str = typer.Argument("")):
             _v = "-"
             _v = _v.ljust(ctx.obj.verbosity + len(_v), "v")
 
-        ssh_cmd = f"ssh {_v} -i {ctx.obj.ssh_private_key_file} -o StrictHostKeyChecking=no -o BatchMode=yes -p {ctx.obj.ssh_port} {user}@{host_vars['ansible_host']}"
+        ssh_cmd = f"ssh -t {_v} -i {ctx.obj.ssh_private_key_file} -o StrictHostKeyChecking=no -o BatchMode=yes -p {ctx.obj.ssh_port} {user}@{host_vars['ansible_host']}"
 
         logger.debug(f"Executing ssh command: {ssh_cmd}")
         print(ssh_cmd)

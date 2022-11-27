@@ -242,12 +242,18 @@ func (c *Action) RunContainer() error {
 		"block":     c.Block,
 	}).Debugf("Running command %s", runCommand)
 
+	containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+
 	cc := &container.Config{
 		Image: containerImage,
 		//Cmd:        runCommand,
-		Entrypoint:   entrypoint,
-		Cmd:          runCommand,
-		Tty:          true,
+		Entrypoint: entrypoint,
+		Cmd:        runCommand,
+		Tty:        true,
+		Labels: map[string]string{
+			"polycrate.workspace": workspace.Name,
+			"polycrate.name":      containerName,
+		},
 		AttachStderr: true,
 		AttachStdin:  interactive,
 		AttachStdout: true,
@@ -271,8 +277,6 @@ func (c *Action) RunContainer() error {
 	hc := &container.HostConfig{
 		Mounts: containerMounts,
 	}
-
-	containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
 
 	err = runContainer(cli, cc, hc, containerName)
 	return err

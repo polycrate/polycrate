@@ -1,2 +1,2 @@
 #!/bin/bash
-eval $(python3 /opt/poly-utils/main.py $@)
+exec python3 /opt/poly-utils/main.py $@

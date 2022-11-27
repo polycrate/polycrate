@@ -158,11 +158,13 @@ func initConfig() {
 	// Exits with exit code 1 when ctrl-c is captured
 	//signals := make(chan os.Signal, 1)
 	//done := make(chan bool, 1)
+
+	//var inout chan = make(chan []byte)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		sig := <-signals
+		s := <-signals
 
-		signalHandler(sig)
+		signalHandler(s)
 
 	}()
 
@@ -190,9 +192,9 @@ func initConfig() {
 	log.SetLevel(logrusLevel)
 
 	// Set a different image if we're in development
-	if version == "development" {
-		workspace.Config.Image.Version = "latest"
-		log.Debug("Setting image version to latest (development mode)")
+	if version == "latest" {
+		workspace.Config.Image.Version = "latest-amd64"
+		log.Debug("Setting image version to latest-amd64 (development mode)")
 	}
 
 	// Register the custom validators to the global validator variable

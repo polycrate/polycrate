@@ -20,27 +20,46 @@ app = typer.Typer()
 #         print(json_dump(ctx.obj.inventory))
 
 
+def load(ctx: typer.Context):
+    ctx.obj.ansible_inventory = InventoryManager(
+        loader=ctx.obj.ansible_dataloader,
+        sources=[ctx.obj.ansible_inventory_path])
+
+    ctx.obj.ansible_vars = VariableManager(loader=ctx.obj.ansible_dataloader,
+                                           inventory=ctx.obj.ansible_inventory)
+    ctx.obj.ansible_vars._extra_vars = ctx.obj.snapshot
+
+
 @app.command()
 def hosts(ctx: typer.Context, host: Optional[str] = typer.Argument("all")):
-    print(ctx.obj.inventory.get_hosts(pattern=host))
+    try:
+        load(ctx)
+        print(ctx.obj.inventory.get_hosts(pattern=host))
+    except:
+        raise RuntimeError("Inventory error")
 
 
 @app.command()
-def groups(ctx: typer.Context, group: Optional[str] = typer.Argument("all")):
+def groups(ctx: typer.Context):
+    load(ctx)
     print(ctx.obj.inventory.get_groups_dict())
 
 
 @app.command()
 def list(ctx: typer.Context):
-    for host in ctx.obj.inventory.get_hosts():
-        host_vars = ctx.obj.vars.get_vars(host=host)
+    try:
+        load(ctx)
+        for host in ctx.obj.inventory.get_hosts():
+            host_vars = ctx.obj.vars.get_vars(host=host)
 
-        if ctx.obj.verbosity > 0:
-            print(host_vars)
-        else:
-            print(
-                f"Host: {host_vars['inventory_hostname']}, IP: {host_vars['ansible_host']}"
-            )
+            if ctx.obj.verbosity > 0:
+                print(host_vars)
+            else:
+                print(
+                    f"Host: {host_vars['inventory_hostname']}, IP: {host_vars['ansible_host']}"
+                )
+    except:
+        raise RuntimeError("Inventory error")
 
 
 @app.command()

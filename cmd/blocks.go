@@ -119,7 +119,7 @@ func (b *Block) SSH(hostname string) *Block {
 		return b
 	}
 
-	cmd := "poly-utils ssh shell " + hostname
+	cmd := "exec $(poly-utils ssh cmd " + hostname + ")"
 	workspace.RunContainer(slugify([]string{"polycrate", "ssh", hostname}), workspace.ContainerPath, cmd).Flush()
 	return b
 

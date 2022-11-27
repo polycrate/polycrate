@@ -27,3 +27,4 @@ hcloud
 netaddr
 boto3
 #azure-cli
+python-benedict

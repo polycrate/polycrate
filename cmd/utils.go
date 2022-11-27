@@ -31,6 +31,11 @@ import (
 
 func signalHandler(s os.Signal) {
 	fmt.Println()
+	if interactive {
+		fmt.Println()
+
+		//inout <- []byte(s.String())
+	}
 
 	// Deal with running containers
 	cleanupWorkspace()

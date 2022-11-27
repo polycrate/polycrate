@@ -12,6 +12,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -96,8 +97,48 @@ func logDocker(reader io.ReadCloser) error {
 	return nil
 }
 
+func getContainers(cli *client.Client, filterList map[string]string) ([]types.Container, error) {
+	ctx := context.Background()
+
+	f := filters.NewArgs()
+	for key, value := range filterList {
+		f.Add(key, value)
+	}
+
+	containerListOptions := types.ContainerListOptions{
+		Size:    false,
+		All:     false,
+		Since:   "container",
+		Limit:   1,
+		Filters: f,
+	}
+
+	containers, err := cli.ContainerList(ctx, containerListOptions)
+	if err != nil {
+		return nil, fmt.Errorf("error listing container: %s", err)
+	}
+
+	return containers, nil
+}
+
 func pruneContainer(cli *client.Client, id string) error {
 	ctx := context.Background()
+
+	// filters := filters.NewArgs()
+	// filters.Add("id", id)
+
+	// containerListOptions := types.ContainerListOptions{
+	// 	Size:    false,
+	// 	All:     false,
+	// 	Since:   "container",
+	// 	Limit:   1,
+	// 	Filters: filters,
+	// }
+
+	// containers, err := cli.ContainerList(ctx, containerListOptions)
+	// if err != nil {
+	// 	return fmt.Errorf("error listing container: %s", err)
+	// }
 
 	removeOptions := types.ContainerRemoveOptions{
 		RemoveVolumes: false,
@@ -107,12 +148,13 @@ func pruneContainer(cli *client.Client, id string) error {
 	if err := cli.ContainerRemove(ctx, id, removeOptions); err != nil {
 		return fmt.Errorf("unable to remove container: %s", err)
 	}
+	workspace.containerID = ""
 	return nil
 }
 
 func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig, name string) error {
 	ctx := context.Background()
-	inout := make(chan []byte)
+	//var inout chan = make(chan []byte)
 
 	log.WithFields(log.Fields{
 		"name": name,
@@ -197,6 +239,9 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 		"id":   resp.ID,
 		"name": name,
 	}).Debugf("Removing container")
+
+	workspace.containerID = ""
+
 	// Stop and remove the container
 	if err := pruneContainer(cli, resp.ID); err != nil {
 		return err

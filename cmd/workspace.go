@@ -32,6 +32,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+
+	//"github.com/docker/docker/container"
 	"github.com/jeremywohl/flatten"
 
 	"github.com/go-playground/validator/v10"
@@ -405,6 +407,10 @@ func (w *Workspace) RunContainer(name string, workdir string, cmd string) *Works
 		Tty:          true,
 		AttachStderr: true,
 		AttachStdin:  interactive,
+		Labels: map[string]string{
+			"polycrate.workspace": w.Name,
+			"polycrate.name":      name,
+		},
 		AttachStdout: true,
 		StdinOnce:    interactive,
 		OpenStdin:    interactive,
@@ -772,6 +778,41 @@ func (w *Workspace) load() *Workspace {
 }
 
 func (w *Workspace) Cleanup() *Workspace {
+
+	// List / Cleanup containers
+	if cli, err := getDockerCLI(); err == nil {
+		if containers, err := getContainers(cli, map[string]string{"label": "polycrate.workspace=" + workspace.Name}); err != nil {
+			log.Fatal(err)
+		} else {
+			for _, container := range containers {
+				log.WithFields(log.Fields{
+					"workspace": w.Name,
+					"id":        container.ID,
+					"state":     container.State,
+					"status":    container.Status,
+					"name":      container.Names[0],
+				}).Debugf("Found container")
+
+				if container.State != "running" {
+					// We delete this one
+					if err := pruneContainer(cli, container.ID); err != nil {
+						w.err = err
+						return w
+					}
+					log.WithFields(log.Fields{
+						"workspace": w.Name,
+						"id":        container.ID,
+						"state":     container.State,
+						"status":    container.Status,
+						"name":      container.Names[0],
+					}).Debugf("Deleted orphaned container")
+				}
+			}
+		}
+	} else {
+		log.Fatal(err)
+	}
+
 	// Create runtime dir
 	log.WithFields(log.Fields{
 		"workspace": w.Name,
@@ -851,6 +892,7 @@ func (w *Workspace) ResolveBlockDependencies() *Workspace {
 					switch {
 					case errors.Is(loadedBlock.err, DependencyNotResolved):
 						loadedBlock.resolved = false
+						loadedBlock.err = nil
 						continue
 					default:
 						w.err = loadedBlock.err
