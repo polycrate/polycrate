@@ -119,16 +119,11 @@ func (b *Block) SSH(hostname string) *Block {
 		return b
 	}
 
-	cmd := "python3 /opt/plycrt/main.py ssh shell " + hostname
+	cmd := "exec $(python3 /opt/plycrt/main.py ssh cmd " + hostname + ")"
 
-	if !local {
-		workspace.RunContainer(slugify([]string{workspace.Name, b.Name, "ssh", hostname}), b.Workdir.ContainerPath, cmd, workspace.mounts).Flush()
-		return b
-	} else {
-		err := fmt.Errorf("'local' mode not yet implemented")
-		b.err = err
-		return b
-	}
+	workspace.RunContainer(slugify([]string{"polycrate", "ssh", hostname}), workspace.ContainerPath, cmd, workspace.mounts).Flush()
+	return b
+
 }
 
 func (b *Block) Resolve() *Block {

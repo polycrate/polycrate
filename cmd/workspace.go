@@ -429,6 +429,11 @@ func (w *Workspace) RunContainer(name string, workdir string, cmd string, mounts
 
 	containerName := name
 
+	// Ignore / Stop Signal channel
+	// if interactive {
+	// 	signal.Ignore(os.Interrupt)
+	// }
+
 	err = runContainer(cli, cc, hc, containerName)
 
 	if err != nil {

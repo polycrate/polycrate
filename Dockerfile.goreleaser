@@ -62,7 +62,6 @@ COPY ansible-requirements.yml ansible-requirements.yml
 #COPY package-lock.json package-lock.json
 COPY hack/ansible/plugins/vars/polycrate_vars.py /usr/share/ansible/plugins/vars/polycrate_vars.py
 COPY hack/ansible/inventory /etc/ansible/hosts
-COPY hack/plycrt /opt/plycrt
 
 # RUN npm ci && \
 #     rm package.json package-lock.json
@@ -123,6 +122,7 @@ RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernet
   ./aws/install && \
   rm -rf /tmp/*
 
+COPY hack/plycrt /opt/plycrt
 
 WORKDIR /workspace
 

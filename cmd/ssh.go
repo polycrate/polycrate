@@ -39,8 +39,17 @@ var sshCmd = &cobra.Command{
 
 		workspace.load().Flush()
 
+		if _sshBlock == "" {
+			log.Fatal("No block selected. Use ' --block $BLOCK_NAME' to select an inventory source.")
+		}
+
 		block := workspace.GetBlockFromIndex(_sshBlock)
-		block.SSH(hostname).Flush()
+
+		if block != nil {
+			block.SSH(hostname).Flush()
+		} else {
+			log.Fatalf("Block does not exist: %s.", _sshBlock)
+		}
 
 		//workspace.RunAction(args[0]).Flush()
 	},
@@ -49,7 +58,7 @@ var sshCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(sshCmd)
 
-	sshCmd.PersistentFlags().StringVar(&_sshBlock, "block", "", "Block to load inventory from")
+	sshCmd.PersistentFlags().StringVar(&_sshBlock, "block", "inventory", "Block to load inventory from")
 }
 
 func connectWithSSH(node string) {

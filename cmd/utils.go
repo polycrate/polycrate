@@ -29,6 +29,16 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+func signalHandler(s os.Signal) {
+	fmt.Println()
+
+	// Deal with running containers
+	cleanupWorkspace()
+
+	log.Fatalf("ctrl-c received")
+
+}
+
 func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:

@@ -165,3 +165,5 @@ var config PolycrateConfig
 
 // Errors
 var DependencyNotResolved = errors.New("Block dependency not resolved")
+
+var signals = make(chan os.Signal, 1)

@@ -19,10 +19,10 @@ import (
 
 	//"strconv"
 
-	"fmt"
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -156,17 +156,18 @@ func initConfig() {
 
 	// Goroutine to capture signals (SIGINT, etc)
 	// Exits with exit code 1 when ctrl-c is captured
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt)
+	//signals := make(chan os.Signal, 1)
+	//done := make(chan bool, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-signals
-		//signal.Stop(signals)
-		fmt.Println()
-		// Deal with running containers
-		cleanupWorkspace()
+		sig := <-signals
 
-		log.Fatalf("ctrl-c received")
+		signalHandler(sig)
+
 	}()
+
+	//<-done
+	//fmt.Println("exiting after SIGINT")
 
 	var logrusLogLevel string
 	switch logLevel {

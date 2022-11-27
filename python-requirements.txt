@@ -26,4 +26,4 @@ cryptography
 hcloud
 netaddr
 boto3
-azure-cli
+#azure-cli
