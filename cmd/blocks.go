@@ -119,9 +119,8 @@ func (b *Block) SSH(hostname string) *Block {
 		return b
 	}
 
-	cmd := "exec $(python3 /opt/plycrt/main.py ssh cmd " + hostname + ")"
-
-	workspace.RunContainer(slugify([]string{"polycrate", "ssh", hostname}), workspace.ContainerPath, cmd, workspace.mounts).Flush()
+	cmd := "poly-utils ssh shell " + hostname
+	workspace.RunContainer(slugify([]string{"polycrate", "ssh", hostname}), workspace.ContainerPath, cmd).Flush()
 	return b
 
 }

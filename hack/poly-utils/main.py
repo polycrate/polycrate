@@ -8,10 +8,10 @@ from ansible.vars.manager import VariableManager
 
 from types import SimpleNamespace
 from typing import Optional
-import inventory
+import ansible_inventory
 import ssh
 import utils
-import config
+import ansible_config
 from pathlib import Path
 import os
 import sys
@@ -42,16 +42,20 @@ def root(
       case _:
         logger.add(sys.stderr, level='INFO')
 
-    logger.debug(f"Running plycrt")
+    logger.debug(f"Running poly-utils")
 
     ctx.obj = SimpleNamespace()
 
     ctx.obj.inventory_path = inventory_path
+    ctx.obj.snapshot_path = snapshot_path
     ctx.obj.verbosity = verbosity
     ctx.obj.ssh_port = ssh_port
     ctx.obj.ssh_user = ssh_user
     ctx.obj.ssh_private_key_file = ssh_private_key_file
     ctx.obj.config = utils.loadConfig()
+
+    if not snapshot_path:
+      logger.warning(f"No snapshot path given")
 
     if inventory_path:
         logger.debug(f"Inventory path: {inventory_path}")
@@ -61,14 +65,14 @@ def root(
 
         ctx.obj.vars = VariableManager(loader=dl, inventory=ctx.obj.inventory)
     else:
-        logger.error(f"No inventory path given")
-        raise typer.Exit(code=1)
+        logger.warning(f"No inventory path given")
+        #raise typer.Exit(code=1)
 
 
 app = typer.Typer(callback=root)
-app.add_typer(inventory.app, name="inventory")
+app.add_typer(ansible_inventory.app, name="ansible_inventory")
 app.add_typer(ssh.app, name="ssh")
-app.add_typer(config.app, name="config")
+app.add_typer(ansible_config.app, name="ansible_config")
 
 if __name__ == "__main__":
     app()

@@ -122,7 +122,10 @@ RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernet
   ./aws/install && \
   rm -rf /tmp/*
 
-COPY hack/plycrt /opt/plycrt
+COPY hack/poly-utils /opt/poly-utils
+
+RUN chmod +x /opt/poly-utils/poly-utils && \
+    ln -s "/opt/poly-utils/poly-utils" "/usr/local/bin/poly-utils"
 
 WORKDIR /workspace
 

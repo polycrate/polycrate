@@ -32,7 +32,6 @@ def groups(ctx: typer.Context, group: Optional[str] = typer.Argument("all")):
 
 @app.command()
 def list(ctx: typer.Context):
-    print(f"Inventory path: {ctx.obj.inventory_path}")
     for host in ctx.obj.inventory.get_hosts():
         host_vars = ctx.obj.vars.get_vars(host=host)
 

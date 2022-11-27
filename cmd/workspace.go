@@ -264,7 +264,7 @@ func (c *Workspace) RunAction(address string) *Workspace {
 	return c
 }
 
-func (w *Workspace) RunContainer(name string, workdir string, cmd string, mounts map[string]string) *Workspace {
+func (w *Workspace) RunContainer(name string, workdir string, cmd string) *Workspace {
 	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 
@@ -295,14 +295,14 @@ func (w *Workspace) RunContainer(name string, workdir string, cmd string, mounts
 					"pull":      pull,
 				}).Debugf("Dockerfile detected")
 
-				tag := workspace.Name + ":" + version
+				tag := w.Name + ":" + version
 				log.WithFields(log.Fields{
-					"workspace": workspace.Name,
+					"workspace": w.Name,
 					"path":      dockerfilePath,
 					"image":     tag,
 					"build":     build,
 					"pull":      pull,
-				}).Warnf("Building image")
+				}).Warnf("Building custom image")
 
 				tags := []string{tag}
 				containerImage, err = buildContainerImage(w.Config.Dockerfile, tags)
@@ -391,11 +391,11 @@ func (w *Workspace) RunContainer(name string, workdir string, cmd string, mounts
 	}
 
 	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
+		"workspace": w.Name,
 	}).Debugf("Running entrypoint %s", entrypoint)
 
 	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
+		"workspace": w.Name,
 	}).Debugf("Running command %s", runCommand)
 
 	cc := &container.Config{
@@ -414,7 +414,7 @@ func (w *Workspace) RunContainer(name string, workdir string, cmd string, mounts
 
 	// Setup mounts
 	containerMounts := []mount.Mount{}
-	for containerMount := range mounts {
+	for containerMount := range w.mounts {
 		m := mount.Mount{
 			Type:   mount.TypeBind,
 			Source: containerMount,
@@ -427,14 +427,12 @@ func (w *Workspace) RunContainer(name string, workdir string, cmd string, mounts
 		Mounts: containerMounts,
 	}
 
-	containerName := name
-
 	// Ignore / Stop Signal channel
 	// if interactive {
 	// 	signal.Ignore(os.Interrupt)
 	// }
 
-	err = runContainer(cli, cc, hc, containerName)
+	err = runContainer(cli, cc, hc, name)
 
 	if err != nil {
 		w.err = err
