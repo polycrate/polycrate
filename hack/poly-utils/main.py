@@ -73,7 +73,7 @@ def root(
     
 
 app = typer.Typer(callback=root)
-app.add_typer(ansible_inventory.app, name="ansible_inventory")
+app.add_typer(ansible_inventory.app, name="inventory")
 app.add_typer(ssh.app, name="ssh")
 app.add_typer(ansible_config.app, name="ansible_config")
 

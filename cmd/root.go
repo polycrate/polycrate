@@ -20,9 +20,7 @@ import (
 	//"strconv"
 
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -159,14 +157,13 @@ func initConfig() {
 	//signals := make(chan os.Signal, 1)
 	//done := make(chan bool, 1)
 
-	//var inout chan = make(chan []byte)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		s := <-signals
+	// signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	// go func() {
+	// 	s := <-signals
 
-		signalHandler(s)
+	// 	signalHandler(s)
 
-	}()
+	// }()
 
 	//<-done
 	//fmt.Println("exiting after SIGINT")

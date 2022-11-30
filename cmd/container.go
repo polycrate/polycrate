@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -39,7 +38,6 @@ func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
 
 	resp, err := cli.ImageBuild(ctx, buildCtx, buildOpts)
 	if err != nil {
-		fmt.Println(err.Error())
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -124,6 +122,9 @@ func getContainers(cli *client.Client, filterList map[string]string) ([]types.Co
 func pruneContainer(cli *client.Client, id string) error {
 	ctx := context.Background()
 
+	log.WithFields(log.Fields{
+		"id": id,
+	}).Debugf("Pruning container")
 	// filters := filters.NewArgs()
 	// filters.Add("id", id)
 
@@ -152,9 +153,70 @@ func pruneContainer(cli *client.Client, id string) error {
 	return nil
 }
 
+func RunContainer(image string, command []string, env []string, mounts []string, workdir string, ports []string) (int, error) {
+
+	// Prepare container command
+	var runCmd []string
+
+	// https://stackoverflow.com/questions/16248241/concatenate-two-slices-in-go
+	runCmd = append(runCmd, []string{"run", "--rm"}...)
+
+	// Env
+	for _, envVar := range env {
+		runCmd = append(runCmd, []string{"-e", envVar}...)
+	}
+
+	// Mounts
+	for _, bindMount := range mounts {
+		runCmd = append(runCmd, []string{"-v", bindMount}...)
+	}
+
+	// Ports
+	for _, port := range ports {
+		runCmd = append(runCmd, []string{"-p", port}...)
+	}
+
+	// Workdir
+	runCmd = append(runCmd, []string{"--workdir", workdir}...)
+
+	// Pull
+	// if pull {
+	// 	runCmd = append(runCmd, []string{"--pull", "always"}...)
+	// } else {
+	// 	runCmd = append(runCmd, []string{"--pull", "never"}...)
+	// }
+
+	// Interactive
+	if interactive {
+		log.Info("Running in interactive mode")
+		runCmd = append(runCmd, []string{"-it"}...)
+	}
+
+	// Platform
+	// fixed in cloudstack/cloudstack 1.1.3-main.build-46effead
+	// Multi-platform images possible!
+	// runCmd = append(runCmd, []string{"--platform", "linux/amd64"}...)
+
+	// Entrypoint
+	entrypointCmd := []string{"--entrypoint", "/bin/bash"}
+	runCmd = append(runCmd, entrypointCmd...)
+
+	// Image
+	runCmd = append(runCmd, image)
+
+	runCmd = append(runCmd, command...)
+
+	// Run container
+	exitCode, err := RunCommand("docker", runCmd...)
+
+	return exitCode, err
+}
+
 func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig, name string) error {
+	//ctx := context.Background()
 	ctx := context.Background()
-	//var inout chan = make(chan []byte)
+	//inout := make(chan []byte, 1)
+	quit := make(chan bool, 1)
 
 	log.WithFields(log.Fields{
 		"name": name,
@@ -189,6 +251,7 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 		}).Debugf("Attaching interactively (-it) - input will be forwarded")
 		containerAttachOptions.Stdin = true
 		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
+		go io.Copy(waiter.Conn, os.Stdin)
 	}
 	go io.Copy(os.Stdout, waiter.Reader)
 	go io.Copy(os.Stderr, waiter.Reader)
@@ -197,26 +260,50 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 		return err
 	}
 
-	go func() {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			inout <- []byte(scanner.Text())
-		}
-	}()
+	defer waiter.Close()
 
-	// Write to docker container
-	go func(w io.WriteCloser) {
-		for {
-			data, ok := <-inout
-			if !ok {
-				fmt.Println("!ok")
-				w.Close()
-				return
-			}
+	// go func() {
+	// 	scanner := bufio.NewScanner(os.Stdin)
+	// 	for {
+	// 		fmt.Println("inout")
+	// 		select {
+	// 		case <-quit:
+	// 			fmt.Println("inout quit")
 
-			w.Write(append(data, '\n'))
-		}
-	}(waiter.Conn)
+	// 			return
+	// 		default:
+	// 			fmt.Println("inout scan")
+	// 			for scanner.Scan() {
+	// 				inout <- []byte(scanner.Text())
+
+	// 			}
+	// 			return
+	// 		}
+	// 	}
+
+	// }()
+
+	// // Write to docker container
+	// go func(w io.WriteCloser) {
+	// 	for {
+	// 		fmt.Println("writer")
+	// 		select {
+	// 		case <-quit:
+	// 			fmt.Println("writer quit")
+	// 			w.Close()
+	// 			return
+	// 		default:
+	// 			data, ok := <-inout
+	// 			if !ok {
+	// 				fmt.Println("!ok")
+	// 				w.Close()
+	// 				return
+	// 			}
+	// 			w.Write(append(data, '\n'))
+	// 		}
+
+	// 	}
+	// }(waiter.Conn)
 
 	log.WithFields(log.Fields{
 		"id":   resp.ID,
@@ -233,6 +320,7 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 			return err
 		}
 	case <-statusCh:
+
 	}
 
 	log.WithFields(log.Fields{
@@ -242,9 +330,14 @@ func runContainer(cli *client.Client, cc *container.Config, hc *container.HostCo
 
 	workspace.containerID = ""
 
+	//os.Stdin.Close()
+	quit <- true
+	waiter.Close()
+
 	// Stop and remove the container
 	if err := pruneContainer(cli, resp.ID); err != nil {
 		return err
 	}
+	//close(inout)
 	return nil
 }

@@ -30,17 +30,15 @@ import (
 )
 
 func signalHandler(s os.Signal) {
-	fmt.Println()
 	if interactive {
-		fmt.Println()
 
 		//inout <- []byte(s.String())
 	}
 
 	// Deal with running containers
-	cleanupWorkspace()
+	//cleanupWorkspace()
 
-	log.Fatalf("ctrl-c received")
+	//log.Fatalf("ctrl-c received")
 
 }
 
@@ -134,8 +132,8 @@ func RunCommand(name string, args ...string) (exitCode int, err error) {
 		cmd.Stderr = mw
 	} else {
 		cmd.Stdout = os.Stdout
-		cmd.Stdin = os.Stdin
 		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
 	}
 	err = cmd.Run()
 

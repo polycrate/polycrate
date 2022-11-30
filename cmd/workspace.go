@@ -29,10 +29,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
-
 	//"github.com/docker/docker/container"
 	"github.com/jeremywohl/flatten"
 
@@ -266,20 +262,8 @@ func (c *Workspace) RunAction(address string) *Workspace {
 	return c
 }
 
-func (w *Workspace) RunContainer(name string, workdir string, cmd string) *Workspace {
+func (w *Workspace) RunContainer(name string, workdir string, cmd []string) *Workspace {
 	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-
-	if err != nil {
-		w.err = err
-		return w
-	}
-
-	log.WithFields(log.Fields{
-		"workspace": w.Name,
-		"build":     build,
-		"pull":      pull,
-	}).Debugf("Running container")
 
 	// Check if a Dockerfile is configured in the Workspace
 	if w.Config.Dockerfile != "" {
@@ -382,69 +366,112 @@ func (w *Workspace) RunContainer(name string, workdir string, cmd string) *Works
 		}
 	}
 
-	entrypoint := []string{"bash", "-c"}
-	runCommand := []string{}
-
-	if cmd != "" {
-		runCommand = append(runCommand, cmd)
-	} else {
-		w.err = goErrors.New("no execution script path given. Nothing to do")
-		return w
-	}
-
-	log.WithFields(log.Fields{
-		"workspace": w.Name,
-	}).Debugf("Running entrypoint %s", entrypoint)
-
-	log.WithFields(log.Fields{
-		"workspace": w.Name,
-	}).Debugf("Running command %s", runCommand)
-
-	cc := &container.Config{
-		Image:        containerImage,
-		Entrypoint:   entrypoint,
-		Cmd:          runCommand,
-		Tty:          true,
-		AttachStderr: true,
-		AttachStdin:  interactive,
-		Labels: map[string]string{
-			"polycrate.workspace": w.Name,
-			"polycrate.name":      name,
-		},
-		AttachStdout: true,
-		StdinOnce:    interactive,
-		OpenStdin:    interactive,
-		Env:          w.DumpEnv(),
-		WorkingDir:   workdir,
-	}
+	runCommand := cmd
 
 	// Setup mounts
-	containerMounts := []mount.Mount{}
+	containerMounts := []string{}
 	for containerMount := range w.mounts {
-		m := mount.Mount{
-			Type:   mount.TypeBind,
-			Source: containerMount,
-			Target: workspace.mounts[containerMount],
-		}
+		m := strings.Join([]string{containerMount, workspace.mounts[containerMount]}, ":")
 		containerMounts = append(containerMounts, m)
 	}
 
-	hc := &container.HostConfig{
-		Mounts: containerMounts,
-	}
+	exitCode, err := RunContainer(
+		containerImage,
+		runCommand,
+		w.DumpEnv(),
+		containerMounts,
+		workdir,
+		[]string{},
+	)
 
-	// Ignore / Stop Signal channel
-	// if interactive {
-	// 	signal.Ignore(os.Interrupt)
-	// }
-
-	err = runContainer(cli, cc, hc, name)
+	log.WithFields(log.Fields{
+		"workspace": w.Name,
+		"image":     containerImage,
+		"exit_code": exitCode,
+	}).Debugf("Executed container")
 
 	if err != nil {
 		w.err = err
 		return w
 	}
 	return w
+
+	// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+
+	// if err != nil {
+	// 	w.err = err
+	// 	return w
+	// }
+
+	// log.WithFields(log.Fields{
+	// 	"workspace": w.Name,
+	// 	"build":     build,
+	// 	"pull":      pull,
+	// }).Debugf("Running container")
+
+	// entrypoint := []string{"/bin/bash", "-c"}
+	// runCommand := []string{}
+
+	// if cmd != "" {
+	// 	runCommand = append(runCommand, cmd)
+	// } else {
+	// 	w.err = goErrors.New("no execution script path given. Nothing to do")
+	// 	return w
+	// }
+
+	// log.WithFields(log.Fields{
+	// 	"workspace": w.Name,
+	// }).Debugf("Running entrypoint %s", entrypoint)
+
+	// log.WithFields(log.Fields{
+	// 	"workspace": w.Name,
+	// }).Debugf("Running command %s", runCommand)
+
+	// cc := &container.Config{
+	// 	Image:        containerImage,
+	// 	Entrypoint:   entrypoint,
+	// 	Cmd:          runCommand,
+	// 	Tty:          true,
+	// 	AttachStderr: true,
+	// 	AttachStdout: true,
+	// 	AttachStdin:  interactive,
+	// 	Labels: map[string]string{
+	// 		"polycrate.workspace": w.Name,
+	// 		"polycrate.name":      name,
+	// 	},
+	// 	StdinOnce:  interactive,
+	// 	OpenStdin:  interactive,
+	// 	Env:        w.DumpEnv(),
+	// 	WorkingDir: workdir,
+	// }
+
+	// // Setup mounts
+	// containerMounts := []mount.Mount{}
+	// for containerMount := range w.mounts {
+	// 	m := mount.Mount{
+	// 		Type:   mount.TypeBind,
+	// 		Source: containerMount,
+	// 		Target: workspace.mounts[containerMount],
+	// 	}
+	// 	containerMounts = append(containerMounts, m)
+	// }
+
+	// hc := &container.HostConfig{
+	// 	Mounts: containerMounts,
+	// }
+
+	// // Ignore / Stop Signal channel
+	// // if interactive {
+	// // 	signal.Ignore(os.Interrupt)
+	// // }
+
+	// err = runContainer(cli, cc, hc, name)
+
+	// if err != nil {
+	// 	w.err = err
+	// 	return w
+	// }
+	// return w
 }
 
 func (c *Workspace) RunWorkflow(name string) *Workspace {
@@ -771,7 +798,9 @@ func (w *Workspace) load() *Workspace {
 	// Load sync
 	sync.Load().Flush()
 	if sync.Options.Enabled && sync.Options.Auto {
-		sync.Sync().Flush()
+		//sync.Sync().Flush()
+		// Commented out, takes too much time, a commit is enough
+		sync.Commit("Workspace loaded")
 	}
 
 	return w
@@ -779,10 +808,14 @@ func (w *Workspace) load() *Workspace {
 
 func (w *Workspace) Cleanup() *Workspace {
 
+	log.WithFields(log.Fields{
+		"workspace": w.Name,
+	}).Debugf("Cleaning orphaned containers")
 	// List / Cleanup containers
 	if cli, err := getDockerCLI(); err == nil {
 		if containers, err := getContainers(cli, map[string]string{"label": "polycrate.workspace=" + workspace.Name}); err != nil {
-			log.Fatal(err)
+			w.err = err
+			return w
 		} else {
 			for _, container := range containers {
 				log.WithFields(log.Fields{

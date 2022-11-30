@@ -7,6 +7,7 @@ from ansible.vars.manager import VariableManager
 from types import SimpleNamespace
 from typing import Optional
 import utils
+import yaml
 from ansible.module_utils.common.json import json_dump
 
 app = typer.Typer()
@@ -31,10 +32,42 @@ def load(ctx: typer.Context):
 
 
 @app.command()
-def hosts(ctx: typer.Context, host: Optional[str] = typer.Argument("all")):
+def hosts(
+        ctx: typer.Context,
+        host: Optional[str] = typer.Argument("all"),
+        output_file: str = typer.Option(""),
+):
+    hosts = {}
     try:
         load(ctx)
-        print(ctx.obj.inventory.get_hosts(pattern=host))
+        #print(ctx.obj.ansible_inventory.get_hosts(pattern=host))
+        for host in ctx.obj.ansible_inventory.get_hosts():
+            host_vars = ctx.obj.ansible_vars.get_vars(host=host)
+
+            # if ctx.obj.verbosity > 0:
+            #     print(host_vars)
+            # else:
+            #     print(
+            #         f"Host: {host_vars['inventory_hostname']}, IP: {host_vars['ansible_host']}"
+            #     )
+            hosts[host_vars['inventory_hostname']] = {}
+            if "ansible_host" in host_vars:
+                hosts[host_vars['inventory_hostname']]["ip"] = host_vars[
+                    "ansible_host"]
+            if "ansible_ssh_port" in host_vars:
+                hosts[host_vars['inventory_hostname']]["port"] = host_vars[
+                    'ansible_ssh_port']
+            if "ansible_ssh_user" in host_vars:
+                hosts[host_vars['inventory_hostname']]["user"] = host_vars[
+                    'ansible_ssh_user']
+            if "ansible_user" in host_vars:
+                hosts[host_vars['inventory_hostname']]["user"] = host_vars[
+                    'ansible_user']
+        if output_file != "":
+            with open(output_file, 'w') as file:
+                utils.yaml_file(hosts, file)
+        else:
+            print(utils.yaml_dump(hosts))
     except:
         raise RuntimeError("Inventory error")
 

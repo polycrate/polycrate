@@ -12,6 +12,13 @@ def yaml_dump(data, default_flow_style=False, default_style=None):
                      default_style=default_style)
 
 
+def yaml_file(data, file, default_flow_style=False, default_style=None):
+    yaml.dump(data,
+              file,
+              default_flow_style=default_flow_style,
+              default_style=default_style)
+
+
 def loadConfig():
     # Load Ansible config
     config_entries = C.config.get_configuration_definitions(

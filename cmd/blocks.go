@@ -109,18 +109,101 @@ func (b *Block) Flush() *Block {
 }
 
 func (b *Block) SSH(hostname string) *Block {
+	log.WithFields(log.Fields{
+		"block":     b.Name,
+		"workspace": workspace.Name,
+	}).Infof("Starting SSH session")
+
+	containerName := slugify([]string{"polycrate", "ssh", hostname})
+	fileName := strings.Join([]string{containerName, "yml"}, ".")
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath())
 	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath())
 	workspace.registerCurrentBlock(b)
-	interactive = true
+
+	// Create temp file to write output to
+	f, err := workspace.getTempFile(fileName)
+	if err != nil {
+		b.err = err
+		return b
+	}
+
+	workspace.registerMount(f.Name(), f.Name())
 
 	if _, err := workspace.SaveSnapshot(); err != nil {
 		b.err = err
 		return b
 	}
 
-	cmd := "exec $(poly-utils ssh cmd " + hostname + ")"
-	workspace.RunContainer(slugify([]string{"polycrate", "ssh", hostname}), workspace.ContainerPath, cmd).Flush()
+	//cmd := "exec $(poly-utils ssh cmd " + hostname + ")"
+	cmd := []string{
+		"poly-utils",
+		"inventory",
+		"hosts",
+		"--output-file",
+		f.Name(),
+	}
+	workspace.RunContainer(containerName, workspace.ContainerPath, cmd).Flush()
+
+	// Load hosts from file
+	var hosts = viper.New()
+	if _, err := os.Stat(f.Name()); !os.IsNotExist(err) {
+		hosts.SetConfigType("yaml")
+		hosts.SetConfigFile(f.Name())
+	} else {
+		b.err = err
+		return b
+	}
+
+	err = hosts.MergeInConfig()
+	if err != nil {
+		b.err = err
+		return b
+	}
+
+	// Get IP
+	sshHost := hosts.Sub(hostname)
+	if sshHost == nil {
+		b.err = fmt.Errorf("host not found: %s", hostname)
+		return b
+	}
+	ip := sshHost.GetString("ip")
+	if ip == "" {
+		b.err = fmt.Errorf("ip of host %s not found", hostname)
+		return b
+	}
+	user := sshHost.GetString("user")
+	if user == "" {
+		// set default user
+		user = "root"
+	}
+	port := sshHost.GetString("port")
+	if port == "" {
+		// set default port
+		port = "22"
+	}
+
+	privateKey := filepath.Join(workspace.LocalPath, workspace.Config.SshPrivateKey)
+	if privateKey == "" {
+		err = fmt.Errorf("no private key found")
+		b.err = err
+		return b
+	}
+
+	log.WithFields(log.Fields{
+		"user":      user,
+		"ip":        ip,
+		"port":      port,
+		"workspace": workspace.Name,
+	}).Infof("Connecting")
+
+	//err = connectWithSSH(user, ip, port, privateKey)
+	interactive = true
+	err = ConnectWithSSH(user, ip, port, privateKey)
+	if err != nil {
+		b.err = err
+		return b
+	}
+
 	return b
 
 }
