@@ -797,11 +797,11 @@ func (w *Workspace) load() *Workspace {
 
 	// Load sync
 	sync.Load().Flush()
-	if sync.Options.Enabled && sync.Options.Auto {
-		sync.Sync().Flush()
-		// Commented out, takes too much time, a commit is enough
-		//sync.Commit("Workspace loaded").Flush()
-	}
+	// if sync.Options.Enabled && sync.Options.Auto {
+	// 	sync.Sync().Flush()
+	// 	// Commented out, takes too much time, a commit is enough
+	// 	//sync.Commit("Workspace loaded").Flush()
+	// }
 
 	return w
 }

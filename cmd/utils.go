@@ -116,7 +116,7 @@ func RunCommand(name string, args ...string) (exitCode int, err error) {
 	log.WithFields(log.Fields{
 		"command": name,
 		"args":    strings.Join(args, " "),
-	}).Debugf("Running shell command")
+	}).Trace("Running shell command")
 
 	cmd := exec.Command(name, args...)
 
@@ -163,7 +163,7 @@ func RunCommandWithOutput(name string, args ...string) (exitCode int, output str
 	log.WithFields(log.Fields{
 		"command": name,
 		"args":    strings.Join(args, " "),
-	}).Debugf("Running shell command")
+	}).Trace("Running shell command")
 
 	var outb, errb bytes.Buffer
 

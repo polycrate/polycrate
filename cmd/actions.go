@@ -279,6 +279,8 @@ func (c *Action) RunContainer() error {
 	}
 
 	err = runContainer(cli, cc, hc, containerName)
+	// containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+	// workspace.RunContainer(containerName, workspace.ContainerPath, runCommand).Flush()
 	return err
 }
 
@@ -290,22 +292,24 @@ func (c *Action) Run() error {
 	}).Debugf("Running action")
 
 	// 3. Determine inventory path
+	inventoryPath := workspace.currentBlock.getInventoryPath()
 	log.WithFields(log.Fields{
 		"workspace": c.Name,
 		"action":    c.Name,
 		"block":     c.Block,
-		"inventory": workspace.currentBlock.getInventoryPath(),
+		"inventory": inventoryPath,
 	}).Debugf("Updating inventory")
-	workspace.registerEnvVar("ANSIBLE_INVENTORY", workspace.currentBlock.getInventoryPath())
+	workspace.registerEnvVar("ANSIBLE_INVENTORY", inventoryPath)
 
 	// 4. Determine kubeconfig path
+	kubeconfigPath := workspace.currentBlock.getKubeconfigPath()
 	log.WithFields(log.Fields{
 		"workspace":  c.Name,
 		"action":     c.Name,
 		"block":      c.Block,
-		"kubeconfig": workspace.currentBlock.getKubeconfigPath(),
+		"kubeconfig": kubeconfigPath,
 	}).Debugf("Updating kubeconfig")
-	workspace.registerEnvVar("KUBECONFIG", workspace.currentBlock.getKubeconfigPath())
+	workspace.registerEnvVar("KUBECONFIG", kubeconfigPath)
 
 	// log.WithFields(log.Fields{
 	// 	"workspace": c.Name,
@@ -359,8 +363,23 @@ func (c *Action) Run() error {
 			workspace.registerMount(c.executionScriptPath, c.executionScriptPath)
 
 			if !local {
-				err := c.RunContainer()
-				return err
+				containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+				runCommand := []string{}
+				if c.executionScriptPath != "" {
+					log.WithFields(log.Fields{
+						"workspace": workspace.Name,
+						"action":    c.Name,
+						"block":     c.Block,
+						"path":      c.executionScriptPath,
+					}).Debugf("Running script")
+
+					runCommand = append(runCommand, c.executionScriptPath)
+				} else {
+					return goErrors.New("no execution script path given. Nothing to do")
+				}
+				workspace.RunContainer(containerName, workspace.ContainerPath, runCommand).Flush()
+				//err := c.RunContainer()
+				//return err
 			} else {
 				err := fmt.Errorf("'local' mode not yet implemented")
 				return err
