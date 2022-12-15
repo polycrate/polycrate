@@ -22,6 +22,7 @@ import (
 
 	"os"
 	"os/exec"
+	"os/signal"
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/manifoldco/promptui"
@@ -30,15 +31,11 @@ import (
 )
 
 func signalHandler(s os.Signal) {
-	if interactive {
-
-		//inout <- []byte(s.String())
-	}
-
 	// Deal with running containers
-	//cleanupWorkspace()
+	workspace.PruneContainer().Flush()
+	workspace.Sync().Flush()
 
-	//log.Fatalf("ctrl-c received")
+	log.Fatalf("ctrl-c received")
 
 }
 
@@ -110,7 +107,7 @@ func CheckErr(msg interface{}) {
 	}
 }
 
-func RunCommand(name string, args ...string) (exitCode int, err error) {
+func RunCommand(name string, args ...string) (exitCode int, output string, err error) {
 
 	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))
 	log.WithFields(log.Fields{
@@ -123,9 +120,9 @@ func RunCommand(name string, args ...string) (exitCode int, err error) {
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, workspace.DumpEnv()...)
 
+	var stdBuffer bytes.Buffer
 	if !interactive {
 
-		var stdBuffer bytes.Buffer
 		mw := io.MultiWriter(os.Stdout, &stdBuffer)
 
 		cmd.Stdout = mw
@@ -155,7 +152,7 @@ func RunCommand(name string, args ...string) (exitCode int, err error) {
 		ws := cmd.ProcessState.Sys().(syscall.WaitStatus)
 		exitCode = ws.ExitStatus()
 	}
-	return exitCode, err
+	return exitCode, stdBuffer.String(), err
 }
 
 func RunCommandWithOutput(name string, args ...string) (exitCode int, output string, err error) {
@@ -355,15 +352,8 @@ func DownloadFile(url string, fp string) error {
 }
 
 func cleanupWorkspace() {
-	if workspace.containerID != "" {
-		log.Debugf("Pruning container with id '%s'", workspace.containerID)
-		if cli, err := getDockerCLI(); err == nil {
-			if err := pruneContainer(cli, workspace.containerID); err != nil {
-				log.Fatal(err)
-			}
-		} else {
-			log.Fatal(err)
-		}
+	if !workspace.containerStatus.Pruned {
+		workspace.PruneContainer().Flush()
 	}
 }
 
@@ -455,7 +445,7 @@ func printObject(object interface{}) {
 }
 
 func debugObject(object interface{}) {
-	if logLevel != "0" {
+	if logLevel > 0 {
 		printObject(object)
 	}
 }
@@ -587,6 +577,18 @@ func validateBlockName(fl validator.FieldLevel) bool {
 	name := fl.Field().String()
 
 	return ValidateBlockName(name)
+}
+
+func HighjackSigint() {
+	signals := make(chan os.Signal, 1)
+
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		s := <-signals
+
+		signalHandler(s)
+
+	}()
 }
 
 func discoverWorkspaces() error {

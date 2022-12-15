@@ -239,8 +239,7 @@ func GitRepoExists(path string) error {
 	if err != nil {
 		return err
 	}
-	revCommit, err := repo.CommitObject(*revHash)
-	fmt.Println(revCommit)
+	_, err = repo.CommitObject(*revHash)
 
 	if err != nil {
 		return err
@@ -316,6 +315,34 @@ func GitHasChanges(path string) bool {
 	return false
 }
 
+func GitGetUserEmail() (string, error) {
+	args := []string{
+		"config",
+		"user.email",
+	}
+	output, err := GitExecute(workspace.LocalPath, args)
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+
+	return output, nil
+}
+func GitGetUserName() (string, error) {
+	args := []string{
+		"config",
+		"user.name",
+	}
+
+	output, err := GitExecute(workspace.LocalPath, args)
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+
+	return output, nil
+}
+
 func GitCommitAll(path string, message string) (string, error) {
 	addArgs := []string{
 		"add",
@@ -344,12 +371,12 @@ func GitCommitAll(path string, message string) (string, error) {
 		"HEAD",
 	}
 
-	_, err = GitExecute(path, hashArgs)
+	hash, err := GitExecute(path, hashArgs)
 	if err != nil {
 		return "", err
 	}
 
-	return "", nil
+	return hash, nil
 }
 
 func GitExecute(path string, args []string) (string, error) {

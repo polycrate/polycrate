@@ -83,7 +83,7 @@ func ConnectWithSSH(username string, hostname string, port string, privateKey st
 		hostname,
 	}
 
-	_, err := RunCommand("ssh", args...)
+	_, _, err := RunCommand("ssh", args...)
 	if err != nil {
 		return err
 	}

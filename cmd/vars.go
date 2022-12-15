@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -80,7 +81,7 @@ var local bool
 
 // Global variable to set the loglevel
 // Can be overriden with the --loglevel flag
-var logLevel string
+var logLevel int
 
 // Global variable to decide if the container image should be pulled before running the container
 // Can be overriden with the --pull flag
@@ -167,3 +168,5 @@ var config PolycrateConfig
 var DependencyNotResolved = errors.New("Block dependency not resolved")
 
 var signals = make(chan os.Signal, 1)
+
+var globalCmd *cobra.Command

@@ -43,8 +43,14 @@ Learn more at https://docs.polycrate.io
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		sync.History.cmd = cmd
+		globalCmd = cmd
 
 	},
+	// PersistentPostRun: func(cmd *cobra.Command, args []string) {
+	// 	workspace.SaveRevision().Flush()
+	// 	workspace.Sync().Flush()
+
+	// },
 	Version: version,
 }
 
@@ -55,7 +61,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&logLevel, "loglevel", "1", "loglevel")
+	rootCmd.PersistentFlags().IntVar(&logLevel, "loglevel", 1, "loglevel")
 	rootCmd.PersistentFlags().BoolVarP(&pull, "pull", "p", true, "Pull the workspace image before running the container. Defaults to true.")
 	rootCmd.PersistentFlags().BoolVarP(&local, "local", "l", false, "Run actions locally (without the polycrate container). Defaults to false.")
 	rootCmd.PersistentFlags().BoolVarP(&force, "force", "f", false, "Force whatever you want to do. Like sudo with more willpower. Defaults to false.")
@@ -170,11 +176,11 @@ func initConfig() {
 
 	var logrusLogLevel string
 	switch logLevel {
-	case "1":
+	case 1:
 		logrusLogLevel = "Info"
-	case "2":
+	case 2:
 		logrusLogLevel = "Debug"
-	case "3":
+	case 3:
 		logrusLogLevel = "Trace"
 	default:
 		logrusLogLevel = "Info"

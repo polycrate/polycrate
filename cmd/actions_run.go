@@ -36,7 +36,6 @@ The action address is a combination of the Block name and the Action name, joine
 		workspace.RunAction(args[0]).Flush()
 
 	},
-	Args: cobra.ExactArgs(1),
 }
 
 func init() {

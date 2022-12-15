@@ -24,18 +24,22 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
 	//"github.com/docker/docker/container"
+	"github.com/google/uuid"
 	"github.com/jeremywohl/flatten"
 
 	"github.com/go-playground/validator/v10"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 )
@@ -67,6 +71,25 @@ type Metadata struct {
 	Alias       []string          `mapstructure:"alias" json:"alias"`
 }
 
+type WorkspaceContainerStatus struct {
+	Name        string    `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty"`
+	Transaction uuid.UUID `yaml:"transaction,omitempty" mapstructure:"transaction,omitempty" json:"transaction,omitempty"`
+	Running     bool
+	Pruned      bool
+}
+
+type WorkspaceRevision struct {
+	Command     string            `yaml:"command,omitempty" mapstructure:"command,omitempty" json:"command,omitempty"`
+	UserEmail   string            `yaml:"user_email,omitempty" mapstructure:"user_email,omitempty" json:"user_email,omitempty"`
+	UserName    string            `yaml:"user_name,omitempty" mapstructure:"user_name,omitempty" json:"user_name,omitempty"`
+	Date        string            `yaml:"date,omitempty" mapstructure:"date,omitempty" json:"date,omitempty"`
+	Transaction uuid.UUID         `yaml:"transaction,omitempty" mapstructure:"transaction,omitempty" json:"transaction,omitempty"`
+	Version     string            `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
+	ExitCode    int               `yaml:"exit_code,omitempty" mapstructure:"exit_code,omitempty" json:"exit_code,omitempty"`
+	Output      string            `yaml:"output,omitempty" mapstructure:"output,omitempty" json:"output,omitempty"`
+	Snapshot    WorkspaceSnapshot `yaml:"snapshot,omitempty" mapstructure:"snapshot,omitempty" json:"snapshot,omitempty"`
+}
+
 type WorkspaceConfig struct {
 	Image      ImageConfig `yaml:"image" mapstructure:"image" json:"image" validate:"required"`
 	BlocksRoot string      `yaml:"blocksroot" mapstructure:"blocksroot" json:"blocksroot" validate:"required"`
@@ -89,32 +112,36 @@ type Workspace struct {
 	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
 	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
 	// Format: block:version
-	Dependencies    []string        `yaml:"dependencies,omitempty" mapstructure:"dependencies,omitempty" json:"dependencies,omitempty"`
-	Config          WorkspaceConfig `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
-	Blocks          []Block         `yaml:"blocks,omitempty" mapstructure:"blocks,omitempty" json:"blocks,omitempty" validate:"dive,required"`
-	Workflows       []Workflow      `yaml:"workflows,omitempty" mapstructure:"workflows,omitempty" json:"workflows,omitempty"`
+	Dependencies    []string               `yaml:"dependencies,omitempty" mapstructure:"dependencies,omitempty" json:"dependencies,omitempty"`
+	Config          WorkspaceConfig        `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
+	Blocks          []Block                `yaml:"blocks,omitempty" mapstructure:"blocks,omitempty" json:"blocks,omitempty" validate:"dive,required"`
+	Workflows       []Workflow             `yaml:"workflows,omitempty" mapstructure:"workflows,omitempty" json:"workflows,omitempty"`
+	ExtraEnv        []string               `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
+	ExtraMounts     []string               `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
+	Path            string                 `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
+	SyncOptions     SyncOptions            `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
+	LocalPath       string                 `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath   string                 `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
+	Version         string                 `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
+	Identifier      string                 `yaml:"identifier,omitempty" mapstructure:"identifier,omitempty" json:"identifier,omitempty"`
+	Meta            map[string]interface{} `yaml:"meta,omitempty" mapstructure:"meta,omitempty" json:"meta,omitempty"`
 	currentBlock    *Block
 	currentAction   *Action
 	currentWorkflow *Workflow
 	currentStep     *Step
 	index           *WorkspaceIndex
+	revision        *WorkspaceRevision
 	env             map[string]string
 	mounts          map[string]string
 	err             error
 	runtimeDir      string
 	installedBlocks []Block
-	Path            string      `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
-	SyncOptions     SyncOptions `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
-	LocalPath       string      `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
-	ContainerPath   string      `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 	//overrides       []string
-	ExtraEnv    []string `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
-	ExtraMounts []string `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
-	containerID string
-	loaded      bool
-	Version     string                 `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
-	Identifier  string                 `yaml:"identifier,omitempty" mapstructure:"identifier,omitempty" json:"identifier,omitempty"`
-	Meta        map[string]interface{} `yaml:"meta,omitempty" mapstructure:"meta,omitempty" json:"meta,omitempty"`
+	containerID     string
+	loaded          bool
+	needsSync       bool
+	synced          bool
+	containerStatus WorkspaceContainerStatus
 }
 
 type WorkspaceIndex struct {
@@ -141,6 +168,56 @@ func (c *Workspace) CreateSshKeys() *Workspace {
 		return c
 	}
 	return c
+}
+
+func (w *Workspace) FormatCommand(cmd *cobra.Command) string {
+
+	commandPath := cmd.CommandPath()
+	localArgs := cmd.Flags().Args()
+
+	localFlags := []string{}
+
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		//fmt.Printf("--%s=%s\n", flag.Name, flag.Value)
+		localFlags = append(localFlags, fmt.Sprintf("--%s=%s", flag.Name, flag.Value))
+	})
+
+	command := strings.Join([]string{
+		commandPath,
+		strings.Join(localArgs, " "),
+		strings.Join(localFlags, " "),
+	}, " ")
+
+	return command
+}
+
+func (w *Workspace) SaveRevision() *Workspace {
+	log.WithFields(log.Fields{
+		"workspace":   w.Name,
+		"transaction": w.revision.Transaction,
+	}).Debugf("Saving revision")
+
+	f, err := os.OpenFile(filepath.Join(w.LocalPath, "revision.poly"), os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		w.err = err
+		return w
+	}
+	defer f.Close()
+
+	// Export revision to yaml
+	yaml, err := yaml.Marshal(w.revision)
+	if err != nil {
+		w.err = err
+		return w
+	}
+
+	// Write yaml export to file
+	_, err = f.Write(yaml)
+	if err != nil {
+		w.err = err
+		return w
+	}
+	return w
 }
 
 func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
@@ -239,15 +316,15 @@ func (c *Workspace) RunAction(address string) *Workspace {
 		if snapshot {
 			c.Snapshot()
 		} else {
-			sync.Log(fmt.Sprintf("Running action %s of block %s", action.Name, block.Name)).Flush()
+			//sync.Log(fmt.Sprintf("Running action %s of block %s", action.Name, block.Name)).Flush()
 			err := action.Run()
 			if err != nil {
 				c.err = err
 
-				sync.Log(fmt.Sprintf("Action %s of block %s failed", action.Name, block.Name)).Flush()
+				//sync.Log(fmt.Sprintf("Action %s of block %s failed", action.Name, block.Name)).Flush()
 				return c
 			}
-			sync.Log(fmt.Sprintf("Action %s of block %s was successful", action.Name, block.Name)).Flush()
+			//sync.Log(fmt.Sprintf("Action %s of block %s was successful", action.Name, block.Name)).Flush()
 		}
 
 		// Reload Block after action execution to update artifacts, inventory and kubeconfig
@@ -256,13 +333,41 @@ func (c *Workspace) RunAction(address string) *Workspace {
 		c.err = goErrors.New("cannot find Action with address " + address)
 		return c
 	}
-	if sync.Options.Enabled && sync.Options.Auto {
-		sync.Sync().Flush()
-	}
+
+	// After running an action we want to sync the workspace
+	c.needsSync = true
+
 	return c
 }
 
+func (w *Workspace) PruneContainer() *Workspace {
+	// docker container prune --filter label=polycrate.workspace.revision.transaction=%sw.
+	filters := []string{
+		fmt.Sprintf("label=polycrate.workspace.name=%s", w.Name),
+	}
+
+	exitCode, _, err := PruneContainer(
+		filters,
+	)
+
+	log.WithFields(log.Fields{
+		"workspace":   w.Name,
+		"exit_code":   exitCode,
+		"transaction": w.containerStatus.Transaction,
+	}).Debugf("Pruned container")
+
+	// Handle pruning error
+	if err != nil {
+		w.err = err
+	}
+	w.containerStatus.Pruned = true
+	return w
+}
+
 func (w *Workspace) RunContainer(name string, workdir string, cmd []string) *Workspace {
+	// Goroutine to capture signals (SIGINT, etc)
+	// Exits with exit code 1 when ctrl-c is captured
+
 	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
 
 	// Check if a Dockerfile is configured in the Workspace
@@ -375,25 +480,55 @@ func (w *Workspace) RunContainer(name string, workdir string, cmd []string) *Wor
 		containerMounts = append(containerMounts, m)
 	}
 
-	exitCode, err := RunContainer(
+	// Setup labels
+	labels := []string{}
+	labels = append(labels, fmt.Sprintf("polycrate.workspace.name=%s", w.Name))
+
+	w.containerStatus.Running = true
+	w.containerStatus.Transaction = w.revision.Transaction
+
+	// Capture CTRL-C if the container is running and non-interactive
+	if !interactive {
+		HighjackSigint()
+
+		log.WithFields(log.Fields{
+			"workspace":   workspace.Name,
+			"transaction": w.containerStatus.Transaction,
+		}).Infof("Starting container")
+
+	}
+
+	exitCode, output, err := RunContainer(
 		containerImage,
 		runCommand,
 		w.DumpEnv(),
 		containerMounts,
 		workdir,
 		[]string{},
+		labels,
 	)
 
 	log.WithFields(log.Fields{
-		"workspace": w.Name,
-		"image":     containerImage,
-		"exit_code": exitCode,
-	}).Debugf("Executed container")
+		"workspace":   w.Name,
+		"exit_code":   exitCode,
+		"transaction": w.containerStatus.Transaction,
+	}).Debugf("Stopped container")
 
+	// Update revision
+	w.revision.Output = output
+	w.revision.ExitCode = exitCode
+	w.revision.Snapshot = w.GetSnapshot()
+
+	w.containerStatus.Running = false
+
+	// Handle container error
 	if err != nil {
 		w.err = err
-		return w
 	}
+
+	// Prune container
+	w.PruneContainer().Flush()
+
 	return w
 
 	// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -756,6 +891,16 @@ func (w *Workspace) load() *Workspace {
 	// Load Workspace config (e.g. workspace.poly)
 	w.LoadWorkspaceConfig().Flush()
 
+	// Save revision data
+	w.revision = &WorkspaceRevision{}
+	w.revision.Date = time.Now().Format(time.RFC3339)
+	w.revision.Command = w.FormatCommand(globalCmd)
+	w.revision.Transaction = uuid.New()
+	w.revision.Version = w.Version
+
+	w.revision.UserEmail, _ = GitGetUserEmail()
+	w.revision.UserName, _ = GitGetUserName()
+
 	// Cleanup workspace runtime dir
 	w.Cleanup().Flush()
 
@@ -795,56 +940,23 @@ func (w *Workspace) load() *Workspace {
 	// Mark workspace as loaded
 	w.loaded = true
 
-	// Load sync
-	sync.Load().Flush()
 	// if sync.Options.Enabled && sync.Options.Auto {
 	// 	sync.Sync().Flush()
 	// 	// Commented out, takes too much time, a commit is enough
 	// 	//sync.Commit("Workspace loaded").Flush()
 	// }
 
+	sync.Load().Flush()
+
 	return w
 }
 
 func (w *Workspace) Cleanup() *Workspace {
 
-	log.WithFields(log.Fields{
-		"workspace": w.Name,
-	}).Debugf("Cleaning orphaned containers")
-	// List / Cleanup containers
-	if cli, err := getDockerCLI(); err == nil {
-		if containers, err := getContainers(cli, map[string]string{"label": "polycrate.workspace=" + workspace.Name}); err != nil {
-			w.err = err
-			return w
-		} else {
-			for _, container := range containers {
-				log.WithFields(log.Fields{
-					"workspace": w.Name,
-					"id":        container.ID,
-					"state":     container.State,
-					"status":    container.Status,
-					"name":      container.Names[0],
-				}).Debugf("Found container")
-
-				if container.State != "running" {
-					// We delete this one
-					if err := pruneContainer(cli, container.ID); err != nil {
-						w.err = err
-						return w
-					}
-					log.WithFields(log.Fields{
-						"workspace": w.Name,
-						"id":        container.ID,
-						"state":     container.State,
-						"status":    container.Status,
-						"name":      container.Names[0],
-					}).Debugf("Deleted orphaned container")
-				}
-			}
-		}
-	} else {
-		log.Fatal(err)
-	}
+	// log.WithFields(log.Fields{
+	// 	"workspace": w.Name,
+	// }).Debugf("Cleaning orphaned containers")
+	// workspace.PruneContainer().Flush()
 
 	// Create runtime dir
 	log.WithFields(log.Fields{
@@ -1185,7 +1297,7 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 	c.registerEnvVar("ANSIBLE_DEPRECATION_WARNINGS", "False")
 	c.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
 	c.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
-	c.registerEnvVar("ANSIBLE_VERBOSITY", logLevel)
+	c.registerEnvVar("ANSIBLE_VERBOSITY", strconv.Itoa(logLevel))
 	c.registerEnvVar("ANSIBLE_SSH_PRIVATE_KEY_FILE", filepath.Join(c.ContainerPath, c.Config.SshPrivateKey))
 	c.registerEnvVar("ANSIBLE_PRIVATE_KEY_FILE", filepath.Join(c.ContainerPath, c.Config.SshPrivateKey))
 	//c.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
@@ -1422,8 +1534,26 @@ func (c *Workspace) Create() *Workspace {
 	return c
 }
 
-func (c *Workspace) Sync() *Workspace {
-	sync.Sync().Flush()
+func (w *Workspace) Sync() *Workspace {
+	if !w.synced {
+		if w.needsSync {
+			if sync.Options.Enabled && sync.Options.Auto {
+
+				log.WithFields(log.Fields{
+					"workspace": workspace.Name,
+				}).Infof("Syncing")
+
+				// sync workspace
+				sync.Sync().Flush()
+
+				// mark workspace as synced
+				w.synced = true
+
+				// unmark needed sync
+				w.needsSync = false
+			}
+		}
+	}
 	// Check if a remote is configured
 	// if not, fail
 	// Check if git has already been initialized
@@ -1434,7 +1564,7 @@ func (c *Workspace) Sync() *Workspace {
 	// Add all files of the worktree
 	// Commit with the current command (as seen from bash)
 	// Push
-	return c
+	return w
 }
 
 func (w *Workspace) IsBlockInstalled(fullTag string, registryUrl string, blockName string, blockVersion string) bool {

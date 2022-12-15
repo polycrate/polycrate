@@ -153,7 +153,26 @@ func pruneContainer(cli *client.Client, id string) error {
 	return nil
 }
 
-func RunContainer(image string, command []string, env []string, mounts []string, workdir string, ports []string) (int, error) {
+func PruneContainer(filters []string) (int, string, error) {
+
+	// Prepare container command
+	var runCmd []string
+
+	// https://stackoverflow.com/questions/16248241/concatenate-two-slices-in-go
+	runCmd = append(runCmd, []string{"container", "prune", "--force"}...)
+
+	// Filter
+	for _, filter := range filters {
+		runCmd = append(runCmd, []string{"--filter", filter}...)
+	}
+
+	// Prune container
+	exitCode, output, err := RunCommandWithOutput("docker", runCmd...)
+
+	return exitCode, output, err
+}
+
+func RunContainer(image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
 
 	// Prepare container command
 	var runCmd []string
@@ -174,6 +193,11 @@ func RunContainer(image string, command []string, env []string, mounts []string,
 	// Ports
 	for _, port := range ports {
 		runCmd = append(runCmd, []string{"-p", port}...)
+	}
+
+	// Labels
+	for _, label := range labels {
+		runCmd = append(runCmd, []string{"-l", label}...)
 	}
 
 	// Workdir
@@ -207,9 +231,9 @@ func RunContainer(image string, command []string, env []string, mounts []string,
 	runCmd = append(runCmd, command...)
 
 	// Run container
-	exitCode, err := RunCommand("docker", runCmd...)
+	exitCode, output, err := RunCommand("docker", runCmd...)
 
-	return exitCode, err
+	return exitCode, output, err
 }
 
 func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig, name string) error {

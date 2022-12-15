@@ -38,6 +38,11 @@ To run an Action, use this command with 2 arguments - the Block name and the Act
 		}
 
 	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		workspace.SaveRevision().Flush()
+		workspace.Sync().Flush()
+
+	},
 	Args: cobra.RangeArgs(1, 2), // https://github.com/spf13/cobra/blob/master/user_guide.md
 }
 

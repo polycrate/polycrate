@@ -82,10 +82,11 @@ func (s *Sync) Sync() *Sync {
 	}
 
 	if s.Options.Enabled {
+		s.UpdateStatus().Flush()
+
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
-			"module":    "sync",
-		}).Debugf("Starting sync")
+		}).Debugf("Syncing")
 
 		// log.WithFields(log.Fields{
 		// 	"workspace": workspace.Name,
@@ -98,14 +99,13 @@ func (s *Sync) Sync() *Sync {
 		case "changed":
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
-				"module":    "sync",
-			}).Debugf("Local changes found. Comitting and syncing again")
-			s.Log("Sync auto-commit").Flush()
+			}).Debugf("Changes found. Comitting.")
+
+			s.Commit("Sync auto-commit").Flush()
 			s.Sync().Flush()
 		case "synced":
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
-				"module":    "sync",
 			}).Debugf("Up-to-date")
 		case "diverged":
 			// log.WithFields(log.Fields{
@@ -116,15 +116,15 @@ func (s *Sync) Sync() *Sync {
 		case "ahead":
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
-				"module":    "sync",
-			}).Debugf("New local commits found. Pushing")
+			}).Debugf("Ahead. Pushing")
 			s.Push().Flush()
+			s.Sync().Flush()
 		case "behind":
 			log.WithFields(log.Fields{
 				"workspace": workspace.Name,
-				"module":    "sync",
-			}).Debugf("New remote commits found. Pulling")
+			}).Debugf("Behind. Pulling")
 			s.Pull().Flush()
+			s.Sync().Flush()
 		}
 	} else {
 		s.err = fmt.Errorf("sync disabled")
@@ -155,45 +155,46 @@ func (s *Sync) Load() *Sync {
 	if workspace.SyncOptions.Enabled {
 		s.UUID = uuid.New()
 		log.WithFields(log.Fields{
-			"path":      workspace.LocalPath,
 			"workspace": workspace.Name,
-			"module":    "sync",
 		}).Debugf("Loading sync module")
 
 		//s.LoadProvider().Flush()
 		s.LoadRepo().Flush()
-		s.UpdateStatus().Flush()
+
+		s.Options.Local.Branch.Name = workspace.SyncOptions.Local.Branch.Name
+		s.Options.Remote.Branch.Name = workspace.SyncOptions.Remote.Branch.Name
+		s.Options.Remote.Name = workspace.SyncOptions.Remote.Name
+		s.Options.Remote.Url = workspace.SyncOptions.Remote.Url
+		s.Options.Enabled = workspace.SyncOptions.Enabled
+		s.Options.Auto = workspace.SyncOptions.Auto
 		s.loaded = true
-		log.WithFields(log.Fields{
-			"path":      workspace.LocalPath,
-			"workspace": workspace.Name,
-			"module":    "sync",
-		}).Debugf("Sync module loaded")
+
+		// // pull if we're behind
+		// switch status := s.Status; status {
+		// case "behind":
+		// 	log.WithFields(log.Fields{
+		// 		"workspace": workspace.Name,
+		// 		"module":    "sync",
+		// 	}).Debugf("New remote commits found. Pulling")
+		// 	s.Commit("Sync auto-commit").Flush()
+		// 	s.Pull().Flush()
+		// 	s.Status = "synced"
+		// }
 	} else {
 		log.WithFields(log.Fields{
-			"path":      workspace.LocalPath,
 			"workspace": workspace.Name,
-			"module":    "sync",
 		}).Debugf("Not loading sync module. Sync disabled")
+
 		s.loaded = false
 	}
 	return s
 }
 
 func (s *Sync) UpdateStatus() *Sync {
-	s.Options.Local.Branch.Name = workspace.SyncOptions.Local.Branch.Name
-	s.Options.Remote.Branch.Name = workspace.SyncOptions.Remote.Branch.Name
-	s.Options.Remote.Name = workspace.SyncOptions.Remote.Name
-	s.Options.Remote.Url = workspace.SyncOptions.Remote.Url
-	s.Options.Enabled = workspace.SyncOptions.Enabled
-	s.Options.Auto = workspace.SyncOptions.Auto
-
 	if s.Options.Enabled {
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
-			"module":    "sync",
-			"path":      s.Path,
-		}).Debugf("Fetching status of remote repository")
+		}).Debugf("Getting remote status")
 		// https://stackoverflow.com/posts/68187853/revisions
 		// Get remote reference
 		_, err := GitFetch(s.Path)
@@ -207,8 +208,6 @@ func (s *Sync) UpdateStatus() *Sync {
 
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
-			"module":    "sync",
-			"path":      s.Path,
 		}).Debugf("Getting last local commit")
 		s.LocalRef.Branch.Name = s.Options.Local.Branch.Name
 		s.LocalRef.Commit, err = GitGetHeadCommit(s.Path, s.LocalRef.Reference)
@@ -219,8 +218,6 @@ func (s *Sync) UpdateStatus() *Sync {
 
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
-			"module":    "sync",
-			"path":      s.Path,
 		}).Debugf("Getting last remote commit")
 		s.RemoteRef.Branch.Name = s.Options.Remote.Branch.Name
 		s.RemoteRef.Commit, err = GitGetHeadCommit(s.Path, s.RemoteRef.Reference)
@@ -231,9 +228,7 @@ func (s *Sync) UpdateStatus() *Sync {
 
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
-			"module":    "sync",
-			"path":      s.Path,
-		}).Debugf("Checking if behind")
+		}).Debugf("Checking if behind remote")
 		behindBy, err := GitBehindBy(s.Path)
 		if err != nil {
 			s.err = err
@@ -242,22 +237,12 @@ func (s *Sync) UpdateStatus() *Sync {
 
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
-			"module":    "sync",
-			"path":      s.Path,
-		}).Debugf("Checking if ahead")
+		}).Debugf("Checking if ahead of remote")
 		aheadBy, err := GitAheadBy(s.Path)
 		if err != nil {
 			s.err = err
 			return s
 		}
-
-		log.WithFields(log.Fields{
-			"workspace": workspace.Name,
-			"module":    "sync",
-			"path":      s.Path,
-			"behind":    behindBy,
-			"ahead":     aheadBy,
-		}).Debugf("Diversion status")
 
 		// ahead > 0, behind == 0
 		if aheadBy != 0 && behindBy == 0 {
@@ -281,21 +266,25 @@ func (s *Sync) UpdateStatus() *Sync {
 
 		log.WithFields(log.Fields{
 			"workspace": workspace.Name,
-			"module":    "sync",
-			"path":      s.Path,
-		}).Debugf("Checking for uncommited local changes")
+		}).Debugf("Checking for uncommited changes")
 
 		// Has uncommited changes?
 		if GitHasChanges(s.Path) {
 			s.Status = "changed"
 		}
+
+		log.WithFields(log.Fields{
+			"workspace": workspace.Name,
+			"status":    s.Status,
+			"ahead":     aheadBy,
+			"behind":    behindBy,
+		}).Debugf("Sync status")
+	} else {
+		log.WithFields(log.Fields{
+			"workspace": workspace.Name,
+			"status":    "disabled",
+		}).Debugf("Sync status")
 	}
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"module":    "sync",
-		"path":      s.Path,
-		"status":    s.Status,
-	}).Debugf("Updated repo status")
 	return s
 }
 
@@ -335,7 +324,8 @@ func (s *Sync) LoadRepo() *Sync {
 	var err error
 	// Check if it's a git repo already
 	log.WithFields(log.Fields{
-		"path": workspace.LocalPath,
+		"path":      workspace.LocalPath,
+		"workspace": workspace.Name,
 	}).Debugf("Loading local repository")
 
 	if GitIsRepo(workspace.LocalPath) {
@@ -354,7 +344,8 @@ func (s *Sync) LoadRepo() *Sync {
 		}
 		if remoteUrl == "" {
 			log.WithFields(log.Fields{
-				"path": workspace.LocalPath,
+				"path":      workspace.LocalPath,
+				"workspace": workspace.Name,
 			}).Debugf("Local repository has no remote url configured")
 
 			// Check if workspace has a remote url configured
@@ -380,7 +371,8 @@ func (s *Sync) LoadRepo() *Sync {
 					// Urls don't match
 					// Update the repository with the configured remote
 					log.WithFields(log.Fields{
-						"path": workspace.LocalPath,
+						"path":      workspace.LocalPath,
+						"workspace": workspace.Name,
 					}).Debugf("Local repository remote url doesn't match workspace remote url. Fixing.")
 
 					err := GitUpdateRemoteUrl(workspace.LocalPath, GitDefaultRemote, workspace.SyncOptions.Remote.Url)
@@ -392,18 +384,21 @@ func (s *Sync) LoadRepo() *Sync {
 			} else {
 				// Update the workspace remote with the local remote
 				log.WithFields(log.Fields{
-					"path": workspace.LocalPath,
+					"path":      workspace.LocalPath,
+					"workspace": workspace.Name,
 				}).Debugf("Workspace has no remote url configured. Updating with local repository remote url")
 				log.WithFields(log.Fields{
 					"path": workspace.LocalPath,
+					"name": workspace.Name,
 				}).Warnf("Updating workspace remote url with local repository remote url")
 				workspace.updateConfig("sync.remote.url", remoteUrl).Flush()
 			}
 		}
 		log.WithFields(log.Fields{
-			"path":   workspace.LocalPath,
-			"remote": workspace.SyncOptions.Remote.Name,
-			"branch": workspace.SyncOptions.Remote.Branch.Name,
+			"path":      workspace.LocalPath,
+			"workspace": workspace.Name,
+			"remote":    workspace.SyncOptions.Remote.Name,
+			"branch":    workspace.SyncOptions.Remote.Branch.Name,
 		}).Debugf("Tracking remote branch")
 		_, err = GitSetUpstreamTracking(workspace.LocalPath, workspace.SyncOptions.Remote.Name, workspace.SyncOptions.Remote.Branch.Name)
 		if err != nil {
@@ -418,8 +413,9 @@ func (s *Sync) LoadRepo() *Sync {
 			// We have a remote url configured
 			// Create a repository with the given url
 			log.WithFields(log.Fields{
-				"path": workspace.LocalPath,
-				"url":  workspace.SyncOptions.Remote.Url,
+				"path":      workspace.LocalPath,
+				"workspace": workspace.Name,
+				"url":       workspace.SyncOptions.Remote.Url,
 			}).Debugf("Creating new repository with remote url from workspace config")
 
 			err = GitCreateRepo(workspace.LocalPath, workspace.SyncOptions.Remote.Name, workspace.SyncOptions.Remote.Branch.Name, workspace.SyncOptions.Remote.Url)
@@ -430,132 +426,17 @@ func (s *Sync) LoadRepo() *Sync {
 		} else {
 			// No remote url configured
 			log.WithFields(log.Fields{
-				"path": workspace.LocalPath,
+				"path":      workspace.LocalPath,
+				"workspace": workspace.Name,
 			}).Warnf("Workspace has no remote url configured.")
 			s.err = errors.New("cannot sync this repository. No remote configured in workspace or repository")
 			return s
-
-			// // Check for default provider
-			// if config.Sync.CreateRepo {
-			// 	log.WithFields(log.Fields{
-			// 		"path":     workspace.LocalPath,
-			// 		"provider": s.Provider.GetName(),
-			// 	}).Warnf("Creating project at configured provider")
-
-			// 	group, err := s.Provider.GetDefaultGroup()
-			// 	if err != nil {
-			// 		s.err = err
-			// 		return s
-			// 	}
-
-			// 	if group.name != "" {
-			// 		// Create project in default group
-			// 		project, err := s.Provider.CreateProject(group, workspace.Name)
-			// 		if err != nil {
-			// 			s.err = err
-			// 			return s
-			// 		}
-			// 		printObject(project)
-
-			// 		// Initialize repository from project data
-			// 		var remote_url string
-			// 		if config.Gitlab.Transport == "ssh" {
-			// 			remote_url = project.remote_ssh
-			// 		} else {
-			// 			remote_url = project.remote_http
-			// 		}
-
-			// 		log.WithFields(log.Fields{
-			// 			"path": workspace.LocalPath,
-			// 			"url":  remote_url,
-			// 		}).Debugf("Configure workspace to sync with remote repository")
-
-			// 		err = GitCreateRepo(workspace.LocalPath, workspace.SyncOptions.Remote.Name, workspace.SyncOptions.Remote.Branch.Name, remote_url)
-			// 		if err != nil {
-			// 			s.err = err
-			// 			return s
-			// 		}
-
-			// 		// Update workspace.SyncOptions.Remote.Url with remote_url
-			// 		// Update the workspace remote with the local remote
-			// 		log.WithFields(log.Fields{
-			// 			"path": workspace.LocalPath,
-			// 		}).Warnf("Updating workspace remote url with local repository remote url")
-			// 		workspace.updateConfig("sync.remote.url", remote_url).Flush()
-			// 	} else {
-			// 		// No default group given
-			// 		// Exit
-			// 		s.err = fmt.Errorf("cannot create project - no group defined in provider config")
-			// 		return s
-			// 	}
-			// }
 		}
 	}
 
-	// if true {
-	// 	// It's not a git repo
-	// 	log.WithFields(log.Fields{
-	// 		"path": workspace.LocalPath,
-	// 	}).Debugf("No repository found")
-
-	// 	// Check if workspace.SyncOptions.Remote.Url is configured
-	// 	if workspace.SyncOptions.Remote.Url != "" {
-	// 		// 1.1.2 git repo not found: check remote repo
-	// 		// 1.1.2.1 found: update workspace.SyncOptions.Remote.Url
-	// 		// 1.1.2.2 not found: CREATE_REMOTE_REPO, update workspace.SyncOptions.Remote.Url
-	// 	}
-
-	// 	if config.Sync.CreateRepo {
-	// 		group, err := s.Provider.GetDefaultGroup()
-	// 		if err != nil {
-	// 			s.err = err
-	// 			return s
-	// 		}
-
-	// 		if group.name != "" {
-	// 			// Create project in default group
-	// 			project, err := s.Provider.CreateProject(group, workspace.Name)
-	// 			if err != nil {
-	// 				s.err = err
-	// 				return s
-	// 			}
-	// 			printObject(project)
-	// 		}
-	// 	}
-	// 	// Try to init a git repo at the given path
-	// 	log.WithFields(log.Fields{
-	// 		"path": workspace.LocalPath,
-	// 	}).Debugf("Initializing new repository")
-
-	// 	_, err := git.PlainInit(workspace.LocalPath, false)
-	// 	if err != nil {
-	// 		s.err = err
-	// 		return s
-	// 	}
-	// 	return s
-	// } else {
-	// 	// It's a git repo
-	// 	// 1. Get repo's remote
-	// 	// 2. Compare with configured remote
-	// 	// 2.1 No remote configured? Update configured remote with repo's remote
-	// 	// 2.2 No repo remot? Update with configured remote
-	// 	// 2.3 Unequal? Update repo remote with configured remote
-	// 	log.WithFields(log.Fields{
-	// 		"path": workspace.LocalPath,
-	// 	}).Debugf("Loaded repository")
-	// 	printObject(repository)
-
-	// 	remote, err := repository.Remote("polycrate")
-	// 	if err != nil {
-	// 		// The remote does not exist
-	// 		// Let's create it
-	// 		GitCreateRemote(repository, "polycrate", workspace.SyncOptions.Remote.Url)
-	// 	}
-
-	// 	fmt.Println(remote)
-	// }
 	log.WithFields(log.Fields{
-		"path": workspace.LocalPath,
+		"path":      workspace.LocalPath,
+		"workspace": workspace.Name,
 	}).Debugf("Local repository loaded")
 
 	s.Path = workspace.LocalPath
