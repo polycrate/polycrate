@@ -3,11 +3,11 @@ package cmd
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -33,7 +33,7 @@ import (
 func signalHandler(s os.Signal) {
 	// Deal with running containers
 	workspace.PruneContainer().Flush()
-	workspace.Sync().Flush()
+	//workspace.Sync().Flush()
 
 	log.Fatalf("ctrl-c received")
 
@@ -81,7 +81,7 @@ func mapDockerTag(tag string) (string, string, string, string) {
 
 	if registryUrl == "" {
 		// Set default registry URL when no registry has been given in the tag
-		registryUrl = config.Registry.Url
+		registryUrl = polycrate.Config.Registry.Url
 	}
 
 	if version == "" {
@@ -107,18 +107,22 @@ func CheckErr(msg interface{}) {
 	}
 }
 
-func RunCommand(name string, args ...string) (exitCode int, output string, err error) {
+func RunCommand(ctx context.Context, env []string, name string, args ...string) (exitCode int, output string, err error) {
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("command", name)
+	log = log.WithField("args", strings.Join(args, " "))
+	ctx = polycrate.SetContextLogger(ctx, log)
 
 	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))
-	log.WithFields(log.Fields{
-		"command": name,
-		"args":    strings.Join(args, " "),
-	}).Trace("Running shell command")
+	log.Trace("Running shell command")
 
 	cmd := exec.Command(name, args...)
 
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, workspace.DumpEnv()...)
+
+	if len(env) > 0 {
+		cmd.Env = append(cmd.Env, env...)
+	}
 
 	var stdBuffer bytes.Buffer
 	if !interactive {
@@ -144,7 +148,7 @@ func RunCommand(name string, args ...string) (exitCode int, output string, err e
 			// in this situation, exit code could not be get, and stderr will be
 			// empty string very likely, so we use the default fail code, and format err
 			// to string and set to stderr
-			log.Printf("Could not get exit code for failed program: %v, %v", name, args)
+			log.Warn("Could not get exit code for failed program: %v, %v", name, args)
 			exitCode = defaultFailedCode
 		}
 	} else {
@@ -411,25 +415,25 @@ func walkBlocksDir(path string, d fs.DirEntry, err error) error {
 	return nil
 }
 
-func loadInventory() {
-	//loadDefaults()
+// func loadInventory() {
+// 	//loadDefaults()
 
-	// Check if inventory.yml exists
+// 	// Check if inventory.yml exists
 
-	_inventoryPath := filepath.Join(workspace.LocalPath, "inventory.yml")
-	if _, err := os.Stat(_inventoryPath); os.IsNotExist(err) {
-		log.Fatal("inventory.yml not found. Please add an inventory.")
-	} else {
-		inventory = _inventoryPath
-	}
+// 	_inventoryPath := filepath.Join(workspace.LocalPath, "inventory.yml")
+// 	if _, err := os.Stat(_inventoryPath); os.IsNotExist(err) {
+// 		log.Fatal("inventory.yml not found. Please add an inventory.")
+// 	} else {
+// 		inventory = _inventoryPath
+// 	}
 
-	log.Debug("Loading inventory from " + inventory)
-	inventoryConfigObject.SetConfigFile(inventory)
-	inventoryConfigObject.SetConfigType("yaml")
+// 	log.Debug("Loading inventory from " + inventory)
+// 	inventoryConfigObject.SetConfigFile(inventory)
+// 	inventoryConfigObject.SetConfigType("yaml")
 
-	err := inventoryConfigObject.MergeInConfig()
-	CheckErr(err)
-}
+// 	err := inventoryConfigObject.MergeInConfig()
+// 	CheckErr(err)
+// }
 
 func printObject(object interface{}) {
 	if outputFormat == "json" {
@@ -441,12 +445,6 @@ func printObject(object interface{}) {
 		data, err := yaml.Marshal(object)
 		CheckErr(err)
 		fmt.Printf("%s\n", data)
-	}
-}
-
-func debugObject(object interface{}) {
-	if logLevel > 0 {
-		printObject(object)
 	}
 }
 
@@ -613,87 +611,87 @@ func discoverWorkspaces() error {
 	return nil
 }
 
-func createZipFile(sourcePath string, filename string) (string, error) {
+// func createZipFile(sourcePath string, filename string) (string, error) {
 
-	f, err := ioutil.TempFile("/tmp", filename+".*.zip")
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
+// 	f, err := ioutil.TempFile("/tmp", filename+".*.zip")
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	defer f.Close()
 
-	log.WithFields(log.Fields{
-		"source":      sourcePath,
-		"destination": f.Name,
-	}).Debugf("Creating ZIP file from source folder")
+// 	log.WithFields(log.Fields{
+// 		"source":      sourcePath,
+// 		"destination": f.Name,
+// 	}).Debugf("Creating ZIP file from source folder")
 
-	writer := zip.NewWriter(f)
-	defer writer.Close()
+// 	writer := zip.NewWriter(f)
+// 	defer writer.Close()
 
-	// 2. Go through all the files of the source
-	err = filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+// 	// 2. Go through all the files of the source
+// 	err = filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+// 		if err != nil {
+// 			return err
+// 		}
 
-		// 3. Create a local file header
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
+// 		// 3. Create a local file header
+// 		header, err := zip.FileInfoHeader(info)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		// set compression
-		header.Method = zip.Deflate
+// 		// set compression
+// 		header.Method = zip.Deflate
 
-		// 4. Set relative path of a file as the header name
-		//header.Name, err = filepath.Rel(filepath.Dir(sourcePath), path)
-		// https://stackoverflow.com/questions/57504246/how-to-compress-a-file-to-zip-without-directory-folder-in-go
-		// log.Debugf("Zipping file %s", path)
-		// log.Debugf("Header name %s", header.Name)
-		log.Debugf("Source path %s", sourcePath)
-		log.Debugf("Path %s", path)
-		log.Debugf("path filepath.Dir %s", filepath.Dir(path))
-		filePathRel, err := filepath.Rel(sourcePath, path)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-		log.Debugf("filePathRel %s", filePathRel)
+// 		// 4. Set relative path of a file as the header name
+// 		//header.Name, err = filepath.Rel(filepath.Dir(sourcePath), path)
+// 		// https://stackoverflow.com/questions/57504246/how-to-compress-a-file-to-zip-without-directory-folder-in-go
+// 		// log.Debugf("Zipping file %s", path)
+// 		// log.Debugf("Header name %s", header.Name)
+// 		log.Debugf("Source path %s", sourcePath)
+// 		log.Debugf("Path %s", path)
+// 		log.Debugf("path filepath.Dir %s", filepath.Dir(path))
+// 		filePathRel, err := filepath.Rel(sourcePath, path)
+// 		if err != nil {
+// 			log.Error(err)
+// 			return err
+// 		}
+// 		log.Debugf("filePathRel %s", filePathRel)
 
-		header.Name = filePathRel
-		// log.Debugf("filepath rel %s", filePathRel)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-		if info.IsDir() {
-			header.Name += "/"
-		}
-		log.Debugf("Zipping file at path %s", header.Name)
+// 		header.Name = filePathRel
+// 		// log.Debugf("filepath rel %s", filePathRel)
+// 		if err != nil {
+// 			log.Error(err)
+// 			return err
+// 		}
+// 		if info.IsDir() {
+// 			header.Name += "/"
+// 		}
+// 		log.Debugf("Zipping file at path %s", header.Name)
 
-		// 5. Create writer for the file header and save content of the file
-		headerWriter, err := writer.CreateHeader(header)
-		if err != nil {
-			return err
-		}
+// 		// 5. Create writer for the file header and save content of the file
+// 		headerWriter, err := writer.CreateHeader(header)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		if info.IsDir() {
-			return nil
-		}
+// 		if info.IsDir() {
+// 			return nil
+// 		}
 
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
+// 		f, err := os.Open(path)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		defer f.Close()
 
-		_, err = io.Copy(headerWriter, f)
-		return err
-	})
-	if err != nil {
-		return "", err
-	}
-	return f.Name(), nil
-}
+// 		_, err = io.Copy(headerWriter, f)
+// 		return err
+// 	})
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return f.Name(), nil
+// }
 
 func slugify(args []string) string {
 	preSlug := strings.Join(args, "-")
@@ -702,45 +700,45 @@ func slugify(args []string) string {
 	return slug
 }
 
-func NewGitlabSyncProvider() PolycrateProvider {
-	return config.Gitlab
-}
+// func NewGitlabSyncProvider() PolycrateProvider {
+// 	return config.Gitlab
+// }
 
-func getSyncProvider() PolycrateProvider {
-	if config.Sync.Provider == "gitlab" {
-		var pf SyncProviderFactory = NewGitlabSyncProvider
-		provider := pf()
+// func getSyncProvider() PolycrateProvider {
+// 	if config.Sync.Provider == "gitlab" {
+// 		var pf SyncProviderFactory = NewGitlabSyncProvider
+// 		provider := pf()
 
-		log.WithFields(log.Fields{
-			"provider": "gitlab",
-		}).Debugf("Loading sync provider")
-		return provider
-	}
-	return nil
-}
+// 		log.WithFields(log.Fields{
+// 			"provider": "gitlab",
+// 		}).Debugf("Loading sync provider")
+// 		return provider
+// 	}
+// 	return nil
+// }
 
-func NewSync(path string) (*PolycrateSync, error) {
-	log.WithFields(log.Fields{
-		"path": path,
-	}).Debugf("Initializing Sync")
-	s := PolycrateSync{}
+// func NewSync(path string) (*PolycrateSync, error) {
+// 	log.WithFields(log.Fields{
+// 		"path": path,
+// 	}).Debugf("Initializing Sync")
+// 	s := PolycrateSync{}
 
-	// Check if workspace.Remote is configured
-	// if workspace.Remote == "" {
-	// 	return nil, errors.New("workspace.remote needs to be configured for sync to work")
-	// }
+// 	// Check if workspace.Remote is configured
+// 	// if workspace.Remote == "" {
+// 	// 	return nil, errors.New("workspace.remote needs to be configured for sync to work")
+// 	// }
 
-	//s.LoadProvider()
+// 	//s.LoadProvider()
 
-	// Upsert-style behaviour - load OR create the repo
-	// - Checks if a repository exists at workspce.LocalPath
-	// - Checks if the repository's remote is equal to the workspace's remote
-	// - Updates the repository remote if not
-	// - Creates a locl repository if none exists
-	// - Creates a remote repository at the configured provider if configured and none exists
-	// - configures remote from created project
-	// - initializes the repository with the configured remote
-	//s.LoadRepo().Flush()
+// 	// Upsert-style behaviour - load OR create the repo
+// 	// - Checks if a repository exists at workspce.LocalPath
+// 	// - Checks if the repository's remote is equal to the workspace's remote
+// 	// - Updates the repository remote if not
+// 	// - Creates a locl repository if none exists
+// 	// - Creates a remote repository at the configured provider if configured and none exists
+// 	// - configures remote from created project
+// 	// - initializes the repository with the configured remote
+// 	//s.LoadRepo().Flush()
 
-	return &s, nil
-}
+// 	return &s, nil
+// }

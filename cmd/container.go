@@ -2,16 +2,12 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"os"
 
 	"github.com/moby/term"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -22,8 +18,7 @@ func getDockerCLI() (*client.Client, error) {
 	return cli, err
 }
 
-func buildContainerImage(dockerfilePath string, tags []string) (string, error) {
-	ctx := context.Background()
+func buildContainerImage(ctx context.Context, dockerfilePath string, tags []string) (string, error) {
 	cli, err := getDockerCLI()
 
 	if err != nil {
@@ -95,63 +90,63 @@ func logDocker(reader io.ReadCloser) error {
 	return nil
 }
 
-func getContainers(cli *client.Client, filterList map[string]string) ([]types.Container, error) {
-	ctx := context.Background()
+// func getContainers(cli *client.Client, filterList map[string]string) ([]types.Container, error) {
+// 	ctx := context.Background()
 
-	f := filters.NewArgs()
-	for key, value := range filterList {
-		f.Add(key, value)
-	}
+// 	f := filters.NewArgs()
+// 	for key, value := range filterList {
+// 		f.Add(key, value)
+// 	}
 
-	containerListOptions := types.ContainerListOptions{
-		Size:    false,
-		All:     false,
-		Since:   "container",
-		Limit:   1,
-		Filters: f,
-	}
+// 	containerListOptions := types.ContainerListOptions{
+// 		Size:    false,
+// 		All:     false,
+// 		Since:   "container",
+// 		Limit:   1,
+// 		Filters: f,
+// 	}
 
-	containers, err := cli.ContainerList(ctx, containerListOptions)
-	if err != nil {
-		return nil, fmt.Errorf("error listing container: %s", err)
-	}
+// 	containers, err := cli.ContainerList(ctx, containerListOptions)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error listing container: %s", err)
+// 	}
 
-	return containers, nil
-}
+// 	return containers, nil
+// }
 
-func pruneContainer(cli *client.Client, id string) error {
-	ctx := context.Background()
+// func pruneContainer(cli *client.Client, id string) error {
+// 	ctx := context.Background()
 
-	log.WithFields(log.Fields{
-		"id": id,
-	}).Debugf("Pruning container")
-	// filters := filters.NewArgs()
-	// filters.Add("id", id)
+// 	log.WithFields(log.Fields{
+// 		"id": id,
+// 	}).Debugf("Pruning container")
+// 	// filters := filters.NewArgs()
+// 	// filters.Add("id", id)
 
-	// containerListOptions := types.ContainerListOptions{
-	// 	Size:    false,
-	// 	All:     false,
-	// 	Since:   "container",
-	// 	Limit:   1,
-	// 	Filters: filters,
-	// }
+// 	// containerListOptions := types.ContainerListOptions{
+// 	// 	Size:    false,
+// 	// 	All:     false,
+// 	// 	Since:   "container",
+// 	// 	Limit:   1,
+// 	// 	Filters: filters,
+// 	// }
 
-	// containers, err := cli.ContainerList(ctx, containerListOptions)
-	// if err != nil {
-	// 	return fmt.Errorf("error listing container: %s", err)
-	// }
+// 	// containers, err := cli.ContainerList(ctx, containerListOptions)
+// 	// if err != nil {
+// 	// 	return fmt.Errorf("error listing container: %s", err)
+// 	// }
 
-	removeOptions := types.ContainerRemoveOptions{
-		RemoveVolumes: false,
-		Force:         true, // we're force-removing so we do not need to worry about timeouts
-	}
+// 	removeOptions := types.ContainerRemoveOptions{
+// 		RemoveVolumes: false,
+// 		Force:         true, // we're force-removing so we do not need to worry about timeouts
+// 	}
 
-	if err := cli.ContainerRemove(ctx, id, removeOptions); err != nil {
-		return fmt.Errorf("unable to remove container: %s", err)
-	}
-	workspace.containerID = ""
-	return nil
-}
+// 	if err := cli.ContainerRemove(ctx, id, removeOptions); err != nil {
+// 		return fmt.Errorf("unable to remove container: %s", err)
+// 	}
+// 	workspace.containerID = ""
+// 	return nil
+// }
 
 func PruneContainer(filters []string) (int, string, error) {
 
@@ -172,7 +167,8 @@ func PruneContainer(filters []string) (int, string, error) {
 	return exitCode, output, err
 }
 
-func RunContainer(image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
+func RunContainer(ctx context.Context, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
+	log := polycrate.GetContextLogger(ctx)
 
 	// Prepare container command
 	var runCmd []string
@@ -231,137 +227,137 @@ func RunContainer(image string, command []string, env []string, mounts []string,
 	runCmd = append(runCmd, command...)
 
 	// Run container
-	exitCode, output, err := RunCommand("docker", runCmd...)
+	exitCode, output, err := RunCommand(ctx, nil, "docker", runCmd...)
 
 	return exitCode, output, err
 }
 
-func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig, name string) error {
-	//ctx := context.Background()
-	ctx := context.Background()
-	//inout := make(chan []byte, 1)
-	quit := make(chan bool, 1)
+// func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig, name string) error {
+// 	//ctx := context.Background()
+// 	ctx := context.Background()
+// 	//inout := make(chan []byte, 1)
+// 	quit := make(chan bool, 1)
 
-	log.WithFields(log.Fields{
-		"name": name,
-	}).Debugf("Creating container")
-	resp, err := cli.ContainerCreate(ctx, cc, hc, nil, nil, name)
-	if err != nil {
-		return err
-	}
+// 	log.WithFields(log.Fields{
+// 		"name": name,
+// 	}).Debugf("Creating container")
+// 	resp, err := cli.ContainerCreate(ctx, cc, hc, nil, nil, name)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Save container id to the workspace
-	workspace.containerID = resp.ID
+// 	// Save container id to the workspace
+// 	workspace.containerID = resp.ID
 
-	containerAttachOptions := types.ContainerAttachOptions{
-		Stderr: true,
-		Stdout: true,
-		Stdin:  false,
-		Stream: true,
-	}
+// 	containerAttachOptions := types.ContainerAttachOptions{
+// 		Stderr: true,
+// 		Stdout: true,
+// 		Stdin:  false,
+// 		Stream: true,
+// 	}
 
-	var waiter types.HijackedResponse
+// 	var waiter types.HijackedResponse
 
-	if !interactive {
-		log.WithFields(log.Fields{
-			"id":   resp.ID,
-			"name": name,
-		}).Debugf("Attaching non-interactively")
-		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
-	} else {
-		log.WithFields(log.Fields{
-			"id":   resp.ID,
-			"name": name,
-		}).Debugf("Attaching interactively (-it) - input will be forwarded")
-		containerAttachOptions.Stdin = true
-		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
-		go io.Copy(waiter.Conn, os.Stdin)
-	}
-	go io.Copy(os.Stdout, waiter.Reader)
-	go io.Copy(os.Stderr, waiter.Reader)
+// 	if !interactive {
+// 		log.WithFields(log.Fields{
+// 			"id":   resp.ID,
+// 			"name": name,
+// 		}).Debugf("Attaching non-interactively")
+// 		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
+// 	} else {
+// 		log.WithFields(log.Fields{
+// 			"id":   resp.ID,
+// 			"name": name,
+// 		}).Debugf("Attaching interactively (-it) - input will be forwarded")
+// 		containerAttachOptions.Stdin = true
+// 		waiter, err = cli.ContainerAttach(ctx, resp.ID, containerAttachOptions)
+// 		go io.Copy(waiter.Conn, os.Stdin)
+// 	}
+// 	go io.Copy(os.Stdout, waiter.Reader)
+// 	go io.Copy(os.Stderr, waiter.Reader)
 
-	if err != nil {
-		return err
-	}
+// 	if err != nil {
+// 		return err
+// 	}
 
-	defer waiter.Close()
+// 	defer waiter.Close()
 
-	// go func() {
-	// 	scanner := bufio.NewScanner(os.Stdin)
-	// 	for {
-	// 		fmt.Println("inout")
-	// 		select {
-	// 		case <-quit:
-	// 			fmt.Println("inout quit")
+// 	// go func() {
+// 	// 	scanner := bufio.NewScanner(os.Stdin)
+// 	// 	for {
+// 	// 		fmt.Println("inout")
+// 	// 		select {
+// 	// 		case <-quit:
+// 	// 			fmt.Println("inout quit")
 
-	// 			return
-	// 		default:
-	// 			fmt.Println("inout scan")
-	// 			for scanner.Scan() {
-	// 				inout <- []byte(scanner.Text())
+// 	// 			return
+// 	// 		default:
+// 	// 			fmt.Println("inout scan")
+// 	// 			for scanner.Scan() {
+// 	// 				inout <- []byte(scanner.Text())
 
-	// 			}
-	// 			return
-	// 		}
-	// 	}
+// 	// 			}
+// 	// 			return
+// 	// 		}
+// 	// 	}
 
-	// }()
+// 	// }()
 
-	// // Write to docker container
-	// go func(w io.WriteCloser) {
-	// 	for {
-	// 		fmt.Println("writer")
-	// 		select {
-	// 		case <-quit:
-	// 			fmt.Println("writer quit")
-	// 			w.Close()
-	// 			return
-	// 		default:
-	// 			data, ok := <-inout
-	// 			if !ok {
-	// 				fmt.Println("!ok")
-	// 				w.Close()
-	// 				return
-	// 			}
-	// 			w.Write(append(data, '\n'))
-	// 		}
+// 	// // Write to docker container
+// 	// go func(w io.WriteCloser) {
+// 	// 	for {
+// 	// 		fmt.Println("writer")
+// 	// 		select {
+// 	// 		case <-quit:
+// 	// 			fmt.Println("writer quit")
+// 	// 			w.Close()
+// 	// 			return
+// 	// 		default:
+// 	// 			data, ok := <-inout
+// 	// 			if !ok {
+// 	// 				fmt.Println("!ok")
+// 	// 				w.Close()
+// 	// 				return
+// 	// 			}
+// 	// 			w.Write(append(data, '\n'))
+// 	// 		}
 
-	// 	}
-	// }(waiter.Conn)
+// 	// 	}
+// 	// }(waiter.Conn)
 
-	log.WithFields(log.Fields{
-		"id":   resp.ID,
-		"name": name,
-	}).Debugf("Starting container")
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		return err
-	}
+// 	log.WithFields(log.Fields{
+// 		"id":   resp.ID,
+// 		"name": name,
+// 	}).Debugf("Starting container")
+// 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+// 		return err
+// 	}
 
-	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return err
-		}
-	case <-statusCh:
+// 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+// 	select {
+// 	case err := <-errCh:
+// 		if err != nil {
+// 			return err
+// 		}
+// 	case <-statusCh:
 
-	}
+// 	}
 
-	log.WithFields(log.Fields{
-		"id":   resp.ID,
-		"name": name,
-	}).Debugf("Removing container")
+// 	log.WithFields(log.Fields{
+// 		"id":   resp.ID,
+// 		"name": name,
+// 	}).Debugf("Removing container")
 
-	workspace.containerID = ""
+// 	workspace.containerID = ""
 
-	//os.Stdin.Close()
-	quit <- true
-	waiter.Close()
+// 	//os.Stdin.Close()
+// 	quit <- true
+// 	waiter.Close()
 
-	// Stop and remove the container
-	if err := pruneContainer(cli, resp.ID); err != nil {
-		return err
-	}
-	//close(inout)
-	return nil
-}
+// 	// Stop and remove the container
+// 	if err := pruneContainer(cli, resp.ID); err != nil {
+// 		return err
+// 	}
+// 	//close(inout)
+// 	return nil
+// }

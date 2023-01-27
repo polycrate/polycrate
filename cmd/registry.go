@@ -1,15 +1,7 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"reflect"
-	"sort"
-	"strings"
 
 	"golang.org/x/exp/slices"
 
@@ -63,317 +55,317 @@ type RegistryWorkspace struct {
 }
 
 type Registry struct {
-	Url string `yaml:"url" mapstructure:"url" json:"url" validate:"required"`
-	//BlockNamespace string `yaml:"block_namespace" mapstructure:"block_namespace" json:"block_namespace" validate:"required"`
-	ApiBase   string `yaml:"api_base" mapstructure:"api_base" json:"api_base" validate:"required"`
+	Url       string `yaml:"url" mapstructure:"url" json:"url" validate:"required"`
 	BaseImage string `yaml:"base_image" mapstructure:"base_image" json:"base_image" validate:"required"`
-	Username  string `yaml:"username,omitempty" mapstructure:"username,omitempty" json:"username,omitempty"`
-	Password  string `yaml:"password,omitempty" mapstructure:"password,omitempty" json:"password,omitempty"`
+	//BlockNamespace string `yaml:"block_namespace" mapstructure:"block_namespace" json:"block_namespace" validate:"required"`
+	//ApiBase   string `yaml:"api_base" mapstructure:"api_base" json:"api_base" validate:"required"`
+	//Username  string `yaml:"username,omitempty" mapstructure:"username,omitempty" json:"username,omitempty"`
+	//Password  string `yaml:"password,omitempty" mapstructure:"password,omitempty" json:"password,omitempty"`
 }
 
-func (rb *RegistryBlock) UnmarshalJSON(b []byte) error {
-	type TmpJson RegistryBlock
+// func (rb *RegistryBlock) UnmarshalJSON(b []byte) error {
+// 	type TmpJson RegistryBlock
 
-	//var tmpJson map[string]interface{}
-	var tmpJson TmpJson
-	err := json.Unmarshal(b, &tmpJson)
-	if err != nil {
-		return err
-	}
+// 	//var tmpJson map[string]interface{}
+// 	var tmpJson TmpJson
+// 	err := json.Unmarshal(b, &tmpJson)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Wordpress returns "releases: false" instead of "releases: []"
-	// So we're overwriting a boolean value with an empty list during unmarshalling
-	if reflect.TypeOf(tmpJson.Releases).String() == "bool" {
-		rb.Releases = []RegistryRelease{}
-		rb.Id = tmpJson.Id
-		rb.BlockName = tmpJson.BlockName
-		return nil
-	}
+// 	// Wordpress returns "releases: false" instead of "releases: []"
+// 	// So we're overwriting a boolean value with an empty list during unmarshalling
+// 	if reflect.TypeOf(tmpJson.Releases).String() == "bool" {
+// 		rb.Releases = []RegistryRelease{}
+// 		rb.Id = tmpJson.Id
+// 		rb.BlockName = tmpJson.BlockName
+// 		return nil
+// 	}
 
-	//return json.Unmarshal(b, &rb)
-	*rb = RegistryBlock(tmpJson)
-	return nil
+// 	//return json.Unmarshal(b, &rb)
+// 	*rb = RegistryBlock(tmpJson)
+// 	return nil
 
-}
+// }
 
-func (o *Registry) SearchBlock(blockName string) ([]RegistryBlock, error) {
-	url := fmt.Sprintf("%s/%s/block?search=%s", config.Registry.Url, config.Registry.ApiBase, blockName)
+// func (o *Registry) SearchBlock(blockName string) ([]RegistryBlock, error) {
+// 	url := fmt.Sprintf("%s/%s/block?search=%s", config.Registry.Url, config.Registry.ApiBase, blockName)
 
-	response, err := http.Get(url)
+// 	response, err := http.Get(url)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
+// 	responseData, err := ioutil.ReadAll(response.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	var blocks []RegistryBlock
-	err = json.Unmarshal(responseData, &blocks)
-	if err != nil {
-		return nil, err
-	}
-	//log.Trace(string(responseData))
+// 	var blocks []RegistryBlock
+// 	err = json.Unmarshal(responseData, &blocks)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	//log.Trace(string(responseData))
 
-	if len(blocks) > 0 {
-		// Sort the Releases inside of a Block by date
-		for _, block := range blocks {
-			sort.Slice(block.Releases, func(i, j int) bool {
-				return block.Releases[i].PostDate > block.Releases[j].PostDate
-			})
-		}
+// 	if len(blocks) > 0 {
+// 		// Sort the Releases inside of a Block by date
+// 		for _, block := range blocks {
+// 			sort.Slice(block.Releases, func(i, j int) bool {
+// 				return block.Releases[i].PostDate > block.Releases[j].PostDate
+// 			})
+// 		}
 
-		return blocks, nil
-	} else {
-		err := fmt.Errorf("Block not found in registry: %s", blockName)
-		return nil, err
-	}
+// 		return blocks, nil
+// 	} else {
+// 		err := fmt.Errorf("Block not found in registry: %s", blockName)
+// 		return nil, err
+// 	}
 
-}
+// }
 
-func (o *Registry) SearchWorkspace(workspaceName string) ([]RegistryWorkspace, error) {
-	url := fmt.Sprintf("%s/%s/workspace?search=%s", o.Url, o.ApiBase, workspaceName)
+// func (o *Registry) SearchWorkspace(workspaceName string) ([]RegistryWorkspace, error) {
+// 	url := fmt.Sprintf("%s/%s/workspace?search=%s", o.Url, o.ApiBase, workspaceName)
 
-	response, err := http.Get(url)
+// 	response, err := http.Get(url)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
+// 	responseData, err := ioutil.ReadAll(response.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	var workspaces []RegistryWorkspace
-	err = json.Unmarshal(responseData, &workspaces)
-	if err != nil {
-		return nil, err
-	}
+// 	var workspaces []RegistryWorkspace
+// 	err = json.Unmarshal(responseData, &workspaces)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	if len(workspaces) > 0 {
-		// Sort the Releases inside of a Block by date
-		for _, workspace := range workspaces {
-			sort.Slice(workspace.Releases, func(i, j int) bool {
-				return workspace.Releases[i].PostDate > workspace.Releases[j].PostDate
-			})
-		}
+// 	if len(workspaces) > 0 {
+// 		// Sort the Releases inside of a Block by date
+// 		for _, workspace := range workspaces {
+// 			sort.Slice(workspace.Releases, func(i, j int) bool {
+// 				return workspace.Releases[i].PostDate > workspace.Releases[j].PostDate
+// 			})
+// 		}
 
-		return workspaces, nil
-	} else {
-		err := fmt.Errorf("Workspace not found: %s", workspaceName)
-		return nil, err
-	}
+// 		return workspaces, nil
+// 	} else {
+// 		err := fmt.Errorf("Workspace not found: %s", workspaceName)
+// 		return nil, err
+// 	}
 
-}
+// }
 
-func (o *Registry) GetBlock(blockName string) (*RegistryBlock, error) {
-	registryBlocks, err := o.SearchBlock(blockName)
-	if err != nil {
-		return nil, err
-	}
+// func (o *Registry) GetBlock(blockName string) (*RegistryBlock, error) {
+// 	registryBlocks, err := o.SearchBlock(blockName)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	blockIndex := slices.IndexFunc(registryBlocks, func(o RegistryBlock) bool { return o.BlockName == blockName })
-	if blockIndex != -1 {
-		return &registryBlocks[blockIndex], nil
-	} else {
-		err := fmt.Errorf("Block not found in registry: %s", blockName)
-		return nil, err
-	}
+// 	blockIndex := slices.IndexFunc(registryBlocks, func(o RegistryBlock) bool { return o.BlockName == blockName })
+// 	if blockIndex != -1 {
+// 		return &registryBlocks[blockIndex], nil
+// 	} else {
+// 		err := fmt.Errorf("Block not found in registry: %s", blockName)
+// 		return nil, err
+// 	}
 
-}
+// }
 
-func (o *Registry) AddBlock(blockName string) (*RegistryBlock, error) {
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     blockName,
-	}).Debugf("Adding block to registry")
+// func (o *Registry) AddBlock(blockName string) (*RegistryBlock, error) {
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"block":     blockName,
+// 	}).Debugf("Adding block to registry")
 
-	var registryBlock RegistryBlock
+// 	var registryBlock RegistryBlock
 
-	client := &http.Client{}
-	postUrl := fmt.Sprintf("%s/%s/block", config.Registry.Url, config.Registry.ApiBase)
+// 	client := &http.Client{}
+// 	postUrl := fmt.Sprintf("%s/%s/block", config.Registry.Url, config.Registry.ApiBase)
 
-	// Data
-	values := map[string]interface{}{
-		"block_name": blockName,
-		"title":      blockName,
-		"status":     "publish",
-	}
-	json_data, err := json.Marshal(values)
-	if err != nil {
-		return nil, err
-	}
+// 	// Data
+// 	values := map[string]interface{}{
+// 		"block_name": blockName,
+// 		"title":      blockName,
+// 		"status":     "publish",
+// 	}
+// 	json_data, err := json.Marshal(values)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	req, err := http.NewRequest("POST", postUrl, bytes.NewBuffer(json_data))
-	if err != nil {
-		return nil, err
-	}
-	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
-	req.Header.Set("Content-Type", "application/json")
+// 	req, err := http.NewRequest("POST", postUrl, bytes.NewBuffer(json_data))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
+// 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	err = json.Unmarshal(body, &registryBlock)
-	if err != nil {
-		return nil, err
-	}
+// 	err = json.Unmarshal(body, &registryBlock)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     blockName,
-	}).Debugf("New registry block created")
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"block":     blockName,
+// 	}).Debugf("New registry block created")
 
-	return &registryBlock, nil
-}
+// 	return &registryBlock, nil
+// }
 
-func (o *Registry) GetWorkspace(workspaceName string) (*RegistryWorkspace, error) {
-	registryWorkspaces, err := o.SearchWorkspace(workspaceName)
-	if err != nil {
-		return nil, err
-	}
+// func (o *Registry) GetWorkspace(workspaceName string) (*RegistryWorkspace, error) {
+// 	registryWorkspaces, err := o.SearchWorkspace(workspaceName)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	workspaceIndex := slices.IndexFunc(registryWorkspaces, func(o RegistryWorkspace) bool { return o.WorkspaceName == workspaceName })
-	if workspaceIndex != -1 {
-		return &registryWorkspaces[workspaceIndex], nil
-	} else {
-		err := fmt.Errorf("Block not found: %s", workspaceName)
-		return nil, err
-	}
+// 	workspaceIndex := slices.IndexFunc(registryWorkspaces, func(o RegistryWorkspace) bool { return o.WorkspaceName == workspaceName })
+// 	if workspaceIndex != -1 {
+// 		return &registryWorkspaces[workspaceIndex], nil
+// 	} else {
+// 		err := fmt.Errorf("Block not found: %s", workspaceName)
+// 		return nil, err
+// 	}
 
-}
+// }
 
-func (o *RegistryBlock) AddRelease(version string, bundle string, filename string) (*RegistryRelease, error) {
-	// 1. Create attachment
-	// 2. Create post & link attachment
-	// credentialString := strings.Join([]string{config.Registry.Username, config.Registry.Password}, ":")
-	// credentials := base64.StdEncoding.EncodeToString([]byte(credentialString))
+// func (o *RegistryBlock) AddRelease(version string, bundle string, filename string) (*RegistryRelease, error) {
+// 	// 1. Create attachment
+// 	// 2. Create post & link attachment
+// 	// credentialString := strings.Join([]string{config.Registry.Username, config.Registry.Password}, ":")
+// 	// credentials := base64.StdEncoding.EncodeToString([]byte(credentialString))
 
-	// attachmentData := url.Values{
-	// 	"title":          {filename},
-	// 	"status":         {"publish"},
-	// 	"content":        {""},
-	// 	"slug":           {"---"},
-	// 	"version":        {version},
-	// 	"release_bundle": {version},
-	// }
-	// data := url.Values{
-	// 	"title":          {"John Doe"},
-	// 	"status":         {"publish"},
-	// 	"content":        {""},
-	// 	"slug":           {"---"},
-	// 	"version":        {version},
-	// 	"release_bundle": {version},
-	// }
+// 	// attachmentData := url.Values{
+// 	// 	"title":          {filename},
+// 	// 	"status":         {"publish"},
+// 	// 	"content":        {""},
+// 	// 	"slug":           {"---"},
+// 	// 	"version":        {version},
+// 	// 	"release_bundle": {version},
+// 	// }
+// 	// data := url.Values{
+// 	// 	"title":          {"John Doe"},
+// 	// 	"status":         {"publish"},
+// 	// 	"content":        {""},
+// 	// 	"slug":           {"---"},
+// 	// 	"version":        {version},
+// 	// 	"release_bundle": {version},
+// 	// }
 
-	attachmentData, err := os.Open(bundle)
-	if err != nil {
-		log.Fatal(err)
-	}
+// 	attachmentData, err := os.Open(bundle)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
 
-	mediaUrl := fmt.Sprintf("%s/%s/media", config.Registry.Url, config.Registry.ApiBase)
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", mediaUrl, attachmentData)
-	if err != nil {
-		return nil, err
-	}
-	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
-	req.Header.Set("Content-Type", "application/zip")
-	req.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", filename))
+// 	mediaUrl := fmt.Sprintf("%s/%s/media", config.Registry.Url, config.Registry.ApiBase)
+// 	client := &http.Client{}
+// 	req, err := http.NewRequest("POST", mediaUrl, attachmentData)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
+// 	req.Header.Set("Content-Type", "application/zip")
+// 	req.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", filename))
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
 
-	responseData, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+// 	responseData, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	var attachmentPost Post
-	err = json.Unmarshal(responseData, &attachmentPost)
-	if err != nil {
-		return nil, err
-	}
+// 	var attachmentPost Post
+// 	err = json.Unmarshal(responseData, &attachmentPost)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	printObject(attachmentPost)
+// 	printObject(attachmentPost)
 
-	// Create the release post
-	releaseUrl := fmt.Sprintf("%s/%s/block_release", config.Registry.Url, config.Registry.ApiBase)
+// 	// Create the release post
+// 	releaseUrl := fmt.Sprintf("%s/%s/block_release", config.Registry.Url, config.Registry.ApiBase)
 
-	// Data
-	slug := slugify([]string{o.BlockName, version})
-	title := strings.Join([]string{o.BlockName, version}, ":")
-	values := map[string]interface{}{
-		"release_name":   slug,
-		"title":          title,
-		"status":         "publish",
-		"block":          o.Id,
-		"release_bundle": attachmentPost.Id,
-		"version":        version,
-	}
-	json_data, err := json.Marshal(values)
-	if err != nil {
-		return nil, err
-	}
+// 	// Data
+// 	slug := slugify([]string{o.BlockName, version})
+// 	title := strings.Join([]string{o.BlockName, version}, ":")
+// 	values := map[string]interface{}{
+// 		"release_name":   slug,
+// 		"title":          title,
+// 		"status":         "publish",
+// 		"block":          o.Id,
+// 		"release_bundle": attachmentPost.Id,
+// 		"version":        version,
+// 	}
+// 	json_data, err := json.Marshal(values)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	req, err = http.NewRequest("POST", releaseUrl, bytes.NewBuffer(json_data))
-	if err != nil {
-		return nil, err
-	}
-	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
-	req.Header.Set("Content-Type", "application/json")
+// 	req, err = http.NewRequest("POST", releaseUrl, bytes.NewBuffer(json_data))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	req.SetBasicAuth(config.Registry.Username, config.Registry.Password)
+// 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err = client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+// 	resp, err = client.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
 
-	responseData, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+// 	responseData, err = ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	var registryRelease Post
-	err = json.Unmarshal(responseData, &registryRelease)
-	if err != nil {
-		return nil, err
-	}
-	printObject(registryRelease)
+// 	var registryRelease Post
+// 	err = json.Unmarshal(responseData, &registryRelease)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	printObject(registryRelease)
 
-	// apiUrl := fmt.Sprintf("%s/%s/block_release", registry.Url, registry.ApiBase)
-	// resp, err := http.PostForm(apiUrl, data)
-	// var res map[string]interface{}
+// 	// apiUrl := fmt.Sprintf("%s/%s/block_release", registry.Url, registry.ApiBase)
+// 	// resp, err := http.PostForm(apiUrl, data)
+// 	// var res map[string]interface{}
 
-	// json.NewDecoder(resp.Body).Decode(&res)
+// 	// json.NewDecoder(resp.Body).Decode(&res)
 
-	// fmt.Println(res["form"])
-	// //response, err := http.Post(url)
+// 	// fmt.Println(res["form"])
+// 	// //response, err := http.Post(url)
 
-	// if err != nil {
-	// 	return nil, err
-	// }
-	return nil, nil
+// 	// if err != nil {
+// 	// 	return nil, err
+// 	// }
+// 	return nil, nil
 
-	// responseData, err := ioutil.ReadAll(response.Body)
-	// if err != nil {
-	// 	return nil, err
-	// }
-}
+// 	// responseData, err := ioutil.ReadAll(response.Body)
+// 	// if err != nil {
+// 	// 	return nil, err
+// 	// }
+// }
 
 func (o *RegistryBlock) GetRelease(version string) (*RegistryRelease, error) {
 	// Get the correct release
@@ -437,29 +429,29 @@ func (o *RegistryWorkspace) GetRelease(version string) (*RegistryRelease, error)
 	}
 }
 
-func (o *Registry) resolveArg(arg string) (string, string, error) {
-	var name string
-	var version string
+// func (o *Registry) resolveArg(arg string) (string, string, error) {
+// 	var name string
+// 	var version string
 
-	// Split arg by :
-	splitArgs := strings.Split(arg, ":")
+// 	// Split arg by :
+// 	splitArgs := strings.Split(arg, ":")
 
-	// length can be either 1 (BLOCK) or 2 (BLOCK:VERSION)
-	// Everything else is an error
-	switch len(splitArgs) {
-	case 1:
-		// it's only the block
-		name = splitArgs[0]
-		version = "latest"
-	case 2:
-		name = splitArgs[0]
-		version = splitArgs[1]
-	default:
-		err := fmt.Errorf("Wrong format: %s - should be '$name:$version' as in 'test:0.0.1'", arg)
-		return "", "", err
-	}
-	return name, version, nil
-}
+// 	// length can be either 1 (BLOCK) or 2 (BLOCK:VERSION)
+// 	// Everything else is an error
+// 	switch len(splitArgs) {
+// 	case 1:
+// 		// it's only the block
+// 		name = splitArgs[0]
+// 		version = "latest"
+// 	case 2:
+// 		name = splitArgs[0]
+// 		version = splitArgs[1]
+// 	default:
+// 		err := fmt.Errorf("Wrong format: %s - should be '$name:$version' as in 'test:0.0.1'", arg)
+// 		return "", "", err
+// 	}
+// 	return name, version, nil
+// }
 
 // func (o *Registry) UpdateBlocks(args []string) error {
 // 	for _, arg := range args {
@@ -623,116 +615,116 @@ func (o *Registry) resolveArg(arg string) (string, string, error) {
 // 	return nil
 // }
 
-func (o *RegistryBlock) Install(blockDir string, version string) error {
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     o.BlockName,
-		"version":   version,
-	}).Debugf("Installing block from registry")
+// func (o *RegistryBlock) Install(blockDir string, version string) error {
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"block":     o.BlockName,
+// 		"version":   version,
+// 	}).Debugf("Installing block from registry")
 
-	// Get the correct release
-	release, err := o.GetRelease(version)
-	if err != nil {
-		return err
-	}
+// 	// Get the correct release
+// 	release, err := o.GetRelease(version)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Get download url
-	downloadUrl := release.ReleaseBundle
+// 	// Get download url
+// 	downloadUrl := release.ReleaseBundle
 
-	// Create temp file
-	releaseBundle, err := ioutil.TempFile("/tmp", "polycrate-block-"+o.Slug+"-"+release.Version+"-*.zip")
-	if err != nil {
-		return err
-	}
+// 	// Create temp file
+// 	releaseBundle, err := ioutil.TempFile("/tmp", "polycrate-block-"+o.Slug+"-"+release.Version+"-*.zip")
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Download to tempfile
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     o.BlockName,
-		"path":      releaseBundle.Name(),
-		"version":   release.Version,
-		"url":       downloadUrl,
-	}).Debugf("Downloading release bundle")
+// 	// Download to tempfile
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"block":     o.BlockName,
+// 		"path":      releaseBundle.Name(),
+// 		"version":   release.Version,
+// 		"url":       downloadUrl,
+// 	}).Debugf("Downloading release bundle")
 
-	// Download to tempfile
-	err = DownloadFile(downloadUrl, releaseBundle.Name())
-	if err != nil {
-		return err
-	}
-	defer os.Remove(releaseBundle.Name())
+// 	// Download to tempfile
+// 	err = DownloadFile(downloadUrl, releaseBundle.Name())
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer os.Remove(releaseBundle.Name())
 
-	// Unpack
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     o.BlockName,
-		"dst":       blockDir,
-		"src":       releaseBundle.Name(),
-	}).Debugf("Unpacking release bundle")
+// 	// Unpack
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"block":     o.BlockName,
+// 		"dst":       blockDir,
+// 		"src":       releaseBundle.Name(),
+// 	}).Debugf("Unpacking release bundle")
 
-	// Unpack
-	err = unzipSource(releaseBundle.Name(), blockDir)
-	if err != nil {
-		return err
-	}
+// 	// Unpack
+// 	err = unzipSource(releaseBundle.Name(), blockDir)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     o.BlockName,
-		"version":   release.Version,
-	}).Debugf("Successfully installed block to workspace")
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"block":     o.BlockName,
+// 		"version":   release.Version,
+// 	}).Debugf("Successfully installed block to workspace")
 
-	return nil
-}
+// 	return nil
+// }
 
-func (o *RegistryWorkspace) Install(workspaceDir string, version string) error {
-	log.WithFields(log.Fields{
-		"workspace": o.WorkspaceName,
-		"version":   version,
-	}).Debugf("Installing workspace from registry")
+// func (o *RegistryWorkspace) Install(workspaceDir string, version string) error {
+// 	log.WithFields(log.Fields{
+// 		"workspace": o.WorkspaceName,
+// 		"version":   version,
+// 	}).Debugf("Installing workspace from registry")
 
-	// Get the correct release
-	release, err := o.GetRelease(version)
-	if err != nil {
-		return err
-	}
+// 	// Get the correct release
+// 	release, err := o.GetRelease(version)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Get download url
-	downloadUrl := release.ReleaseBundle
+// 	// Get download url
+// 	downloadUrl := release.ReleaseBundle
 
-	// Create temp file
-	releaseBundle, err := ioutil.TempFile("/tmp", "polycrate-workspace-"+o.Slug+"-"+release.Version+"-*.zip")
-	if err != nil {
-		return err
-	}
+// 	// Create temp file
+// 	releaseBundle, err := ioutil.TempFile("/tmp", "polycrate-workspace-"+o.Slug+"-"+release.Version+"-*.zip")
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Download to tempfile
-	log.WithFields(log.Fields{
-		"workspace": o.WorkspaceName,
-		"path":      releaseBundle.Name(),
-		"version":   release.Version,
-		"url":       downloadUrl,
-	}).Debugf("Downloading release bundle")
-	err = DownloadFile(downloadUrl, releaseBundle.Name())
-	if err != nil {
-		return err
-	}
-	defer os.Remove(releaseBundle.Name())
+// 	// Download to tempfile
+// 	log.WithFields(log.Fields{
+// 		"workspace": o.WorkspaceName,
+// 		"path":      releaseBundle.Name(),
+// 		"version":   release.Version,
+// 		"url":       downloadUrl,
+// 	}).Debugf("Downloading release bundle")
+// 	err = DownloadFile(downloadUrl, releaseBundle.Name())
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer os.Remove(releaseBundle.Name())
 
-	// Unpack
-	log.WithFields(log.Fields{
-		"workspace": o.WorkspaceName,
-		"dst":       workspaceDir,
-		"src":       releaseBundle.Name(),
-	}).Debugf("Unpacking release bundle")
-	err = unzipSource(releaseBundle.Name(), workspaceDir)
-	if err != nil {
-		return err
-	}
+// 	// Unpack
+// 	log.WithFields(log.Fields{
+// 		"workspace": o.WorkspaceName,
+// 		"dst":       workspaceDir,
+// 		"src":       releaseBundle.Name(),
+// 	}).Debugf("Unpacking release bundle")
+// 	err = unzipSource(releaseBundle.Name(), workspaceDir)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	log.WithFields(log.Fields{
-		"workspace": o.WorkspaceName,
-		"version":   release.Version,
-	}).Debugf("Successfully installed workspace")
+// 	log.WithFields(log.Fields{
+// 		"workspace": o.WorkspaceName,
+// 		"version":   release.Version,
+// 	}).Debugf("Successfully installed workspace")
 
-	return nil
-}
+// 	return nil
+// }

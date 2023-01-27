@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -23,10 +24,16 @@ var listWorkflowsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List Workflows",
 	Long:  `List Workflows`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		workspace.load().Flush()
 
-		workspace.ListWorkflows().Flush()
+		err := workspace.ListWorkflows()
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+
+		return nil
 	},
 }
 

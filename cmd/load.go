@@ -36,6 +36,6 @@ func init() {
 func softLoadWorkspace() {
 	workspace.load().Flush()
 
-	workspace.Inspect()
+	//workspace.Inspect()
 
 }

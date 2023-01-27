@@ -8,7 +8,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // Constants
@@ -58,7 +57,7 @@ const RegistryUrl string = "cargo.ayedo.cloud"
 const RegistryBlockNamespace string = "polycrate-blocks"
 
 // default registry api base
-const RegistryApiBase string = "wp-json/wp/v2"
+//const RegistryApiBase string = "wp-json/wp/v2"
 
 // default registry base image that blocks are packaged with
 const RegistryBaseImage string = "cargo.ayedo.cloud/library/scratch:latest"
@@ -108,7 +107,7 @@ var build bool
 var logrusLevel log.Level
 
 // Global history variable
-var history HistoryLog
+//var history HistoryLog
 
 // Global variable for the current working directory
 var cwd, _ = os.Getwd()
@@ -134,19 +133,21 @@ var date string
 
 // Global sync variable
 // This variable holds the sync struct
-var sync Sync
+//var sync Sync
 
 // Global workspace variable
 // This variable holds the allmighty workspace struct
 var workspace Workspace
+var defaultWorkspace Workspace
 
 // Global registry variable
 // This variable holds the registry struct
-var registry Registry
+// var registry Registry
 
 // Global variable that holds the block paths discovered at block discovery in workspace.load()
 var blockPaths []string
-var installedBlocks []Block
+
+// var installedBlocks []Block
 
 // Global variable that holds the workspace paths discovered at workspace discovery
 var workspacePaths []string
@@ -154,15 +155,15 @@ var workspacePaths []string
 var localWorkspaceIndex map[string]string = make(map[string]string)
 
 // Inventory
-var inventory string
-var inventoryConfigObject = viper.New()
+// var inventory string
+// var inventoryConfigObject = viper.New()
 
 var home, _ = os.UserHomeDir()
-var polycrateHome = filepath.Join(home, ".polycrate")
-var polycrateWorkspaceDir = filepath.Join(polycrateHome, "workspaces")
-var polycrateRuntimeDir = filepath.Join(polycrateHome, "run")
-var polycrateConfigFilePath = filepath.Join(polycrateHome, "polycrate.yml")
-var config PolycrateConfig
+var polycrate Polycrate
+var polycrateConfigDir = filepath.Join(home, ".polycrate")
+var polycrateWorkspaceDir = filepath.Join(polycrateConfigDir, "workspaces")
+var polycrateRuntimeDir = filepath.Join(polycrateConfigDir, "run")
+var polycrateConfigFilePath = filepath.Join(polycrateConfigDir, "polycrate.yml")
 
 // Errors
 var DependencyNotResolved = errors.New("Block dependency not resolved")

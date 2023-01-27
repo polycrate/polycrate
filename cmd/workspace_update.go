@@ -16,6 +16,8 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -27,20 +29,38 @@ var workspaceUpdateCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(0),
 	//Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		workspace.load().Flush()
 		// if len(args) == 0 {
 		// 	log.WithFields(log.Fields{
 		// 		"workspace": workspace.Name,
 		// 	}).Fatalf("No blocks given")
 		// }
-
-		err := workspace.UpdateBlocks(workspace.Dependencies)
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-			}).Fatal(err)
+			log.Fatal(err)
 		}
+
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
+
+		err = workspace.UpdateBlocks(ctx, workspace.Dependencies)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
+			return err
+		}
+		return nil
 	},
 }
 

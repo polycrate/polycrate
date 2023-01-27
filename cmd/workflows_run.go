@@ -16,11 +16,14 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
+var workflowName string
 var stepName string
 var stepIndex int
 
@@ -29,15 +32,47 @@ var runWorkflowCmd = &cobra.Command{
 	Short: "Run Workflow",
 	Long:  `Run Workflow`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		workflowName = args[0]
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			log.Fatal(err)
+		}
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
 
 		// Check stepName
 		if stepName != "" && stepIndex == -1 {
-			stepAddress := strings.Join([]string{args[0], stepName}, ".")
-			workspace.RunStep(stepAddress).Flush()
+			log = log.WithField("workflow", workflowName)
+			ctx = polycrate.SetContextLogger(ctx, log)
+
+			stepAddress := strings.Join([]string{workflowName, stepName}, ".")
+			err := workspace.RunStep(ctx, stepAddress)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
 		}
-		workspace.RunWorkflow(args[0]).Flush()
+		err = workspace.RunWorkflow(ctx, args[0])
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+
+		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
+			return err
+		}
+
+		return nil
 	},
 }
 

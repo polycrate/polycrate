@@ -16,8 +16,10 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"path/filepath"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -28,20 +30,34 @@ var workspaceEditCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
 
 		workspaceConfigFilePath := filepath.Join(workspace.LocalPath, workspace.Config.WorkspaceConfig)
 		// TODO: "code" should be configurable
 		if editor == "code" {
 			// When VS Code is used, open the whole workspace directory
 			// and not only the workspace.poly file
-			RunCommand(editor, workspace.LocalPath)
+			RunCommand(ctx, nil, editor, workspace.LocalPath)
 		} else {
 			// We need to set interactive to true to forward stdin to the command
 			// Otherwise the editor won't be able to receive input and the command
 			// will fail with: "Too many errors from stdin"
 			interactive = true
-			RunCommand(editor, workspaceConfigFilePath)
+			RunCommand(ctx, nil, editor, workspaceConfigFilePath)
 		}
 	},
 }

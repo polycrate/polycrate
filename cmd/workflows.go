@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	goErrors "errors"
 	"strings"
 
@@ -32,9 +33,28 @@ var workflowsCmd = &cobra.Command{
 	Aliases: []string{
 		"workflows",
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
-		workspace.ListWorkflows().Flush()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			log.Fatal(err)
+		}
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
+
+		err = workspace.ListWorkflows()
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		return nil
 	},
 }
 
@@ -70,54 +90,61 @@ func (c *Workflow) Inspect() {
 	printObject(c)
 }
 
-func (c *Workflow) run() error {
-	log.Debugf("Running Workflow '%s'", c.Name)
+func (w *Workflow) run(ctx context.Context) error {
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("workflow", w.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	log.Debugf("Running Workflow")
 
 	// Check if any steps are configured
 	// Return an error if not
-	if len(c.Steps) == 0 {
-		return goErrors.New("no steps defined for workflow " + c.Name)
+	if len(w.Steps) == 0 {
+		return goErrors.New("no steps defined for workflow " + w.Name)
 	}
 
-	for index, step := range c.Steps {
-		log.Debugf("Running step %d (%s) of workflow %s", index, step.Name, c.Name)
+	for _, step := range w.Steps {
+		log = log.WithField("step", step.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
 
-		err := step.run()
+		err := step.run(ctx)
 		if err != nil {
 			return err
 		}
 
 		// reloading workspace to account for new artifacts
-		workspace.load()
+		workspace.Reload(ctx)
 	}
 
 	return nil
 }
 
-func (c *Step) run() error {
-	// Get workflow from step
-	workflow := workspace.GetWorkflowFromIndex(c.Workflow)
+func (s *Step) run(ctx context.Context) error {
+	log := polycrate.GetContextLogger(ctx)
 
-	log.Debugf("Running step '%s' of workflow '%s'", c.Name, workflow.Name)
+	// // Get workflow from step
+	// workflow := workspace.GetWorkflowFromIndex(s.Workflow)
+
+	log.Debugf("Running step")
 
 	// Reloading Workspace to discover new files
 	//workspace.load().Flush()
 
 	// Check if an a block and an action have been configured
-	if c.Block == "" {
-		return goErrors.New("no block configured for step " + c.Name + " of workflow " + workflow.Name)
+	if s.Block == "" {
+		return goErrors.New("no block configured")
 	}
-	if c.Action == "" {
-		return goErrors.New("no action configured for step " + c.Name + " of workflow " + workflow.Name)
+	if s.Action == "" {
+		return goErrors.New("no action configured")
 	}
 
-	// Run the configured action
-	log.Debugf("Running action '%s' of block '%s'")
+	workspace.registerCurrentStep(s)
 
-	workspace.registerCurrentStep(c)
-
-	actionAddress := strings.Join([]string{c.Block, c.Action}, ".")
-	workspace.RunAction(actionAddress).Flush()
+	actionAddress := strings.Join([]string{s.Block, s.Action}, ".")
+	err := workspace.RunAction(ctx, actionAddress)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

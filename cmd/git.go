@@ -70,11 +70,6 @@ func GitCreateRepo(path string, remote string, branch string, url string) error 
 		return err
 	}
 
-	// err = GitCreateAndCheckoutBranch(r, GitDefaultBranch, remote)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	return nil
 }
 
@@ -194,11 +189,10 @@ func GitDeleteRemote(path string, name string) error {
 // 	return url != ""
 // }
 
-func GitHasRemote(path string, remote string) bool {
+func GitHasRemote(path string) bool {
 	args := []string{
 		"remote",
-		"get-url",
-		remote,
+		"-v",
 	}
 	output, err := GitExecute(path, args)
 	if err != nil {
@@ -229,23 +223,23 @@ func GitOpenRepo(path string) (*git.Repository, error) {
 	return repo, nil
 }
 
-func GitRepoExists(path string) error {
-	repo, err := GitOpenRepo(path)
-	if err != nil {
-		return err
-	}
+// func GitRepoExists(path string) error {
+// 	repo, err := GitOpenRepo(path)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	revHash, err := repo.ResolveRevision(plumbing.Revision(config.Sync.DefaultBranch))
-	if err != nil {
-		return err
-	}
-	_, err = repo.CommitObject(*revHash)
+// 	revHash, err := repo.ResolveRevision(plumbing.Revision(polycrateConfig.Sync.DefaultBranch))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	_, err = repo.CommitObject(*revHash)
 
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 func GitGetStatus(r *git.Repository) (*git.Status, error) {
 	w, err := r.Worktree()
@@ -320,7 +314,7 @@ func GitGetUserEmail() (string, error) {
 		"config",
 		"user.email",
 	}
-	output, err := GitExecute(workspace.LocalPath, args)
+	output, err := GitExecute(polycrateConfigDir, args)
 	if err != nil {
 		log.Error(err)
 		return "", err
@@ -334,7 +328,7 @@ func GitGetUserName() (string, error) {
 		"user.name",
 	}
 
-	output, err := GitExecute(workspace.LocalPath, args)
+	output, err := GitExecute(polycrateConfigDir, args)
 	if err != nil {
 		log.Error(err)
 		return "", err
@@ -527,42 +521,9 @@ func GitCreateRemote(path string, name string, url string) error {
 
 	_, err := GitExecute(path, remoteArgs)
 
-	// _, err := r.CreateRemote(&gitConfig.RemoteConfig{
-	// 	Name:  name,
-	// 	URLs:  []string{url},
-	// 	Fetch: []gitConfig.RefSpec{"+refs/heads/*:refs/remotes/origin/*"},
-	// })
-
 	if err != nil {
 		return err
 	}
-
-	// localRef := plumbing.NewBranchReferenceName(fmt.Sprintf("refs/heads/%s", GitDefaultBranch))
-	// remoteRef := plumbing.NewRemoteReferenceName(GitDefaultRemote, GitDefaultBranch)
-	// ref, err := r.Reference(remoteRef, true)
-	// fmt.Println(ref)
-	// log.Warn("Marker")
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Println(ref.Hash())
-	// if err := r.Storer.SetReference(plumbing.NewHashReference(localRef, ref.Hash())); err != nil {
-	// 	return err
-	// }
-
-	// currentConfig, err := r.Config()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// main := gitConfig.Branch{
-	// 	Name:   GitDefaultBranch,
-	// 	Remote: GitDefaultRemote,
-	// 	Merge:  "origin",
-	// }
-	// currentConfig.Branches[GitDefaultBranch] = &main
-
-	// printObject(currentConfig)
-	// r.SetConfig(currentConfig)
 
 	log.WithFields(log.Fields{
 		"branch": GitDefaultBranch,
@@ -574,35 +535,6 @@ func GitCreateRemote(path string, name string, url string) error {
 	if err != nil {
 		return err
 	}
-
-	// err = r.Fetch(&git.FetchOptions{
-	// 	RemoteName: GitDefaultRemote,
-	// })
-
-	// if err != nil {
-	// 	if errors.Is(err, transport.ErrEmptyRemoteRepository) {
-	// 		log.WithFields(log.Fields{
-	// 			"branch": GitDefaultBranch,
-	// 			"remote": GitDefaultRemote,
-	// 		}).Debugf("Remote repository is empty")
-	// 	} else if errors.Is(err, git.NoErrAlreadyUpToDate) {
-	// 		log.WithFields(log.Fields{
-	// 			"branch": GitDefaultBranch,
-	// 			"remote": GitDefaultRemote,
-	// 		}).Debugf("Remote local repository is up to date")
-	// 	} else {
-	// 		return err
-	// 	}
-	// }
-
-	// localRef := plumbing.NewBranchReferenceName(GitDefaultBranch)
-	// remoteRef := plumbing.NewRemoteReferenceName(GitDefaultRemote, GitDefaultBranch)
-
-	// newReference := plumbing.NewSymbolicReference(localRef, remoteRef)
-
-	// if err := repository.Storer.SetReference(newReference); err != nil {
-	// 	return err
-	// }
 
 	return nil
 }

@@ -18,16 +18,13 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"context"
 	goErrors "errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/template"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
 	"github.com/go-playground/validator/v10"
 	"github.com/imdario/mergo"
 	log "github.com/sirupsen/logrus"
@@ -87,251 +84,225 @@ func (c *Action) MergeIn(action Action) error {
 	return nil
 }
 
-func (c *Action) RunContainer() error {
-	containerImage := strings.Join([]string{workspace.Config.Image.Reference, workspace.Config.Image.Version}, ":")
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+// func (c *Action) RunContainer() error {
+// 	containerImage := strings.Join([]string{workspace.Config.Image.Reference, workspace.Config.Image.Version}, ":")
+// 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 
-	if err != nil {
-		return err
-	}
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"action":    c.Name,
-		"block":     c.Block,
-		"build":     build,
-		"pull":      pull,
-	}).Debugf("Running container")
+// 	if err != nil {
+// 		return err
+// 	}
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"action":    c.Name,
+// 		"block":     c.Block,
+// 		"build":     build,
+// 		"pull":      pull,
+// 	}).Debugf("Running container")
 
-	// Check if a Dockerfile is configured in the Workspace
-	if workspace.Config.Dockerfile != "" {
-		// Create the filepath
-		dockerfilePath := filepath.Join(workspace.LocalPath, workspace.Config.Dockerfile)
+// 	// Check if a Dockerfile is configured in the Workspace
+// 	if workspace.Config.Dockerfile != "" {
+// 		// Create the filepath
+// 		dockerfilePath := filepath.Join(workspace.LocalPath, workspace.Config.Dockerfile)
 
-		// Check if the file exists
-		if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
-			if build {
-				// We need to build and tag this
-				log.WithFields(log.Fields{
-					"workspace": workspace.Name,
-					"action":    c.Name,
-					"block":     c.Block,
-					"path":      dockerfilePath,
-					"build":     build,
-					"pull":      pull,
-				}).Debugf("Dockerfile detected")
+// 		// Check if the file exists
+// 		if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
+// 			if build {
+// 				// We need to build and tag this
+// 				log.WithFields(log.Fields{
+// 					"workspace": workspace.Name,
+// 					"action":    c.Name,
+// 					"block":     c.Block,
+// 					"path":      dockerfilePath,
+// 					"build":     build,
+// 					"pull":      pull,
+// 				}).Debugf("Dockerfile detected")
 
-				tag := workspace.Name + ":" + version
-				log.WithFields(log.Fields{
-					"workspace": workspace.Name,
-					"action":    c.Name,
-					"block":     c.Block,
-					"path":      dockerfilePath,
-					"image":     tag,
-					"build":     build,
-					"pull":      pull,
-				}).Warnf("Building image")
+// 				tag := workspace.Name + ":" + version
+// 				log.WithFields(log.Fields{
+// 					"workspace": workspace.Name,
+// 					"action":    c.Name,
+// 					"block":     c.Block,
+// 					"path":      dockerfilePath,
+// 					"image":     tag,
+// 					"build":     build,
+// 					"pull":      pull,
+// 				}).Warnf("Building image")
 
-				tags := []string{tag}
-				containerImage, err = buildContainerImage(workspace.Config.Dockerfile, tags)
-				if err != nil {
-					return err
-				}
-			} else {
-				if pull {
-					log.WithFields(log.Fields{
-						"workspace": workspace.Name,
-						"action":    c.Name,
-						"block":     c.Block,
-						"image":     containerImage,
-						"build":     build,
-						"pull":      pull,
-					}).Debugf("Pulling image")
-					err := pullContainerImage(containerImage)
+// 				tags := []string{tag}
+// 				containerImage, err = buildContainerImage(workspace.Config.Dockerfile, tags)
+// 				if err != nil {
+// 					return err
+// 				}
+// 			} else {
+// 				if pull {
+// 					log.WithFields(log.Fields{
+// 						"workspace": workspace.Name,
+// 						"action":    c.Name,
+// 						"block":     c.Block,
+// 						"image":     containerImage,
+// 						"build":     build,
+// 						"pull":      pull,
+// 					}).Debugf("Pulling image")
+// 					err := pullContainerImage(containerImage)
 
-					if err != nil {
-						return err
-					}
-				} else {
-					log.WithFields(log.Fields{
-						"workspace": workspace.Name,
-						"action":    c.Name,
-						"block":     c.Block,
-						"image":     containerImage,
-						"build":     build,
-						"pull":      pull,
-					}).Debugf("Not pulling/building image")
-				}
-			}
-		} else {
-			if pull {
-				log.WithFields(log.Fields{
-					"workspace": workspace.Name,
-					"action":    c.Name,
-					"block":     c.Block,
-					"image":     containerImage,
-					"build":     build,
-					"pull":      pull,
-				}).Debugf("Pulling image")
-				err := pullContainerImage(containerImage)
+// 					if err != nil {
+// 						return err
+// 					}
+// 				} else {
+// 					log.WithFields(log.Fields{
+// 						"workspace": workspace.Name,
+// 						"action":    c.Name,
+// 						"block":     c.Block,
+// 						"image":     containerImage,
+// 						"build":     build,
+// 						"pull":      pull,
+// 					}).Debugf("Not pulling/building image")
+// 				}
+// 			}
+// 		} else {
+// 			if pull {
+// 				log.WithFields(log.Fields{
+// 					"workspace": workspace.Name,
+// 					"action":    c.Name,
+// 					"block":     c.Block,
+// 					"image":     containerImage,
+// 					"build":     build,
+// 					"pull":      pull,
+// 				}).Debugf("Pulling image")
+// 				err := pullContainerImage(containerImage)
 
-				if err != nil {
-					return err
-				}
-			} else {
-				log.WithFields(log.Fields{
-					"workspace": workspace.Name,
-					"action":    c.Name,
-					"block":     c.Block,
-					"image":     containerImage,
-					"build":     build,
-					"pull":      pull,
-				}).Debugf("Not pulling/building image")
-			}
-		}
-	} else {
-		if pull {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-				"action":    c.Name,
-				"block":     c.Block,
-				"image":     containerImage,
-				"build":     build,
-				"pull":      pull,
-			}).Debugf("Pulling image")
-			err := pullContainerImage(containerImage)
+// 				if err != nil {
+// 					return err
+// 				}
+// 			} else {
+// 				log.WithFields(log.Fields{
+// 					"workspace": workspace.Name,
+// 					"action":    c.Name,
+// 					"block":     c.Block,
+// 					"image":     containerImage,
+// 					"build":     build,
+// 					"pull":      pull,
+// 				}).Debugf("Not pulling/building image")
+// 			}
+// 		}
+// 	} else {
+// 		if pull {
+// 			log.WithFields(log.Fields{
+// 				"workspace": workspace.Name,
+// 				"action":    c.Name,
+// 				"block":     c.Block,
+// 				"image":     containerImage,
+// 				"build":     build,
+// 				"pull":      pull,
+// 			}).Debugf("Pulling image")
+// 			err := pullContainerImage(containerImage)
 
-			if err != nil {
-				return err
-			}
-		} else {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-				"action":    c.Name,
-				"block":     c.Block,
-				"image":     containerImage,
-				"build":     build,
-				"pull":      pull,
-			}).Debugf("Not pulling/building image")
-		}
-	}
+// 			if err != nil {
+// 				return err
+// 			}
+// 		} else {
+// 			log.WithFields(log.Fields{
+// 				"workspace": workspace.Name,
+// 				"action":    c.Name,
+// 				"block":     c.Block,
+// 				"image":     containerImage,
+// 				"build":     build,
+// 				"pull":      pull,
+// 			}).Debugf("Not pulling/building image")
+// 		}
+// 	}
 
-	entrypoint := []string{"bash", "-c"}
-	runCommand := []string{}
+// 	entrypoint := []string{"bash", "-c"}
+// 	runCommand := []string{}
 
-	if c.executionScriptPath != "" {
-		log.WithFields(log.Fields{
-			"workspace": workspace.Name,
-			"action":    c.Name,
-			"block":     c.Block,
-			"path":      c.executionScriptPath,
-		}).Debugf("Running script")
+// 	if c.executionScriptPath != "" {
+// 		log.WithFields(log.Fields{
+// 			"workspace": workspace.Name,
+// 			"action":    c.Name,
+// 			"block":     c.Block,
+// 			"path":      c.executionScriptPath,
+// 		}).Debugf("Running script")
 
-		runCommand = append(runCommand, c.executionScriptPath)
-	} else {
-		return goErrors.New("no execution script path given. Nothing to do")
-	}
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"action":    c.Name,
-		"block":     c.Block,
-	}).Debugf("Running entrypoint %s", entrypoint)
+// 		runCommand = append(runCommand, c.executionScriptPath)
+// 	} else {
+// 		return goErrors.New("no execution script path given. Nothing to do")
+// 	}
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"action":    c.Name,
+// 		"block":     c.Block,
+// 	}).Debugf("Running entrypoint %s", entrypoint)
 
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"action":    c.Name,
-		"block":     c.Block,
-	}).Debugf("Running command %s", runCommand)
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"action":    c.Name,
+// 		"block":     c.Block,
+// 	}).Debugf("Running command %s", runCommand)
 
-	containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+// 	containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
 
-	cc := &container.Config{
-		Image: containerImage,
-		//Cmd:        runCommand,
-		Entrypoint: entrypoint,
-		Cmd:        runCommand,
-		Tty:        true,
-		Labels: map[string]string{
-			"polycrate.workspace": workspace.Name,
-			"polycrate.name":      containerName,
-		},
-		AttachStderr: true,
-		AttachStdin:  interactive,
-		AttachStdout: true,
-		StdinOnce:    interactive,
-		OpenStdin:    interactive,
-		Env:          workspace.DumpEnv(),
-		WorkingDir:   workspace.currentBlock.Workdir.ContainerPath,
-	}
+// 	cc := &container.Config{
+// 		Image: containerImage,
+// 		//Cmd:        runCommand,
+// 		Entrypoint: entrypoint,
+// 		Cmd:        runCommand,
+// 		Tty:        true,
+// 		Labels: map[string]string{
+// 			"polycrate.workspace": workspace.Name,
+// 			"polycrate.name":      containerName,
+// 		},
+// 		AttachStderr: true,
+// 		AttachStdin:  interactive,
+// 		AttachStdout: true,
+// 		StdinOnce:    interactive,
+// 		OpenStdin:    interactive,
+// 		Env:          workspace.DumpEnv(),
+// 		WorkingDir:   workspace.currentBlock.Workdir.ContainerPath,
+// 	}
 
-	// Setup mounts
-	containerMounts := []mount.Mount{}
-	for containerMount := range workspace.mounts {
-		m := mount.Mount{
-			Type:   mount.TypeBind,
-			Source: containerMount,
-			Target: workspace.mounts[containerMount],
-		}
-		containerMounts = append(containerMounts, m)
-	}
+// 	// Setup mounts
+// 	containerMounts := []mount.Mount{}
+// 	for containerMount := range workspace.mounts {
+// 		m := mount.Mount{
+// 			Type:   mount.TypeBind,
+// 			Source: containerMount,
+// 			Target: workspace.mounts[containerMount],
+// 		}
+// 		containerMounts = append(containerMounts, m)
+// 	}
 
-	hc := &container.HostConfig{
-		Mounts: containerMounts,
-	}
+// 	hc := &container.HostConfig{
+// 		Mounts: containerMounts,
+// 	}
 
-	err = runContainer(cli, cc, hc, containerName)
-	// containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
-	// workspace.RunContainer(containerName, workspace.ContainerPath, runCommand).Flush()
-	return err
-}
+// 	err = runContainer(cli, cc, hc, containerName)
+// 	// containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+// 	// workspace.RunContainer(containerName, workspace.ContainerPath, runCommand).Flush()
+// 	return err
+// }
 
-func (c *Action) Run() error {
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"action":    c.Name,
-		"block":     c.Block,
-	}).Debugf("Running action")
+func (a *Action) Run(ctx context.Context) error {
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("action", a.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	log.Debugf("Running action")
 
 	// 3. Determine inventory path
 	inventoryPath := workspace.currentBlock.getInventoryPath()
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-		"action":    c.Name,
-		"block":     c.Block,
-		"inventory": inventoryPath,
-	}).Debugf("Updating inventory")
+	log.Debugf("Updating inventory: %s", inventoryPath)
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", inventoryPath)
 
 	// 4. Determine kubeconfig path
 	kubeconfigPath := workspace.currentBlock.getKubeconfigPath()
-	log.WithFields(log.Fields{
-		"workspace":  c.Name,
-		"action":     c.Name,
-		"block":      c.Block,
-		"kubeconfig": kubeconfigPath,
-	}).Debugf("Updating kubeconfig")
+	log.Debugf("Updating kubeconfig: %s", kubeconfigPath)
 	workspace.registerEnvVar("KUBECONFIG", kubeconfigPath)
 
-	// log.WithFields(log.Fields{
-	// 	"workspace": c.Name,
-	// 	"action":    c.Name,
-	// 	"block":     c.Block,
-	// 	"path":      workspace.currentBlock.Artifacts.Path,
-	// }).Debugf("Setting Helm repo cache path")
-	// workspace.registerEnvVar("HELM_REPOSITORY_CACHE", workspace.currentBlock.Artifacts.Path)
-
-	// log.WithFields(log.Fields{
-	// 	"workspace": c.Name,
-	// 	"action":    c.Name,
-	// 	"block":     c.Block,
-	// 	"path":      filepath.Join(workspace.currentBlock.Artifacts.Path, "registry.json"),
-	// }).Debugf("Setting Helm repo config file path")
-	// workspace.registerEnvVar("HELM_REPOSITORY_CONFIG", filepath.Join(workspace.currentBlock.Artifacts.Path, "repositories.yaml"))
-
 	// register environment variables
-	workspace.registerEnvVar("POLYCRATE_RUNTIME_SCRIPT_PATH", c.executionScriptPath)
+	workspace.registerEnvVar("POLYCRATE_RUNTIME_SCRIPT_PATH", a.executionScriptPath)
 
 	// Wrapup
-	if c.Interactive {
+	if a.Interactive {
 		// Set interactive=true globally
 		interactive = true
 	}
@@ -345,12 +316,12 @@ func (c *Action) Run() error {
 		} else {
 			// Save execution script
 			var err error
-			if len(c.Script) > 0 {
-				err = c.saveExecutionScript()
+			if len(a.Script) > 0 {
+				err = a.saveExecutionScript()
 				// We use the vars plugin in "script" mode
 				workspace.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
-			} else if c.Playbook != "" {
-				err = c.saveAnsibleScript(snapshotContainerPath)
+			} else if a.Playbook != "" {
+				err = a.saveAnsibleScript(snapshotContainerPath)
 			} else {
 				err = fmt.Errorf("neither 'script' nor 'playbook' have been defined")
 			}
@@ -360,26 +331,22 @@ func (c *Action) Run() error {
 			}
 
 			// register mounts
-			workspace.registerMount(c.executionScriptPath, c.executionScriptPath)
+			workspace.registerMount(a.executionScriptPath, a.executionScriptPath)
 
 			if !local {
-				containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+				containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, a.Name})
 				runCommand := []string{}
-				if c.executionScriptPath != "" {
-					log.WithFields(log.Fields{
-						"workspace": workspace.Name,
-						"action":    c.Name,
-						"block":     c.Block,
-						"path":      c.executionScriptPath,
-					}).Debugf("Running script")
+				if a.executionScriptPath != "" {
+					log.Debugf("Running script: %s", a.executionScriptPath)
 
-					runCommand = append(runCommand, c.executionScriptPath)
+					runCommand = append(runCommand, a.executionScriptPath)
 				} else {
 					return goErrors.New("no execution script path given. Nothing to do")
 				}
-				workspace.RunContainer(containerName, workspace.ContainerPath, runCommand).Flush()
-				//err := c.RunContainer()
-				//return err
+				err := workspace.RunContainer(ctx, containerName, workspace.ContainerPath, runCommand)
+				if err != nil {
+					return err
+				}
 			} else {
 				err := fmt.Errorf("'local' mode not yet implemented")
 				return err

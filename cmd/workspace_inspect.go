@@ -16,8 +16,42 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
+
+// func newWorkspaceInspectCmd(args []string) *cobra.Command {
+// 	cmd := &cobra.Command{
+// 		Use:   "inspect",
+// 		Short: "Inspect the workspace",
+// 		Long:  ``,
+// 		Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
+// 		RunE: func(cmd *cobra.Command, args []string) error {
+// 			ctx, _ := context.WithCancel(context.Background())
+// 			ctx, err := polycrate.StartTransaction(ctx)
+// 			if err != nil {
+// 				log.Fatal(err)
+// 			}
+
+// 			log := polycrate.GetContextLogger(ctx)
+
+// 			workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+// 			if err != nil {
+// 				log.Fatal(err)
+// 			}
+
+// 			log = log.WithField("workspace", workspace.Name)
+// 			ctx = polycrate.SetContextLogger(ctx, log)
+
+// 			workspace.Inspect(ctx)
+// 			return nil
+// 		},
+// 	}
+
+// 	return cmd
+// }
 
 // installCmd represents the install command
 var workspaceInspectCmd = &cobra.Command{
@@ -25,9 +59,29 @@ var workspaceInspectCmd = &cobra.Command{
 	Short: "Inspect the workspace",
 	Long:  ``,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
-	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
-		workspace.Inspect()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
+
+		workspace.Inspect(ctx)
+
+		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
+			return err
+		}
+		return nil
 	},
 }
 

@@ -16,6 +16,8 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +39,9 @@ var blocksPullCmd = &cobra.Command{
 		// 	log.Fatal(err)
 		// }
 
-		err := workspace.PullBlock(fullTag, registryUrl, blockName, blockVersion)
+		ctx := context.Background()
+
+		err := workspace.PullBlock(ctx, fullTag, registryUrl, blockName, blockVersion)
 		if err != nil {
 			log.Fatal(err)
 		}

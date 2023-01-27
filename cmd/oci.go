@@ -72,9 +72,9 @@ func WrapOCIImage(path string, registryUrl string, imageName string, imageTag st
 
 	//log.Debugf("Pulling base image %s", config.Registry.BaseImage)
 	log.WithFields(log.Fields{
-		"image": config.Registry.BaseImage,
+		"image": polycrate.Config.Registry.BaseImage,
 	}).Debugf("Pulling base image")
-	img, err := PullOCIImage(config.Registry.BaseImage)
+	img, err := PullOCIImage(polycrate.Config.Registry.BaseImage)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func WrapOCIImage(path string, registryUrl string, imageName string, imageTag st
 }
 
 func UnwrapOCIImage(path string, registryUrl string, imageName string, imageTag string) error {
-	registryBase := config.Registry.Url
+	registryBase := polycrate.Config.Registry.Url
 
 	if registryUrl != "" {
 		registryBase = registryUrl
@@ -246,4 +246,5 @@ func layerFromDir(root string, targetPath string) (v1.Layer, error) {
 		return nil, fmt.Errorf("failed to finish tar: %w", err)
 	}
 	return tarball.LayerFromReader(&b)
+	//return tarball.LayerFromOpener(&b)
 }

@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	goErrors "errors"
 	"fmt"
 	"os"
@@ -28,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/xeipuuv/gojsonschema"
+	"golang.org/x/sync/errgroup"
 )
 
 var pruneBlock bool
@@ -108,11 +110,9 @@ func (b *Block) Flush() *Block {
 	return b
 }
 
-func (b *Block) SSH(hostname string) *Block {
-	log.WithFields(log.Fields{
-		"block":     b.Name,
-		"workspace": workspace.Name,
-	}).Infof("Starting SSH session")
+func (b *Block) SSH(ctx context.Context, hostname string) error {
+	log := polycrate.GetContextLogger(ctx)
+	log.Infof("Starting SSH session")
 
 	containerName := slugify([]string{"polycrate", "ssh", hostname})
 	fileName := strings.Join([]string{containerName, "yml"}, ".")
@@ -123,15 +123,13 @@ func (b *Block) SSH(hostname string) *Block {
 	// Create temp file to write output to
 	f, err := workspace.getTempFile(fileName)
 	if err != nil {
-		b.err = err
-		return b
+		return err
 	}
 
 	workspace.registerMount(f.Name(), f.Name())
 
 	if _, err := workspace.SaveSnapshot(); err != nil {
-		b.err = err
-		return b
+		return err
 	}
 
 	//cmd := "exec $(poly-utils ssh cmd " + hostname + ")"
@@ -142,7 +140,10 @@ func (b *Block) SSH(hostname string) *Block {
 		"--output-file",
 		f.Name(),
 	}
-	workspace.RunContainer(containerName, workspace.ContainerPath, cmd).Flush()
+	err = workspace.RunContainer(ctx, containerName, workspace.ContainerPath, cmd)
+	if err != nil {
+		return err
+	}
 
 	// Load hosts from file
 	var hosts = viper.New()
@@ -150,26 +151,22 @@ func (b *Block) SSH(hostname string) *Block {
 		hosts.SetConfigType("yaml")
 		hosts.SetConfigFile(f.Name())
 	} else {
-		b.err = err
-		return b
+		return err
 	}
 
 	err = hosts.MergeInConfig()
 	if err != nil {
-		b.err = err
-		return b
+		return err
 	}
 
 	// Get IP
 	sshHost := hosts.Sub(hostname)
 	if sshHost == nil {
-		b.err = fmt.Errorf("host not found: %s", hostname)
-		return b
+		return fmt.Errorf("host not found: %s", hostname)
 	}
 	ip := sshHost.GetString("ip")
 	if ip == "" {
-		b.err = fmt.Errorf("ip of host %s not found", hostname)
-		return b
+		return fmt.Errorf("ip of host %s not found", hostname)
 	}
 	user := sshHost.GetString("user")
 	if user == "" {
@@ -185,239 +182,232 @@ func (b *Block) SSH(hostname string) *Block {
 	privateKey := filepath.Join(workspace.LocalPath, workspace.Config.SshPrivateKey)
 	if privateKey == "" {
 		err = fmt.Errorf("no private key found")
-		b.err = err
-		return b
+		return err
 	}
 
-	log.WithFields(log.Fields{
-		"user":      user,
-		"ip":        ip,
-		"port":      port,
-		"workspace": workspace.Name,
-	}).Infof("Connecting")
+	log.Infof("Connecting via SSH")
 
 	//err = connectWithSSH(user, ip, port, privateKey)
 	interactive = true
-	err = ConnectWithSSH(user, ip, port, privateKey)
+	err = ConnectWithSSH(ctx, user, ip, port, privateKey)
 	if err != nil {
-		b.err = err
-		return b
+		return err
 	}
 
-	return b
+	return nil
 
 }
 
-func (b *Block) Resolve() *Block {
-	if !b.resolved {
-		log.WithFields(log.Fields{
-			"block":     b.Name,
-			"workspace": workspace.Name,
-		}).Debugf("Resolving block %s", b.Name)
+// func (b *Block) Resolve() *Block {
+// 	if !b.resolved {
+// 		log.WithFields(log.Fields{
+// 			"block":     b.Name,
+// 			"workspace": workspace.Name,
+// 		}).Debugf("Resolving block %s", b.Name)
 
-		// Check if a "from:" stanza is given and not empty
-		// This means that the loadedBlock should inherit from another Block
-		if b.From != "" {
-			// a "from:" stanza is given
-			log.WithFields(log.Fields{
-				"block":      b.Name,
-				"dependency": b.From,
-				"workspace":  workspace.Name,
-			}).Debugf("Dependency detected")
+// 		// Check if a "from:" stanza is given and not empty
+// 		// This means that the loadedBlock should inherit from another Block
+// 		if b.From != "" {
+// 			// a "from:" stanza is given
+// 			log.WithFields(log.Fields{
+// 				"block":      b.Name,
+// 				"dependency": b.From,
+// 				"workspace":  workspace.Name,
+// 			}).Debugf("Dependency detected")
 
-			// Try to load the referenced Block
-			dependency := workspace.getBlockByName(b.From)
+// 			// Try to load the referenced Block
+// 			dependency := workspace.getBlockByName(b.From)
 
-			if dependency == nil {
-				log.WithFields(log.Fields{
-					"block":      b.Name,
-					"dependency": b.From,
-					"workspace":  workspace.Name,
-				}).Errorf("Dependency not found in the workspace")
+// 			if dependency == nil {
+// 				log.WithFields(log.Fields{
+// 					"block":      b.Name,
+// 					"dependency": b.From,
+// 					"workspace":  workspace.Name,
+// 				}).Errorf("Dependency not found in the workspace")
 
-				b.err = fmt.Errorf("Block '%s' not found in the Workspace. Please check the 'from' stanza of Block '%s'", b.From, b.Name)
-				return b
-			}
+// 				b.err = fmt.Errorf("Block '%s' not found in the Workspace. Please check the 'from' stanza of Block '%s'", b.From, b.Name)
+// 				return b
+// 			}
 
-			log.WithFields(log.Fields{
-				"block":      b.Name,
-				"dependency": b.From,
-				"workspace":  workspace.Name,
-			}).Debugf("Dependency loaded")
+// 			log.WithFields(log.Fields{
+// 				"block":      b.Name,
+// 				"dependency": b.From,
+// 				"workspace":  workspace.Name,
+// 			}).Debugf("Dependency loaded")
 
-			dep := *dependency
+// 			dep := *dependency
 
-			// Check if the dependency Block has already been resolved
-			// If not, re-queue the loaded Block so it can be resolved in another iteration
-			if !dep.resolved {
-				// Needed Block from 'from' stanza is not yet resolved
-				log.WithFields(log.Fields{
-					"block":               b.Name,
-					"dependency":          b.From,
-					"workspace":           workspace.Name,
-					"dependency_resolved": dep.resolved,
-				}).Debugf("Dependency not resolved")
-				b.resolved = false
-				b.err = DependencyNotResolved
-				return b
-			}
+// 			// Check if the dependency Block has already been resolved
+// 			// If not, re-queue the loaded Block so it can be resolved in another iteration
+// 			if !dep.resolved {
+// 				// Needed Block from 'from' stanza is not yet resolved
+// 				log.WithFields(log.Fields{
+// 					"block":               b.Name,
+// 					"dependency":          b.From,
+// 					"workspace":           workspace.Name,
+// 					"dependency_resolved": dep.resolved,
+// 				}).Debugf("Dependency not resolved")
+// 				b.resolved = false
+// 				b.err = DependencyNotResolved
+// 				return b
+// 			}
 
-			// Merge the dependency Block into the loaded Block
-			// We do NOT OVERWRITE existing values in the loaded Block because we must assume
-			// That this is configuration that has been explicitly set by the user
-			// The merge works like "loading defaults" for the loaded Block
-			err := b.MergeIn(dep)
-			if err != nil {
-				b.err = err
-				return b
-			}
+// 			// Merge the dependency Block into the loaded Block
+// 			// We do NOT OVERWRITE existing values in the loaded Block because we must assume
+// 			// That this is configuration that has been explicitly set by the user
+// 			// The merge works like "loading defaults" for the loaded Block
+// 			err := b.MergeIn(dep)
+// 			if err != nil {
+// 				b.err = err
+// 				return b
+// 			}
 
-			// Handle Workdir
-			b.Workdir.LocalPath = dep.Workdir.LocalPath
-			b.Workdir.ContainerPath = dep.Workdir.ContainerPath
+// 			// Handle Workdir
+// 			b.Workdir.LocalPath = dep.Workdir.LocalPath
+// 			b.Workdir.ContainerPath = dep.Workdir.ContainerPath
 
-			log.WithFields(log.Fields{
-				"block":      b.Name,
-				"dependency": b.From,
-				"workspace":  workspace.Name,
-			}).Debugf("Dependency resolved")
+// 			log.WithFields(log.Fields{
+// 				"block":      b.Name,
+// 				"dependency": b.From,
+// 				"workspace":  workspace.Name,
+// 			}).Debugf("Dependency resolved")
 
-		} else {
-			log.WithFields(log.Fields{
-				"block":     b.Name,
-				"workspace": workspace.Name,
-			}).Debugf("Block has no dependencies")
+// 		} else {
+// 			log.WithFields(log.Fields{
+// 				"block":     b.Name,
+// 				"workspace": workspace.Name,
+// 			}).Debugf("Block has no dependencies")
 
-		}
+// 		}
 
-		// Validate schema
-		err := b.ValidateSchema()
-		if err != nil {
-			b.err = err
-			return b
-		}
+// 		// Validate schema
+// 		err := b.ValidateSchema()
+// 		if err != nil {
+// 			b.err = err
+// 			return b
+// 		}
 
-		// Register the Block to the Index
-		b.address = b.Name
-		workspace.registerBlock(b)
+// 		// Register the Block to the Index
+// 		b.address = b.Name
+// 		workspace.registerBlock(b)
 
-		// Update Artifacts, Kubeconfig & Inventory
-		err = b.LoadArtifacts()
-		if err != nil {
-			b.err = err
-			return b
-		}
-		b.LoadInventory()
-		b.LoadKubeconfig()
+// 		// Update Artifacts, Kubeconfig & Inventory
+// 		err = b.LoadArtifacts()
+// 		if err != nil {
+// 			b.err = err
+// 			return b
+// 		}
+// 		b.LoadInventory()
+// 		b.LoadKubeconfig()
 
-		// Update Action addresses for all blocks not covered by dependencies
-		if len(b.Actions) > 0 {
-			log.WithFields(log.Fields{
-				"block":     b.Name,
-				"workspace": workspace.Name,
-			}).Debugf("Updating action addresses")
+// 		// Update Action addresses for all blocks not covered by dependencies
+// 		if len(b.Actions) > 0 {
+// 			log.WithFields(log.Fields{
+// 				"block":     b.Name,
+// 				"workspace": workspace.Name,
+// 			}).Debugf("Updating action addresses")
 
-			for _, action := range b.Actions {
+// 			for _, action := range b.Actions {
 
-				existingAction := b.getActionByName(action.Name)
+// 				existingAction := b.getActionByName(action.Name)
 
-				actionAddress := strings.Join([]string{b.Name, existingAction.Name}, ".")
-				if existingAction.address != actionAddress {
-					existingAction.address = actionAddress
-					log.WithFields(log.Fields{
-						"block":     b.Name,
-						"action":    existingAction.Name,
-						"workspace": workspace.Name,
-						"address":   actionAddress,
-					}).Debugf("Updated action address")
-				}
+// 				actionAddress := strings.Join([]string{b.Name, existingAction.Name}, ".")
+// 				if existingAction.address != actionAddress {
+// 					existingAction.address = actionAddress
+// 					log.WithFields(log.Fields{
+// 						"block":     b.Name,
+// 						"action":    existingAction.Name,
+// 						"workspace": workspace.Name,
+// 						"address":   actionAddress,
+// 					}).Debugf("Updated action address")
+// 				}
 
-				if existingAction.Block != b.Name {
-					existingAction.Block = b.Name
-					log.WithFields(log.Fields{
-						"block":     b.Name,
-						"action":    existingAction.Name,
-						"workspace": workspace.Name,
-						"address":   actionAddress,
-					}).Debugf("Updated action block")
-				}
+// 				if existingAction.Block != b.Name {
+// 					existingAction.Block = b.Name
+// 					log.WithFields(log.Fields{
+// 						"block":     b.Name,
+// 						"action":    existingAction.Name,
+// 						"workspace": workspace.Name,
+// 						"address":   actionAddress,
+// 					}).Debugf("Updated action block")
+// 				}
 
-				err := existingAction.validate()
-				if err != nil {
-					b.err = err
-					return b
-				}
+// 				err := existingAction.validate()
+// 				if err != nil {
+// 					b.err = err
+// 					return b
+// 				}
 
-				// Register the Action to the Index
-				workspace.registerAction(existingAction)
-			}
-		}
+// 				// Register the Action to the Index
+// 				workspace.registerAction(existingAction)
+// 			}
+// 		}
 
-		b.resolved = true
-	}
-	return b
-}
+// 		b.resolved = true
+// 	}
+// 	return b
+// }
 
-func (b *Block) Load() *Block {
-	blockConfigFilePath := filepath.Join(b.Workdir.LocalPath, workspace.Config.BlocksConfig)
+// func (b *Block) Load() *Block {
+// 	blockConfigFilePath := filepath.Join(b.Workdir.LocalPath, workspace.Config.BlocksConfig)
 
-	blockConfigObject := viper.New()
-	blockConfigObject.SetConfigType("yaml")
-	blockConfigObject.SetConfigFile(blockConfigFilePath)
+// 	blockConfigObject := viper.New()
+// 	blockConfigObject.SetConfigType("yaml")
+// 	blockConfigObject.SetConfigFile(blockConfigFilePath)
 
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"path":      b.Workdir.LocalPath,
-	}).Debugf("Loading installed block")
+// 	log.WithFields(log.Fields{
+// 		"workspace": workspace.Name,
+// 		"path":      b.Workdir.LocalPath,
+// 	}).Debugf("Loading installed block")
 
-	if err := blockConfigObject.MergeInConfig(); err != nil {
-		b.err = err
-		return b
-	}
+// 	if err := blockConfigObject.MergeInConfig(); err != nil {
+// 		b.err = err
+// 		return b
+// 	}
 
-	if err := blockConfigObject.UnmarshalExact(&b); err != nil {
-		b.err = err
-		return b
-	}
+// 	if err := blockConfigObject.UnmarshalExact(&b); err != nil {
+// 		b.err = err
+// 		return b
+// 	}
 
-	// Load schema
-	schemaFilePath := filepath.Join(b.Workdir.LocalPath, "schema.json")
-	if _, err := os.Stat(schemaFilePath); !os.IsNotExist(err) {
-		b.schema = schemaFilePath
+// 	// Load schema
+// 	schemaFilePath := filepath.Join(b.Workdir.LocalPath, "schema.json")
+// 	if _, err := os.Stat(schemaFilePath); !os.IsNotExist(err) {
+// 		b.schema = schemaFilePath
 
-		log.WithFields(log.Fields{
-			"block":       b.Name,
-			"workspace":   workspace.Name,
-			"schema_path": schemaFilePath,
-		}).Debugf("Loaded schema")
-	}
+// 		log.WithFields(log.Fields{
+// 			"block":       b.Name,
+// 			"workspace":   workspace.Name,
+// 			"schema_path": schemaFilePath,
+// 		}).Debugf("Loaded schema")
+// 	}
 
-	if err := b.validate(); err != nil {
-		b.err = err
-		return b
-	}
+// 	if err := b.validate(); err != nil {
+// 		b.err = err
+// 		return b
+// 	}
 
-	// Set Block vars
-	relativeBlockPath, err := filepath.Rel(filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot), b.Workdir.LocalPath)
-	if err != nil {
-		b.err = err
-		return b
-	}
-	b.Workdir.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.BlocksRoot, relativeBlockPath)
+// 	// Set Block vars
+// 	relativeBlockPath, err := filepath.Rel(filepath.Join(workspace.LocalPath, workspace.Config.BlocksRoot), b.Workdir.LocalPath)
+// 	if err != nil {
+// 		b.err = err
+// 		return b
+// 	}
+// 	b.Workdir.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.BlocksRoot, relativeBlockPath)
 
-	if local {
-		b.Workdir.Path = b.Workdir.LocalPath
-	} else {
-		b.Workdir.Path = b.Workdir.ContainerPath
-	}
+// 	if local {
+// 		b.Workdir.Path = b.Workdir.LocalPath
+// 	} else {
+// 		b.Workdir.Path = b.Workdir.ContainerPath
+// 	}
 
-	log.WithFields(log.Fields{
-		"block":     b.Name,
-		"workspace": workspace.Name,
-	}).Debugf("Loaded block")
+// 	log.WithFields(log.Fields{
+// 		"block":     b.Name,
+// 		"workspace": workspace.Name,
+// 	}).Debugf("Loaded block")
 
-	return b
-}
+// 	return b
+// }
 
 func (b *Block) ValidateSchema() error {
 	if b.schema == "" {
@@ -451,17 +441,32 @@ func (b *Block) ValidateSchema() error {
 	return nil
 }
 
-func (b *Block) Reload() *Block {
-	// Update Artifacts, Kubeconfig & Inventory
-	err := b.LoadArtifacts()
-	if err != nil {
-		b.err = err
-		return b
-	}
-	b.LoadInventory()
-	b.LoadKubeconfig()
+func (b *Block) Reload(ctx context.Context, workspaceLocalPath string, workspaceContainerPath string) error {
+	eg := new(errgroup.Group)
 
-	return b
+	// Update Artifacts, Kubeconfig & Inventory
+	eg.Go(func() error {
+		err := b.LoadArtifacts(ctx, workspaceLocalPath, workspaceContainerPath)
+		if err != nil {
+			return err
+		}
+
+		err = b.LoadInventory()
+		if err != nil {
+			return err
+		}
+
+		err = b.LoadKubeconfig()
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Block) getInventoryPath() string {
@@ -556,7 +561,7 @@ func (b *Block) validate() error {
 	return nil
 }
 
-func (c *Block) MergeIn(block Block) error {
+func (c *Block) MergeIn(block *Block) error {
 	// if err := mergo.Merge(c, block); err != nil {
 	// 	log.Fatal(err)
 	// }
@@ -669,7 +674,7 @@ func (c *Block) Inspect() {
 	printObject(c)
 }
 
-func (c *Block) LoadInventory() {
+func (c *Block) LoadInventory() error {
 	// Locate "inventory.yml" in blockArtifactsDir
 
 	var blockInventoryFile string
@@ -710,10 +715,10 @@ func (c *Block) LoadInventory() {
 	} else {
 		c.Inventory.exists = false
 	}
-
+	return nil
 }
 
-func (c *Block) LoadKubeconfig() {
+func (c *Block) LoadKubeconfig() error {
 	// Locate "kubeconfig.yml" in blockArtifactsDir
 	var blockKubeconfigFile string
 	if c.Kubeconfig.Filename != "" {
@@ -747,29 +752,29 @@ func (c *Block) LoadKubeconfig() {
 	} else {
 		c.Kubeconfig.exists = false
 	}
-
+	return nil
 }
 
-func (c *Block) LoadArtifacts() error {
+func (b *Block) LoadArtifacts(ctx context.Context, workspaceLocalPath string, workspaceContainerPath string) error {
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
-	c.Artifacts.LocalPath = filepath.Join(workspace.LocalPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, c.Name)
+	b.Artifacts.LocalPath = filepath.Join(workspaceLocalPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, b.Name)
 	// e.g. /workspace/artifacts/blocks/block-1
-	c.Artifacts.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, c.Name)
+	b.Artifacts.ContainerPath = filepath.Join(workspaceContainerPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, b.Name)
 
 	if local {
-		c.Artifacts.Path = c.Artifacts.LocalPath
+		b.Artifacts.Path = b.Artifacts.LocalPath
 	} else {
-		c.Artifacts.Path = c.Artifacts.ContainerPath
+		b.Artifacts.Path = b.Artifacts.ContainerPath
 	}
 
 	// Check if the local artifacts directory for this Block exists
-	if _, err := os.Stat(c.Artifacts.LocalPath); os.IsNotExist(err) {
+	if _, err := os.Stat(b.Artifacts.LocalPath); os.IsNotExist(err) {
 		// Directory does not exist
 		// We create it
-		if err := os.MkdirAll(c.Artifacts.LocalPath, os.ModePerm); err != nil {
+		if err := os.MkdirAll(b.Artifacts.LocalPath, os.ModePerm); err != nil {
 			return err
 		}
-		log.Debugf("Created artifacts directory for block %s at %s", c.Name, c.Artifacts.LocalPath)
+		log.Debugf("Created artifacts directory for block %s at %s", b.Name, b.Artifacts.LocalPath)
 	}
 	return nil
 

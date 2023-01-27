@@ -16,9 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"path/filepath"
-
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -34,36 +31,36 @@ var workspaceInstallCmd = &cobra.Command{
 	//Args: cobra.RangeArgs(1, 2), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 
-		workspaceName, workspaceVersion, err := registry.resolveArg(args[0])
-		if err != nil {
-			log.Fatal(err)
-		}
+		// workspaceName, workspaceVersion, err := registry.resolveArg(args[0])
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 
 		// Check registry workspace index
-		registryWorkspace, err := registry.GetWorkspace(workspaceName)
-		if err != nil {
-			log.Fatal(err)
-		}
+		// registryWorkspace, err := registry.GetWorkspace(workspaceName)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 
-		// Check local workspace index
-		if localWorkspaceIndex[workspaceName] != "" {
-			// We found a workspace with that name in the index
-			path := localWorkspaceIndex[workspaceName]
-			log.WithFields(log.Fields{
-				"workspace": workspaceName,
-				"path":      path,
-			}).Fatalf("Workspace is already installed")
-		}
+		// // Check local workspace index
+		// if localWorkspaceIndex[workspaceName] != "" {
+		// 	// We found a workspace with that name in the index
+		// 	path := localWorkspaceIndex[workspaceName]
+		// 	log.WithFields(log.Fields{
+		// 		"workspace": workspaceName,
+		// 		"path":      path,
+		// 	}).Fatalf("Workspace is already installed")
+		// }
 
-		if registryWorkspace != nil {
-			// Compile installation path
-			workspaceInstallDir := filepath.Join(polycrateWorkspaceDir, workspaceName)
+		// if registryWorkspace != nil {
+		// 	// Compile installation path
+		// 	workspaceInstallDir := filepath.Join(polycrateWorkspaceDir, workspaceName)
 
-			err := registryWorkspace.Install(workspaceInstallDir, workspaceVersion)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+		// 	err := registryWorkspace.Install(workspaceInstallDir, workspaceVersion)
+		// 	if err != nil {
+		// 		log.Fatal(err)
+		// 	}
+		// }
 
 	},
 }

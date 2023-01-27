@@ -1,0 +1,22 @@
+{{define "base"}}
+<!doctype html>
+<html lang='en'>
+
+<head>
+  <meta charset='utf-8'>
+  <title>Polycrate</title>
+</head>
+
+<body>
+  <header>
+    <h1><a href='/'>{{template "title" .}} {{ .Title }}</a></h1>
+  </header>
+  {{template "nav" .}}
+  <main>
+    {{template "main" .}}
+  </main>
+  <footer>Powered by <a href='https://polycrate.io/'>Polycrate</a></footer>
+</body>
+
+</html>
+{{end}}
