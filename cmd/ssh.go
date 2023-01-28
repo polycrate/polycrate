@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -44,14 +45,15 @@ var sshCmd = &cobra.Command{
 
 		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
 		if err != nil {
-			log.Fatal(err)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
 		log = log.WithField("workspace", workspace.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
 
 		if _sshBlock == "" {
-			log.Fatal("No block selected. Use ' --block $BLOCK_NAME' to select an inventory source.")
+			err := fmt.Errorf("no block selected. Use ' --block $BLOCK_NAME' to select an inventory source")
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
 		block := workspace.GetBlockFromIndex(_sshBlock)
@@ -62,14 +64,15 @@ var sshCmd = &cobra.Command{
 
 			err := block.SSH(ctx, hostname, workspace)
 			if err != nil {
-				return err
+				polycrate.ContextExit(ctx, cancelFunc, err)
 			}
 		} else {
-			log.Fatalf("Block does not exist: %s.", _sshBlock)
-			return err
+			err := fmt.Errorf("block does not exist: %s", _sshBlock)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
 		//workspace.RunAction(args[0]).Flush()
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 		return nil
 	},
 }

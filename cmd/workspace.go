@@ -263,8 +263,8 @@ func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
 	return c
 }
 
-func (c *Workspace) Snapshot() {
-	snapshot := c.GetSnapshot()
+func (c *Workspace) Snapshot(ctx context.Context) {
+	snapshot := c.GetSnapshot(ctx)
 	printObject(snapshot)
 	//convertToEnv(&snapshot)
 }
@@ -307,7 +307,7 @@ func (w *Workspace) RunAction(ctx context.Context, address string) error {
 
 		// Write log here
 		if snapshot {
-			w.Snapshot()
+			w.Snapshot(ctx)
 		} else {
 			err := action.Run(ctx, w)
 			if err != nil {
@@ -440,7 +440,8 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 	return nil
 }
 
-func (w *Workspace) PruneContainer() *Workspace {
+func (w *Workspace) PruneContainer(ctx context.Context) error {
+	log := polycrate.GetContextLogger(ctx)
 	// docker container prune --filter label=polycrate.workspace.revision.transaction=%sw.
 	filters := []string{
 		fmt.Sprintf("label=polycrate.workspace.name=%s", w.Name),
@@ -450,18 +451,15 @@ func (w *Workspace) PruneContainer() *Workspace {
 		filters,
 	)
 
-	log.WithFields(log.Fields{
-		"workspace":   w.Name,
-		"exit_code":   exitCode,
-		"transaction": w.containerStatus.Transaction,
-	}).Debugf("Pruned container")
+	log.WithField("exit_code", exitCode)
+	log.Debugf("Pruned container")
 
 	// Handle pruning error
 	if err != nil {
-		w.err = err
+		return err
 	}
 	w.containerStatus.Pruned = true
-	return w
+	return nil
 }
 
 func (w *Workspace) RunContainer(ctx context.Context, name string, workdir string, cmd []string) error {
@@ -568,7 +566,7 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 	// Update revision
 	w.revision.Output = output
 	w.revision.ExitCode = exitCode
-	w.revision.Snapshot = w.GetSnapshot()
+	w.revision.Snapshot = w.GetSnapshot(ctx)
 
 	w.containerStatus.Running = false
 
@@ -578,7 +576,7 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 	}
 
 	// Prune container
-	w.PruneContainer().Flush()
+	w.PruneContainer(ctx)
 
 	return nil
 
@@ -668,7 +666,7 @@ func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
 		w.registerCurrentWorkflow(workflow)
 
 		if snapshot {
-			w.Snapshot()
+			w.Snapshot(ctx)
 		} else {
 			err := workflow.run(ctx, w)
 			if err != nil {
@@ -691,7 +689,7 @@ func (w *Workspace) RunStep(ctx context.Context, name string) error {
 
 	if step != nil {
 		if snapshot {
-			w.Snapshot()
+			w.Snapshot(ctx)
 		} else {
 			err := step.run(ctx, w)
 			if err != nil {
@@ -1863,7 +1861,8 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 	return c
 }
 
-func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
+func (c *Workspace) GetSnapshot(ctx context.Context) WorkspaceSnapshot {
+	log := polycrate.GetContextLogger(ctx)
 	log.Debug("Generating snapshot")
 	snapshot := WorkspaceSnapshot{
 		Workspace: c,
@@ -1881,7 +1880,7 @@ func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
 
 func (w *Workspace) SaveSnapshot(ctx context.Context) (string, error) {
 	log := polycrate.GetContextLogger(ctx)
-	snapshot := w.GetSnapshot()
+	snapshot := w.GetSnapshot(ctx)
 
 	//c.RegisterSnapshotEnv(snapshot).Flush()
 

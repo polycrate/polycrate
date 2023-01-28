@@ -324,7 +324,7 @@ func (a *Action) Run(ctx context.Context, workspace *Workspace) error {
 	}
 
 	if snapshot {
-		workspace.Snapshot()
+		workspace.Snapshot(ctx)
 	} else {
 		// Save snapshot before running the action
 		if snapshotContainerPath, err := workspace.SaveSnapshot(ctx); err != nil {
@@ -376,8 +376,8 @@ func (a *Action) Run(ctx context.Context, workspace *Workspace) error {
 func (c *Action) saveExecutionScript(ctx context.Context, workspace *Workspace) error {
 	log := polycrate.GetContextLogger(ctx)
 
-	script := c.GetExecutionScript()
-	snapshot := workspace.GetSnapshot()
+	script := c.GetExecutionScript(ctx)
+	snapshot := workspace.GetSnapshot(ctx)
 
 	txid := polycrate.GetContextTXID(ctx)
 	scriptSlug := slugify([]string{txid.String(), "execution", "script"})
@@ -447,7 +447,7 @@ func (a *Action) saveAnsibleScript(ctx context.Context, snapshotContainerPath st
 
 	scriptString := fmt.Sprintf("ansible-playbook -e '@%s' %s", snapshotContainerPath, a.Playbook)
 	script := append(scriptSlice, scriptString)
-	snapshot := workspace.GetSnapshot()
+	snapshot := workspace.GetSnapshot(ctx)
 
 	txid := polycrate.GetContextTXID(ctx)
 	scriptSlug := slugify([]string{txid.String(), "execution", "script"})
@@ -506,7 +506,9 @@ func (a *Action) saveAnsibleScript(ctx context.Context, snapshotContainerPath st
 
 }
 
-func (c *Action) GetExecutionScript() []string {
+func (c *Action) GetExecutionScript(ctx context.Context) []string {
+	log := polycrate.GetContextLogger(ctx)
+
 	// Prepare script
 	scriptSlice := []string{
 		"#!/bin/bash",

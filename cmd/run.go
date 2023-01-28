@@ -39,7 +39,7 @@ To run an Action, use this command with 2 arguments - the Block name and the Act
 
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-		workspace.SaveRevision().Flush()
+		// workspace.SaveRevision().Flush()
 		//workspace.Sync().Flush()
 
 	},

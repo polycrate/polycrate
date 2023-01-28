@@ -44,7 +44,8 @@ var activateFlag bool
 
 func signalHandler(s os.Signal) {
 	// Deal with running containers
-	workspace.PruneContainer().Flush()
+	ctx := context.Background()
+	workspace.PruneContainer(ctx)
 	//workspace.Sync().Flush()
 
 	log.Fatalf("ctrl-c received")
@@ -369,7 +370,8 @@ func DownloadFile(url string, fp string) error {
 
 func cleanupWorkspace() {
 	if !workspace.containerStatus.Pruned {
-		workspace.PruneContainer().Flush()
+		ctx := context.Background()
+		workspace.PruneContainer(ctx)
 	}
 }
 

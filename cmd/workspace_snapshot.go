@@ -43,7 +43,7 @@ var workspaceSnapshotCmd = &cobra.Command{
 		log = log.WithField("workspace", workspace.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
 
-		workspace.Snapshot()
+		workspace.Snapshot(ctx)
 
 		polycrate.ContextExit(ctx, cancelFunc, nil)
 	},
