@@ -16,7 +16,9 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
+	"context"
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -27,14 +29,30 @@ var blocksInspectCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
+
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
+
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
 
 		block := workspace.GetBlockFromIndex(args[0])
 		if block != nil {
 			block.Inspect()
 		} else {
-			log.Fatalf("Block not found: %s", args[0])
+			err := fmt.Errorf("Block not found: %s", args[0])
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 	},
 }
 

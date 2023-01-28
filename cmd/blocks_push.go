@@ -41,7 +41,7 @@ var blocksPushCmd = &cobra.Command{
 
 		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
 		if err != nil {
-			log.Fatal(err)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
 		log = log.WithField("workspace", workspace.Name)
@@ -49,13 +49,10 @@ var blocksPushCmd = &cobra.Command{
 
 		err = workspace.PushBlock(ctx, blockName)
 		if err != nil {
-			log.Fatal(err)
-			return err
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
-		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
-			log.Fatal(err)
-		}
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 
 		return nil
 

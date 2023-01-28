@@ -1,25 +1,24 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
 var logCmd = &cobra.Command{
 	// Deprecated: "This command is deprecated as it has limited functionality. Use `cloudstack pipelines` instead",
-	Use:   "log 'this is a logmessage'",
-	Short: "Adds a message to the log file",
-	Args:  cobra.ExactArgs(1),
-	Long:  ``,
+	Use:        "log 'this is a logmessage'",
+	Short:      "Adds a message to the log file",
+	Args:       cobra.ExactArgs(1),
+	Long:       ``,
+	Hidden:     true,
+	Deprecated: "don't use this",
 	Run: func(cmd *cobra.Command, args []string) {
-		message := args[0]
-		workspace.load().Flush()
+		// message := args[0]
+		// workspace.load().Flush()
 
-		//sync.Log(message)
-		fmt.Println(message)
+		// //sync.Log(message)
+		// fmt.Println(message)
 	},
-	Hidden: true,
 }
 
 func init() {

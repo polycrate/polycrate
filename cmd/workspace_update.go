@@ -53,12 +53,10 @@ var workspaceUpdateCmd = &cobra.Command{
 
 		err = workspace.UpdateBlocks(ctx, workspace.Dependencies)
 		if err != nil {
-			log.Fatal(err)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
-		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
-			return err
-		}
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 		return nil
 	},
 }

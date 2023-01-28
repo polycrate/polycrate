@@ -28,7 +28,7 @@ var initCmd = &cobra.Command{
 	Long:  `Initalize a workspace`,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		workspaceCreateCmd.Run(cmd, args)
+		workspaceInitCmd.Run(cmd, args)
 	},
 }
 

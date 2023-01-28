@@ -18,7 +18,6 @@ package cmd
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -63,14 +62,14 @@ var workspaceInspectCmd = &cobra.Command{
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
 		if err != nil {
-			log.Fatal(err)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
 		log := polycrate.GetContextLogger(ctx)
 
 		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
 		if err != nil {
-			log.Fatal(err)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
 		log = log.WithField("workspace", workspace.Name)
@@ -78,9 +77,7 @@ var workspaceInspectCmd = &cobra.Command{
 
 		workspace.Inspect(ctx)
 
-		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
-			log.Fatal(err)
-		}
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 
 		return nil
 	},

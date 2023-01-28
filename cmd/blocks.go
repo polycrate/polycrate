@@ -33,6 +33,7 @@ import (
 )
 
 var pruneBlock bool
+var blockVersion string
 
 // installCmd represents the install command
 var blocksCmd = &cobra.Command{

@@ -18,10 +18,11 @@ import (
 
 // createCmd represents the create command
 var createCmd = &cobra.Command{
-	Hidden: false,
-	Use:    "create",
-	Short:  "Create",
-	Long:   `Create certain resources around your workspace`,
+	Hidden:     true,
+	Deprecated: "don't use this",
+	Use:        "create",
+	Short:      "Create",
+	Long:       `Create certain resources around your workspace`,
 }
 
 func init() {

@@ -19,7 +19,6 @@ import (
 	"context"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -38,14 +37,14 @@ var runWorkflowCmd = &cobra.Command{
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
 		if err != nil {
-			log.Fatal(err)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
 		log := polycrate.GetContextLogger(ctx)
 
 		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
 		if err != nil {
-			log.Fatal(err)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 		log = log.WithField("workspace", workspace.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
@@ -58,19 +57,15 @@ var runWorkflowCmd = &cobra.Command{
 			stepAddress := strings.Join([]string{workflowName, stepName}, ".")
 			err := workspace.RunStep(ctx, stepAddress)
 			if err != nil {
-				log.Fatal(err)
-				return err
+				polycrate.ContextExit(ctx, cancelFunc, err)
 			}
 		}
 		err = workspace.RunWorkflow(ctx, args[0])
 		if err != nil {
-			log.Fatal(err)
-			return err
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
-		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
-			return err
-		}
+		polycrate.ContextExit(ctx, cancelFunc, err)
 
 		return nil
 	},

@@ -22,9 +22,11 @@ import (
 
 // createCmd represents the create command
 var cloneWorkspaceCmd = &cobra.Command{
-	Use:   "clone",
-	Short: "clone",
-	Long:  `Clone an existing Workspace`,
+	Use:        "clone",
+	Short:      "clone",
+	Long:       `Clone an existing Workspace`,
+	Hidden:     true,
+	Deprecated: "don't use this",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Warn("Comming soon! Check https://polycrate.io for more")
 	},

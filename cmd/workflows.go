@@ -51,10 +51,11 @@ var workflowsCmd = &cobra.Command{
 		ctx = polycrate.SetContextLogger(ctx, log)
 
 		err = workspace.ListWorkflows()
+
 		if err != nil {
-			log.Fatal(err)
-			return err
+			polycrate.ContextExit(ctx, cancelFunc, nil)
 		}
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 		return nil
 	},
 }

@@ -29,7 +29,7 @@ var withSshKeys bool
 var withConfig bool
 
 // installCmd represents the install command
-var workspaceCreateCmd = &cobra.Command{
+var workspaceInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize a workspace",
 	Long:  ``,
@@ -242,9 +242,9 @@ var workspaceCreateCmd = &cobra.Command{
 }
 
 func init() {
-	workspaceCreateCmd.Flags().StringVar(&withName, "with-name", "", "The name of the workspace")
-	workspaceCreateCmd.Flags().BoolVar(&withSshKeys, "with-ssh-keys", true, "Create SSH keys")
-	workspaceCreateCmd.Flags().BoolVar(&withConfig, "with-config", true, "Create config file")
+	workspaceInitCmd.Flags().StringVar(&withName, "with-name", "", "The name of the workspace")
+	workspaceInitCmd.Flags().BoolVar(&withSshKeys, "with-ssh-keys", true, "Create SSH keys")
+	workspaceInitCmd.Flags().BoolVar(&withConfig, "with-config", true, "Create config file")
 
-	workspaceCmd.AddCommand(workspaceCreateCmd)
+	workspaceCmd.AddCommand(workspaceInitCmd)
 }

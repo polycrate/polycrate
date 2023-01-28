@@ -49,11 +49,11 @@ The action address is a combination of the Block name and the Action name, joine
 		log = log.WithField("workspace", workspace.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
 
-		workspace.RunAction(ctx, args[0])
-
-		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
-			log.Fatal(err)
+		if err := workspace.RunAction(ctx, args[0]); err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
+
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 
 	},
 }

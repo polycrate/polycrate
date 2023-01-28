@@ -16,6 +16,8 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+
 	"github.com/spf13/cobra"
 )
 
@@ -25,8 +27,25 @@ var workspaceSnapshotCmd = &cobra.Command{
 	Long:  `Show Workspace snapshot`,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
+
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
+
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
+
 		workspace.Snapshot()
+
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 	},
 }
 

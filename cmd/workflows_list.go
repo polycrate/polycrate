@@ -16,7 +16,8 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
+	"context"
+
 	"github.com/spf13/cobra"
 )
 
@@ -25,14 +26,28 @@ var listWorkflowsCmd = &cobra.Command{
 	Short: "List Workflows",
 	Long:  `List Workflows`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		workspace.load().Flush()
-
-		err := workspace.ListWorkflows()
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
 		if err != nil {
-			log.Fatal(err)
-			return err
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
+
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
+
+		err = workspace.ListWorkflows()
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
+
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 		return nil
 	},
 }

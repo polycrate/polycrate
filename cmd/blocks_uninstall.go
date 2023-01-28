@@ -16,31 +16,47 @@ limitations under the License.
 package cmd
 
 import (
-	"os"
+	"context"
+	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 // installCmd represents the install command
 var blocksUninstallCmd = &cobra.Command{
-	Use:   "uninstall BLOCK1 BLOCK2",
-	Short: "Uninstall blocks",
-	Long:  ``,
+	Use:    "uninstall BLOCK1 BLOCK2",
+	Short:  "Uninstall blocks",
+	Hidden: true,
+	Long:   ``,
 	//Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
-		if len(args) == 0 {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-			}).Warnf("No blocks given")
-			os.Exit(0)
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
-		err := workspace.UninstallBlocks(args)
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
 		if err != nil {
-			log.Fatal(err)
+			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
+
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
+
+		if len(args) == 0 {
+			err := fmt.Errorf("no blocks given")
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
+
+		err = workspace.UninstallBlocks(args)
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
+
+		polycrate.ContextExit(ctx, cancelFunc, nil)
 	},
 }
 
