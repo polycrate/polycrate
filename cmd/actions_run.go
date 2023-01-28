@@ -49,8 +49,6 @@ The action address is a combination of the Block name and the Action name, joine
 		log = log.WithField("workspace", workspace.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
 
-		workspace.load().Flush()
-
 		workspace.RunAction(ctx, args[0])
 
 		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {

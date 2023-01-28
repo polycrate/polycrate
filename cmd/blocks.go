@@ -110,25 +110,26 @@ func (b *Block) Flush() *Block {
 	return b
 }
 
-func (b *Block) SSH(ctx context.Context, hostname string) error {
+func (b *Block) SSH(ctx context.Context, hostname string, workspace *Workspace) error {
 	log := polycrate.GetContextLogger(ctx)
 	log.Infof("Starting SSH session")
 
-	containerName := slugify([]string{"polycrate", "ssh", hostname})
+	txid := polycrate.GetContextTXID(ctx)
+	containerName := slugify([]string{txid.String(), "ssh"})
 	fileName := strings.Join([]string{containerName, "yml"}, ".")
-	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath())
+	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath(workspace))
 	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath())
 	workspace.registerCurrentBlock(b)
 
 	// Create temp file to write output to
-	f, err := workspace.getTempFile(fileName)
+	f, err := polycrate.getTempFile(ctx, fileName)
 	if err != nil {
 		return err
 	}
 
 	workspace.registerMount(f.Name(), f.Name())
 
-	if _, err := workspace.SaveSnapshot(); err != nil {
+	if _, err := workspace.SaveSnapshot(ctx); err != nil {
 		return err
 	}
 
@@ -441,12 +442,12 @@ func (b *Block) ValidateSchema() error {
 	return nil
 }
 
-func (b *Block) Reload(ctx context.Context, workspaceLocalPath string, workspaceContainerPath string) error {
+func (b *Block) Reload(ctx context.Context, workspace *Workspace) error {
 	eg := new(errgroup.Group)
 
 	// Update Artifacts, Kubeconfig & Inventory
 	eg.Go(func() error {
-		err := b.LoadArtifacts(ctx, workspaceLocalPath, workspaceContainerPath)
+		err := b.LoadArtifacts(ctx, workspace)
 		if err != nil {
 			return err
 		}
@@ -469,8 +470,7 @@ func (b *Block) Reload(ctx context.Context, workspaceLocalPath string, workspace
 	return nil
 }
 
-func (c *Block) getInventoryPath() string {
-	log.Debugf("Remote inventory: %s", c.Inventory.From)
+func (c *Block) getInventoryPath(workspace *Workspace) string {
 
 	if c.Inventory.From != "" {
 		// Take the inventory from another Block
@@ -508,7 +508,6 @@ func (c *Block) getKubeconfigPath() string {
 			log.Error("No kubeconfig found")
 		}
 	} else {
-		log.Debugf("Not Loading Kubeconfig from other block")
 		if c.Kubeconfig.exists {
 			if local {
 				return c.Kubeconfig.LocalPath
@@ -755,11 +754,11 @@ func (c *Block) LoadKubeconfig() error {
 	return nil
 }
 
-func (b *Block) LoadArtifacts(ctx context.Context, workspaceLocalPath string, workspaceContainerPath string) error {
+func (b *Block) LoadArtifacts(ctx context.Context, workspace *Workspace) error {
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
-	b.Artifacts.LocalPath = filepath.Join(workspaceLocalPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, b.Name)
+	b.Artifacts.LocalPath = filepath.Join(workspace.LocalPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, b.Name)
 	// e.g. /workspace/artifacts/blocks/block-1
-	b.Artifacts.ContainerPath = filepath.Join(workspaceContainerPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, b.Name)
+	b.Artifacts.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, b.Name)
 
 	if local {
 		b.Artifacts.Path = b.Artifacts.LocalPath

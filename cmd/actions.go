@@ -281,7 +281,7 @@ func (c *Action) MergeIn(action Action) error {
 // 	return err
 // }
 
-func (a *Action) Run(ctx context.Context) error {
+func (a *Action) Run(ctx context.Context, workspace *Workspace) error {
 	log := polycrate.GetContextLogger(ctx)
 	log = log.WithField("action", a.Name)
 	ctx = polycrate.SetContextLogger(ctx, log)
@@ -289,7 +289,7 @@ func (a *Action) Run(ctx context.Context) error {
 	log.Debugf("Running action")
 
 	// 3. Determine inventory path
-	inventoryPath := workspace.currentBlock.getInventoryPath()
+	inventoryPath := workspace.currentBlock.getInventoryPath(workspace)
 	log.Debugf("Updating inventory: %s", inventoryPath)
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", inventoryPath)
 
@@ -311,17 +311,17 @@ func (a *Action) Run(ctx context.Context) error {
 		workspace.Snapshot()
 	} else {
 		// Save snapshot before running the action
-		if snapshotContainerPath, err := workspace.SaveSnapshot(); err != nil {
+		if snapshotContainerPath, err := workspace.SaveSnapshot(ctx); err != nil {
 			return err
 		} else {
 			// Save execution script
 			var err error
 			if len(a.Script) > 0 {
-				err = a.saveExecutionScript()
+				err = a.saveExecutionScript(ctx, workspace)
 				// We use the vars plugin in "script" mode
 				workspace.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
 			} else if a.Playbook != "" {
-				err = a.saveAnsibleScript(snapshotContainerPath)
+				err = a.saveAnsibleScript(ctx, snapshotContainerPath)
 			} else {
 				err = fmt.Errorf("neither 'script' nor 'playbook' have been defined")
 			}
@@ -334,7 +334,8 @@ func (a *Action) Run(ctx context.Context) error {
 			workspace.registerMount(a.executionScriptPath, a.executionScriptPath)
 
 			if !local {
-				containerName := slugify([]string{workspace.Name, workspace.currentBlock.Name, a.Name})
+				txid := polycrate.GetContextTXID(ctx)
+				containerName := txid.String()
 				runCommand := []string{}
 				if a.executionScriptPath != "" {
 					log.Debugf("Running script: %s", a.executionScriptPath)
@@ -356,20 +357,22 @@ func (a *Action) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *Action) saveExecutionScript() error {
+func (c *Action) saveExecutionScript(ctx context.Context, workspace *Workspace) error {
+	log := polycrate.GetContextLogger(ctx)
+
 	script := c.GetExecutionScript()
 	snapshot := workspace.GetSnapshot()
 
-	scriptSlug := slugify([]string{workspace.Name, workspace.currentBlock.Name, c.Name})
+	txid := polycrate.GetContextTXID(ctx)
+	scriptSlug := slugify([]string{txid.String(), "execution", "script"})
 	scriptFilename := strings.Join([]string{scriptSlug, "sh"}, ".")
 
 	if script != nil {
-		f, err := workspace.getTempFile(scriptFilename)
+		f, err := polycrate.getTempFile(ctx, scriptFilename)
 		if err != nil {
 			return err
 		}
 
-		log.Debugf("Script not empty, saving to %s", f.Name())
 		datawriter := bufio.NewWriter(f)
 
 		for _, data := range script {
@@ -391,7 +394,8 @@ func (c *Action) saveExecutionScript() error {
 		}
 
 		datawriter.Flush()
-		log.Debug("Saved temporary execution script to " + f.Name())
+		log = log.WithField("path", f.Name())
+		log.Debug("Saved temporary execution script")
 
 		// Make executable
 		err = os.Chmod(f.Name(), 0755)
@@ -416,7 +420,9 @@ func (c *Action) saveExecutionScript() error {
 
 }
 
-func (a *Action) saveAnsibleScript(snapshotContainerPath string) error {
+func (a *Action) saveAnsibleScript(ctx context.Context, snapshotContainerPath string) error {
+	log := polycrate.GetContextLogger(ctx)
+
 	// Prepare script
 	scriptSlice := []string{
 		"#!/bin/bash",
@@ -427,16 +433,16 @@ func (a *Action) saveAnsibleScript(snapshotContainerPath string) error {
 	script := append(scriptSlice, scriptString)
 	snapshot := workspace.GetSnapshot()
 
-	scriptSlug := slugify([]string{workspace.Name, workspace.currentBlock.Name, a.Name})
+	txid := polycrate.GetContextTXID(ctx)
+	scriptSlug := slugify([]string{txid.String(), "execution", "script"})
 	scriptFilename := strings.Join([]string{scriptSlug, "sh"}, ".")
 
 	if script != nil {
-		f, err := workspace.getTempFile(scriptFilename)
+		f, err := polycrate.getTempFile(ctx, scriptFilename)
 		if err != nil {
 			return err
 		}
 
-		log.Debugf("Script not empty, saving to %s", f.Name())
 		datawriter := bufio.NewWriter(f)
 
 		for _, data := range script {
@@ -458,7 +464,8 @@ func (a *Action) saveAnsibleScript(snapshotContainerPath string) error {
 		}
 
 		datawriter.Flush()
-		log.Debug("Saved temporary execution script to " + f.Name())
+		log = log.WithField("path", f.Name())
+		log.Debug("Saved temporary execution script")
 
 		// Make executable
 		err = os.Chmod(f.Name(), 0755)

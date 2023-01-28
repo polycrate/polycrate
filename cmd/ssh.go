@@ -60,7 +60,7 @@ var sshCmd = &cobra.Command{
 			log = log.WithField("block", block.Name)
 			ctx = polycrate.SetContextLogger(ctx, log)
 
-			err := block.SSH(ctx, hostname)
+			err := block.SSH(ctx, hostname, workspace)
 			if err != nil {
 				return err
 			}

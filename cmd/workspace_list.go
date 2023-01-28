@@ -23,13 +23,14 @@ import (
 
 // installCmd represents the install command
 var workspaceListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List workspaces",
-	Long:  ``,
-	Args:  cobra.ExactArgs(0),
+	Use:    "list",
+	Short:  "List workspaces",
+	Long:   ``,
+	Hidden: true,
+	Args:   cobra.ExactArgs(0),
 	//Args: cobra.RangeArgs(1, 2), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		for item := range localWorkspaceIndex {
+		for item := range polycrate.Workspaces {
 			fmt.Println(item)
 		}
 

@@ -16,6 +16,8 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -26,19 +28,36 @@ var blocksPushCmd = &cobra.Command{
 	Short: "Upload a block to the registry",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
+	RunE: func(cmd *cobra.Command, args []string) error {
 		blockName := args[0]
-		//registryTag := ""
 
-		// if len(args) == 2 {
-		// 	registryTag = args[1]
-		// }
-
-		err := workspace.PushBlock(blockName)
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		log := polycrate.GetContextLogger(ctx)
+
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log = log.WithField("workspace", workspace.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
+
+		err = workspace.PushBlock(ctx, blockName)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+
+		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
+			log.Fatal(err)
+		}
+
+		return nil
 
 	},
 }

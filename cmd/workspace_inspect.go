@@ -79,8 +79,9 @@ var workspaceInspectCmd = &cobra.Command{
 		workspace.Inspect(ctx)
 
 		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
-			return err
+			log.Fatal(err)
 		}
+
 		return nil
 	},
 }

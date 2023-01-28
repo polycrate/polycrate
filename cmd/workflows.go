@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/manifoldco/promptui"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -68,8 +69,9 @@ type Step struct {
 	Description string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
 	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
 	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
-	Block       string            `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty" validate:"required"`
-	Action      string            `yaml:"action,omitempty" mapstructure:"action,omitempty" json:"action,omitempty" validate:"required"`
+	Block       string            `yaml:"block" mapstructure:"block" json:"block" validate:"required"`
+	Action      string            `yaml:"action" mapstructure:"action" json:"action" validate:"required"`
+	Prompt      string            `yaml:"prompt,omitempty" mapstructure:"prompt,omitempty" json:"prompt,omitempty"`
 	Workflow    string            `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
 	address     string
 	//err         error
@@ -90,7 +92,7 @@ func (c *Workflow) Inspect() {
 	printObject(c)
 }
 
-func (w *Workflow) run(ctx context.Context) error {
+func (w *Workflow) run(ctx context.Context, workspace *Workspace) error {
 	log := polycrate.GetContextLogger(ctx)
 	log = log.WithField("workflow", w.Name)
 	ctx = polycrate.SetContextLogger(ctx, log)
@@ -107,7 +109,7 @@ func (w *Workflow) run(ctx context.Context) error {
 		log = log.WithField("step", step.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
 
-		err := step.run(ctx)
+		err := step.run(ctx, workspace)
 		if err != nil {
 			return err
 		}
@@ -119,7 +121,7 @@ func (w *Workflow) run(ctx context.Context) error {
 	return nil
 }
 
-func (s *Step) run(ctx context.Context) error {
+func (s *Step) run(ctx context.Context, workspace *Workspace) error {
 	log := polycrate.GetContextLogger(ctx)
 
 	// // Get workflow from step
@@ -140,10 +142,35 @@ func (s *Step) run(ctx context.Context) error {
 
 	workspace.registerCurrentStep(s)
 
-	actionAddress := strings.Join([]string{s.Block, s.Action}, ".")
-	err := workspace.RunAction(ctx, actionAddress)
-	if err != nil {
-		return err
+	// Check for prompt
+	var runStep = true
+	if s.Prompt != "" {
+		runStep = false
+		// Ask if sync with git repo is wanted
+		workflowStepPrompt := promptui.Prompt{
+			Label:     s.Prompt,
+			IsConfirm: true,
+		}
+
+		workflowStepPromptResult, _ := workflowStepPrompt.Run()
+
+		// if err != nil {
+		// 	log.Fatalf("Failed to save git repository: %s", err)
+		// }
+		if workflowStepPromptResult == "y" {
+			runStep = true
+		}
+	}
+
+	if runStep {
+		actionAddress := strings.Join([]string{s.Block, s.Action}, ".")
+		err := workspace.RunAction(ctx, actionAddress)
+		if err != nil {
+			return err
+		}
+	} else {
+		log.Warn("Not running step, user confirmation declined")
+		return nil
 	}
 
 	return nil

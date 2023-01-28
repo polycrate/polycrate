@@ -20,13 +20,15 @@ import (
 )
 
 var workspaceSyncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Sync the workspace",
-	Long:  ``,
-	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
+	Use:    "sync",
+	Short:  "Sync the workspace",
+	Long:   ``,
+	Hidden: true,
+	Args:   cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
+		return
 	},
+	Deprecated: "don't use it",
 }
 
 func init() {

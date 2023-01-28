@@ -3,6 +3,7 @@ package cmd
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	log "github.com/sirupsen/logrus"
 )
 
 func OCIImageExists(name string) bool {
@@ -23,7 +23,7 @@ func OCIImageExists(name string) bool {
 	return err == nil
 }
 
-func PullOCIImage(name string) (v1.Image, error) {
+func PullOCIImage(ctx context.Context, name string) (v1.Image, error) {
 	img, err := crane.Pull(name)
 	if err != nil {
 		return nil, err
@@ -31,16 +31,19 @@ func PullOCIImage(name string) (v1.Image, error) {
 	return img, nil
 }
 
-func WrapOCIImage(path string, registryUrl string, imageName string, imageTag string, labels map[string]string) error {
+func WrapOCIImage(ctx context.Context, path string, registryUrl string, imageName string, imageTag string, labels map[string]string) error {
+	log := polycrate.GetContextLogger(ctx)
+
 	var tag name.Tag
 	var latestTag name.Tag
 	var err error
 
-	log.WithFields(log.Fields{
-		"registryUrl": registryUrl,
-		"imageName":   imageName,
-		"imageTag":    imageTag,
-	}).Debugf("Preparing to push image")
+	log = log.WithField("registry", registryUrl)
+	log = log.WithField("image", imageName)
+	log = log.WithField("tag", imageTag)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	log.Debugf("Preparing to push image")
 
 	// if registryTag != "" {
 	// 	tag, err = name.NewTag(strings.Join([]string{registryTag, imageTag}, ":"))
@@ -71,18 +74,18 @@ func WrapOCIImage(path string, registryUrl string, imageName string, imageTag st
 	}
 
 	//log.Debugf("Pulling base image %s", config.Registry.BaseImage)
-	log.WithFields(log.Fields{
-		"image": polycrate.Config.Registry.BaseImage,
-	}).Debugf("Pulling base image")
-	img, err := PullOCIImage(polycrate.Config.Registry.BaseImage)
+	log = log.WithField("base_image", polycrate.Config.Registry.BaseImage)
+	log.Debugf("Pulling base image")
+
+	img, err := PullOCIImage(ctx, polycrate.Config.Registry.BaseImage)
 	if err != nil {
 		return err
 	}
 
 	//log.Debugf("Adding directory to image: %s", path)
-	log.WithFields(log.Fields{
-		"path": path,
-	}).Debugf("Adding layer to image")
+	log = log.WithField("path", path)
+	log.Debugf("Adding layer to image")
+
 	addLayer, err := layerFromDir(path, "")
 	if err != nil {
 		return err
@@ -90,7 +93,7 @@ func WrapOCIImage(path string, registryUrl string, imageName string, imageTag st
 
 	newImg, err := mutate.AppendLayers(img, addLayer)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	origConfig, err := newImg.ConfigFile()
@@ -110,10 +113,9 @@ func WrapOCIImage(path string, registryUrl string, imageName string, imageTag st
 		// }
 
 		for k, v := range labels {
-			log.WithFields(log.Fields{
-				"key":   k,
-				"value": v,
-			}).Debugf("Adding label to image")
+			log = log.WithField("key", k)
+			log = log.WithField("value", v)
+			log.Debugf("Adding label to image")
 			origConfig.Config.Labels[k] = v
 		}
 	}
@@ -124,17 +126,14 @@ func WrapOCIImage(path string, registryUrl string, imageName string, imageTag st
 	}
 
 	//log.Debugf("Pushing image %s", tag.String())
-	log.WithFields(log.Fields{
-		"image": tag.String(),
-	}).Debugf("Pushing image")
+	log.Debugf("Pushing image")
 	if err := crane.Push(newImg, tag.String()); err != nil {
 		return err
 	}
 
 	//log.Debugf("Pushing image %s", latestTag.String())
-	log.WithFields(log.Fields{
-		"image": latestTag.String(),
-	}).Debugf("Pushing image")
+	log = log.WithField("tag", latestTag.String())
+	log.Debugf("Pushing image")
 	if err := crane.Push(newImg, latestTag.String()); err != nil {
 		return err
 	}
@@ -142,7 +141,9 @@ func WrapOCIImage(path string, registryUrl string, imageName string, imageTag st
 	return nil
 }
 
-func UnwrapOCIImage(path string, registryUrl string, imageName string, imageTag string) error {
+func UnwrapOCIImage(ctx context.Context, path string, registryUrl string, imageName string, imageTag string) error {
+	log := polycrate.GetContextLogger(ctx)
+
 	registryBase := polycrate.Config.Registry.Url
 
 	if registryUrl != "" {
@@ -156,36 +157,32 @@ func UnwrapOCIImage(path string, registryUrl string, imageName string, imageTag 
 	}
 
 	//log.Debugf("Pulling image %s", tag.String())
-	log.WithFields(log.Fields{
-		"image": tag.String(),
-	}).Debugf("Pulling image")
+	log = log.WithField("image", tag.String())
+	ctx = polycrate.SetContextLogger(ctx, log)
 
-	img, err := PullOCIImage(tag.String())
+	log.Debugf("Pulling block image")
+
+	img, err := PullOCIImage(ctx, tag.String())
 	if err != nil {
 		return err
 	}
 
-	f, err := workspace.getTempFile(strings.Replace(imageName, "/", "-", -1))
+	f, err := polycrate.getTempFile(ctx, strings.Join([]string{strings.Replace(imageName, "/", "-", -1), "tgz"}, "."))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	//log.Debugf("Saving temporary image to %s", f.Name())
-	log.WithFields(log.Fields{
-		"image": tag.String(),
-		"path":  f.Name(),
-	}).Debugf("Saving image")
+	log = log.WithField("tmp_path", f.Name())
+	log.Debugf("Saving image")
 	if err := crane.Export(img, f); err != nil {
 		return err
 	}
 
 	//log.Debugf("Unpacking image to %s", path)
-	log.WithFields(log.Fields{
-		"image": tag.String(),
-		"path":  path,
-	}).Debugf("Unpacking image")
+	log = log.WithField("path", path)
+	log.Debugf("Unpacking image")
 	err = Untar(f.Name(), path)
 	if err != nil {
 		return err

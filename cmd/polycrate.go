@@ -241,6 +241,14 @@ func (p *Polycrate) StartTransaction(ctx context.Context, cancelFunc func()) (co
 		return nil, err
 	}
 
+	txRuntimeDir := filepath.Join([]string{polycrateRuntimeDir, txid.String()}...)
+	err = os.MkdirAll(txRuntimeDir, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug("Started transaction")
+
 	return ctx, nil
 }
 func (p *Polycrate) StopTransaction(ctx context.Context, cancelFunc func()) error {
@@ -251,8 +259,6 @@ func (p *Polycrate) StopTransaction(ctx context.Context, cancelFunc func()) erro
 	log := p.GetContextLogger(ctx)
 	log = log.WithField("txid", txid)
 
-	log.Tracef("Stopping transaction")
-
 	// Call cancelFunc
 	cancelFunc()
 
@@ -260,6 +266,8 @@ func (p *Polycrate) StopTransaction(ctx context.Context, cancelFunc func()) erro
 	if err := p.UnregisterTransaction(tx); err != nil {
 		return err
 	}
+
+	log.Debug("Stopped transaction")
 
 	return nil
 }
@@ -362,6 +370,68 @@ func (p *Polycrate) CreateConfigFile(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (p *Polycrate) ContextExit(ctx context.Context, cancelFunc context.CancelFunc, err error) {
+	if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
+		log.Fatal(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string, withSSHKeys bool, withConfig bool) (*Workspace, error) {
+	log := p.GetContextLogger(ctx)
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.WithField("path", path)
+		log.Info("Creating directory")
+
+		if err := CreateDir(path); err != nil {
+			return nil, err
+		}
+	}
+
+	workspace := new(Workspace)
+
+	// Make a hard copy of the defaultWorkspace
+	*workspace = defaultWorkspace
+
+	workspace.Name = name
+	workspace.LocalPath = path
+	workspace.ContainerPath = workspace.Config.ContainerRoot
+
+	blocksDir := filepath.Join([]string{workspace.LocalPath, workspace.Config.BlocksRoot}...)
+	if _, err := os.Stat(blocksDir); os.IsNotExist(err) {
+		log.WithField("path", blocksDir)
+		log.Info("Creating directory")
+
+		if err := CreateDir(blocksDir); err != nil {
+			return nil, err
+		}
+	}
+
+	log.WithField("workspace", workspace.Name)
+
+	if withConfig {
+		log.WithField("config", workspace.Config.WorkspaceConfig)
+		log.Info("Saving config")
+		if err := workspace.Save(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	if withSSHKeys {
+		err := workspace.CreateSshKeys(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return workspace, nil
 }
 
 func (p *Polycrate) CleanupRuntimeDir(ctx context.Context) error {
@@ -538,4 +608,15 @@ func (p *PolycrateConfig) validate() error {
 		return goErrors.New("error validating Polycrate config")
 	}
 	return nil
+}
+
+func (p *Polycrate) getTempFile(ctx context.Context, filename string) (*os.File, error) {
+	txid := polycrate.GetContextTXID(ctx)
+
+	fp := filepath.Join(polycrateRuntimeDir, txid.String(), filename)
+	f, err := os.Create(fp)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }

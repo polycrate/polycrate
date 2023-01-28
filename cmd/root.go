@@ -30,10 +30,13 @@ import (
 
 func Execute() {
 	//_rootCmd := newRootCmd(os.Args[1:])
+	//ctx := context.Background()
+
 	err := rootCmd.Execute()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 }
 
 var rootCmd = &cobra.Command{
@@ -51,6 +54,17 @@ var rootCmd = &cobra.Command{
 		globalCmd = cmd
 
 	},
+	// PreRun: func(cmd *cobra.Command, args []string) {
+	// 	ctx, cancelFunc := context.WithCancel(context.Background())
+	// 	ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	cmd.SetContext(ctx)
+	// },
+	// PostRun: func(cmd *cobra.Command, args []string) {
+
+	// },
 	// PersistentPostRun: func(cmd *cobra.Command, args []string) {
 	// 	workspace.SaveRevision().Flush()
 	// 	workspace.Sync().Flush()
@@ -162,16 +176,15 @@ func init() {
 }
 
 func initConfig() {
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log := polycrate.GetContextLogger(ctx)
+	ctx := context.Background()
 
 	if err := polycrate.Load(ctx); err != nil {
 		log.Fatal(err)
+	}
+
+	if version == "latest" {
+		workspace.Config.Image.Version = "latest-amd64"
+		log.Debug("Setting image version to latest-amd64 (development mode)")
 	}
 	// // Load Polycrate config
 	// var polycrateConfig = viper.New()
@@ -258,10 +271,6 @@ func initConfig() {
 	// log.SetLevel(logrusLevel)
 
 	// Set a different image if we're in development
-	if version == "latest" {
-		workspace.Config.Image.Version = "latest-amd64"
-		log.Debug("Setting image version to latest-amd64 (development mode)")
-	}
 
 	// Register the custom validators to the global validator variable
 	// validate.RegisterValidation("metadata_name", validateMetadataName)

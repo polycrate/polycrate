@@ -30,7 +30,6 @@ var workspaceUpdateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	//Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	RunE: func(cmd *cobra.Command, args []string) error {
-		workspace.load().Flush()
 		// if len(args) == 0 {
 		// 	log.WithFields(log.Fields{
 		// 		"workspace": workspace.Name,

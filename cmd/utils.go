@@ -4,7 +4,11 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/fs"
@@ -17,6 +21,7 @@ import (
 	"syscall"
 
 	"github.com/gosimple/slug"
+	"golang.org/x/crypto/ssh"
 
 	goErrors "errors"
 
@@ -29,6 +34,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
+
+type promptContent struct {
+	errorMsg string
+	label    string
+}
+
+var activateFlag bool
 
 func signalHandler(s os.Signal) {
 	// Deal with running containers
@@ -742,3 +754,91 @@ func slugify(args []string) string {
 
 // 	return &s, nil
 // }
+
+func marshalRSAPrivate(priv *rsa.PrivateKey) string {
+	return string(pem.EncodeToMemory(&pem.Block{
+		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv),
+	}))
+}
+
+func generateKey() (string, string, error) {
+	reader := rand.Reader
+	bitSize := 2048
+
+	key, err := rsa.GenerateKey(reader, bitSize)
+	if err != nil {
+		return "", "", err
+	}
+
+	pub, err := ssh.NewPublicKey(key.Public())
+	if err != nil {
+		return "", "", err
+	}
+	pubKeyStr := string(ssh.MarshalAuthorizedKey(pub))
+	privKeyStr := marshalRSAPrivate(key)
+
+	return pubKeyStr, privKeyStr, nil
+}
+
+func CreateSSHKeys(ctx context.Context, path string, SshPrivateKey string, SshPublicKey string) error {
+	log := polycrate.GetContextLogger(ctx)
+
+	privKeyPath := filepath.Join(path, SshPrivateKey)
+	pubKeyPath := filepath.Join(path, SshPublicKey)
+
+	log.Trace("Asserting private ssh key at ", privKeyPath)
+	log.Trace("Asserting public ssh key at ", pubKeyPath)
+
+	_, privKeyErr := os.Stat(privKeyPath)
+	_, pubKeyErr := os.Stat(pubKeyPath)
+
+	// Check if keys do already exist
+	if os.IsNotExist(privKeyErr) && os.IsNotExist(pubKeyErr) {
+		// No keys found
+		// Generate new ones
+		pubKeyStr, privKeyStr, err := generateKey()
+		if err != nil {
+			return err
+		}
+
+		// Save private key
+		privKeyFile, err := os.Create(privKeyPath)
+		if err != nil {
+			return err
+		}
+
+		defer privKeyFile.Close()
+
+		_, errPrivKey := privKeyFile.WriteString(privKeyStr)
+		if errPrivKey != nil {
+			return errPrivKey
+		}
+
+		err = os.Chmod(privKeyPath, 0600)
+		if err != nil {
+			return err
+		}
+
+		// Save public key
+		pubKeyFile, err := os.Create(pubKeyPath)
+		if err != nil {
+			return err
+		}
+
+		defer pubKeyFile.Close()
+
+		_, errPubKey := pubKeyFile.WriteString(pubKeyStr)
+		if errPubKey != nil {
+			return errPubKey
+		}
+
+		err = os.Chmod(pubKeyPath, 0644)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("SSH Keys already exist")
+	}
+
+	return nil
+}

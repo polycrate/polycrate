@@ -25,10 +25,11 @@ import (
 
 // installCmd represents the install command
 var workspaceEditCmd = &cobra.Command{
-	Use:   "edit",
-	Short: "Edit the workspace",
-	Long:  ``,
-	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
+	Use:    "edit",
+	Short:  "Edit the workspace",
+	Long:   ``,
+	Hidden: true,
+	Args:   cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)

@@ -18,7 +18,7 @@ func getDockerCLI() (*client.Client, error) {
 	return cli, err
 }
 
-func buildContainerImage(ctx context.Context, dockerfilePath string, tags []string) (string, error) {
+func buildContainerImage(ctx context.Context, path string, dockerfilePath string, tags []string) (string, error) {
 	cli, err := getDockerCLI()
 
 	if err != nil {
@@ -29,7 +29,7 @@ func buildContainerImage(ctx context.Context, dockerfilePath string, tags []stri
 		Dockerfile: dockerfilePath,
 		Tags:       tags,
 	}
-	buildCtx, _ := archive.TarWithOptions(workspace.LocalPath, &archive.TarOptions{})
+	buildCtx, _ := archive.TarWithOptions(path, &archive.TarOptions{})
 
 	resp, err := cli.ImageBuild(ctx, buildCtx, buildOpts)
 	if err != nil {

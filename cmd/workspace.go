@@ -50,16 +50,7 @@ var workspaceCmd = &cobra.Command{
 	Short: "Manage the workspace",
 	Long:  `Manage the workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-		flags := cmd.PersistentFlags()
-		printObject(flags)
-
-		workspace, err := polycrate.LoadWorkspace(ctx, "")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		workspace.Inspect(ctx)
+		cmd.Help()
 	},
 }
 
@@ -171,13 +162,12 @@ type WorkspaceSnapshot struct {
 	Mounts    map[string]string `yaml:"mounts,omitempty" mapstructure:"mounts,omitempty" json:"mounts,omitempty"`
 }
 
-func (c *Workspace) CreateSshKeys() *Workspace {
-	err := CreateSSHKeys()
+func (w *Workspace) CreateSshKeys(ctx context.Context) error {
+	err := CreateSSHKeys(ctx, w.LocalPath, w.Config.SshPrivateKey, w.Config.SshPublicKey)
 	if err != nil {
-		c.err = err
-		return c
+		return err
 	}
-	return c
+	return nil
 }
 
 func (w *Workspace) FormatCommand(cmd *cobra.Command) string {
@@ -267,7 +257,7 @@ func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
 	for key := range flat {
 		keyString := fmt.Sprintf("%v", flat[key])
 		//fmt.Printf("%s=%s\n", strings.ToUpper(key), keyString)
-		workspace.registerEnvVar(strings.ToUpper(key), keyString)
+		c.registerEnvVar(strings.ToUpper(key), keyString)
 	}
 
 	return c
@@ -304,8 +294,8 @@ func (w *Workspace) RunAction(ctx context.Context, address string) error {
 		log = log.WithField("block", block.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
 
-		workspace.registerCurrentAction(action)
-		workspace.registerCurrentBlock(block)
+		w.registerCurrentAction(action)
+		w.registerCurrentBlock(block)
 
 		log.Debugf("Registering current block")
 
@@ -319,7 +309,7 @@ func (w *Workspace) RunAction(ctx context.Context, address string) error {
 		if snapshot {
 			w.Snapshot()
 		} else {
-			err := action.Run(ctx)
+			err := action.Run(ctx, w)
 			if err != nil {
 				return err
 			}
@@ -327,7 +317,7 @@ func (w *Workspace) RunAction(ctx context.Context, address string) error {
 		}
 
 		// Reload Block after action execution to update artifacts, inventory and kubeconfig
-		err := block.Reload(ctx, w.LocalPath, w.ContainerPath)
+		err := block.Reload(ctx, w)
 		if err != nil {
 			return err
 		}
@@ -409,7 +399,7 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 		w.registerBlock(block)
 
 		// Update Artifacts, Kubeconfig & Inventory
-		err = block.LoadArtifacts(ctx, workspaceLocalPath, workspaceContainerPath)
+		err = block.LoadArtifacts(ctx, w)
 		if err != nil {
 			return err
 		}
@@ -497,7 +487,7 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 				log.Warnf("Building custom image: %s", tag)
 
 				tags := []string{tag}
-				containerImage, err = buildContainerImage(ctx, w.Config.Dockerfile, tags)
+				containerImage, err = buildContainerImage(ctx, w.LocalPath, w.Config.Dockerfile, tags)
 				if err != nil {
 					return err
 				}
@@ -543,7 +533,7 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 	// Setup mounts
 	containerMounts := []string{}
 	for containerMount := range w.mounts {
-		m := strings.Join([]string{containerMount, workspace.mounts[containerMount]}, ":")
+		m := strings.Join([]string{containerMount, w.mounts[containerMount]}, ":")
 		containerMounts = append(containerMounts, m)
 	}
 
@@ -558,7 +548,7 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 	if !interactive {
 		HighjackSigint()
 
-		log.Infof("Starting container")
+		log.Debugf("Starting container")
 
 	}
 
@@ -675,12 +665,12 @@ func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
 	workflow := w.LookupWorkflow(name)
 
 	if workflow != nil {
-		workspace.registerCurrentWorkflow(workflow)
+		w.registerCurrentWorkflow(workflow)
 
 		if snapshot {
 			w.Snapshot()
 		} else {
-			err := workflow.run(ctx)
+			err := workflow.run(ctx, w)
 			if err != nil {
 				return err
 			}
@@ -703,7 +693,7 @@ func (w *Workspace) RunStep(ctx context.Context, name string) error {
 		if snapshot {
 			w.Snapshot()
 		} else {
-			err := step.run(ctx)
+			err := step.run(ctx, w)
 			if err != nil {
 				return err
 			}
@@ -938,26 +928,26 @@ func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string) error {
 	return nil
 }
 
-func (c *Workspace) saveWorkspace(path string) *Workspace {
-	workspaceConfigFilePath := filepath.Join(path, workspace.Config.WorkspaceConfig)
+func (w *Workspace) Save(ctx context.Context) error {
+	workspaceConfigFilePath := filepath.Join(w.LocalPath, w.Config.WorkspaceConfig)
 
 	if _, err := os.Stat(workspaceConfigFilePath); !os.IsNotExist(err) {
-		c.err = fmt.Errorf("config file already exists: %s", workspaceConfigFilePath)
-		return c
+		return fmt.Errorf("config file already exists: %s", workspaceConfigFilePath)
 	}
 
-	yamlBytes, err := yaml.Marshal(c)
+	var _w Workspace
+	_w.Name = w.Name
+
+	yamlBytes, err := yaml.Marshal(_w)
 	if err != nil {
-		c.err = err
-		return c
+		return err
 	}
 
 	err = ioutil.WriteFile(workspaceConfigFilePath, yamlBytes, 0644)
 	if err != nil {
-		c.err = err
-		return c
+		return err
 	}
-	return c
+	return nil
 }
 
 func (c *Workspace) updateConfig(path string, value string) *Workspace {
@@ -1026,6 +1016,12 @@ func (c *Workspace) updateConfig(path string, value string) *Workspace {
 }
 
 func (w *Workspace) Reload(ctx context.Context) (*Workspace, error) {
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("workspace", w.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	log.Debug("Reloading workspace")
+
 	return w.Load(ctx, w.LocalPath)
 }
 
@@ -1047,6 +1043,7 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	ctx = polycrate.SetContextLogger(ctx, log)
 
 	// Set workspace.Path depending on --local
+	w.ContainerPath = filepath.Join([]string{w.Config.ContainerRoot}...)
 	if local {
 		w.Path = w.LocalPath
 	} else {
@@ -1067,11 +1064,13 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	// w.Cleanup().Flush()
 
 	// Bootstrap the workspace index
-	w.index = &WorkspaceIndex{}
-	w.index.Actions = make(map[string]*Action)
-	w.index.Blocks = make(map[string]*Block)
-	w.index.Workflows = make(map[string]*Workflow)
-	w.index.Steps = make(map[string]*Step)
+	if w.index == nil {
+		w.index = &WorkspaceIndex{}
+		w.index.Actions = make(map[string]*Action)
+		w.index.Blocks = make(map[string]*Block)
+		w.index.Workflows = make(map[string]*Workflow)
+		w.index.Steps = make(map[string]*Step)
+	}
 
 	// Find all blocks in the workspace
 	log.Debugf("Finding installed blocks")
@@ -1106,7 +1105,9 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	w.bootstrapEnvVars().Flush()
 
 	// Bootstrap container mounts
-	w.bootstrapMounts().Flush()
+	if err := w.bootstrapMounts(); err != nil {
+		return nil, err
+	}
 
 	// Template action scripts
 	w.templateActionScripts().Flush()
@@ -1178,7 +1179,7 @@ func (w *Workspace) load() *Workspace {
 	w.PullDependencies().Flush()
 
 	// Load all discovered blocks in the workspace
-	w.ImportInstalledBlocks().Flush()
+	w.ImportInstalledBlocks(ctx).Flush()
 
 	// Resolve block dependencies
 	if err := w.ResolveBlockDependencies(ctx, w.LocalPath, w.ContainerPath); err != nil {
@@ -1192,7 +1193,7 @@ func (w *Workspace) load() *Workspace {
 	w.bootstrapEnvVars().Flush()
 
 	// Bootstrap container mounts
-	w.bootstrapMounts().Flush()
+	w.bootstrapMounts()
 
 	// Template action scripts
 	w.templateActionScripts().Flush()
@@ -1701,7 +1702,7 @@ func (w *Workspace) BootstrapIndex() *Workspace {
 	return w
 }
 
-func (c *Workspace) bootstrapMounts() *Workspace {
+func (c *Workspace) bootstrapMounts() error {
 	// Prepare mounts map
 	c.mounts = map[string]string{}
 
@@ -1721,11 +1722,10 @@ func (c *Workspace) bootstrapMounts() *Workspace {
 		if len(p) == 2 {
 			c.registerMount(p[0], p[1])
 		} else {
-			c.err = goErrors.New("Illegal value for mount found: " + extraMount)
-			return c
+			return goErrors.New("Illegal value for mount found: " + extraMount)
 		}
 	}
-	return c
+	return nil
 }
 
 // Resolve the templates of all actions
@@ -1879,8 +1879,9 @@ func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
 	return snapshot
 }
 
-func (c *Workspace) SaveSnapshot() (string, error) {
-	snapshot := c.GetSnapshot()
+func (w *Workspace) SaveSnapshot(ctx context.Context) (string, error) {
+	log := polycrate.GetContextLogger(ctx)
+	snapshot := w.GetSnapshot()
 
 	//c.RegisterSnapshotEnv(snapshot).Flush()
 
@@ -1891,11 +1892,11 @@ func (c *Workspace) SaveSnapshot() (string, error) {
 	}
 
 	if data != nil {
-
-		snapshotSlug := slugify([]string{c.Name, workspace.currentBlock.Name})
+		txid := polycrate.GetContextTXID(ctx)
+		snapshotSlug := slugify([]string{txid.String(), "workspace", "snapshot"})
 		snapshotFilename := strings.Join([]string{snapshotSlug, "yml"}, ".")
 
-		f, err := workspace.getTempFile(snapshotFilename)
+		f, err := polycrate.getTempFile(ctx, snapshotFilename)
 		if err != nil {
 			return "", err
 		}
@@ -1908,7 +1909,9 @@ func (c *Workspace) SaveSnapshot() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		log.Debugf("Saved snapshot to %s", f.Name())
+
+		log = log.WithField("path", f.Name())
+		log.Debugf("Saved snapshot")
 
 		// Closing file descriptor
 		// Getting fatal errors on windows WSL2 when accessing
@@ -1918,8 +1921,8 @@ func (c *Workspace) SaveSnapshot() (string, error) {
 		// It's probably safer to close the fd anyways
 		f.Close()
 
-		c.registerEnvVar("POLYCRATE_WORKSPACE_SNAPSHOT_YAML", f.Name())
-		c.registerMount(f.Name(), f.Name())
+		w.registerEnvVar("POLYCRATE_WORKSPACE_SNAPSHOT_YAML", f.Name())
+		w.registerMount(f.Name(), f.Name())
 
 		return f.Name(), nil
 	} else {
@@ -2019,55 +2022,55 @@ func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {
 	return nil
 }
 
-func (c *Workspace) Create() *Workspace {
-	workspacePath := filepath.Join(polycrateWorkspaceDir, c.Name)
+// func (c *Workspace) Create(ctx context.Context, path string) error {
+// 	workspacePath := filepath.Join(path, c.Name)
 
-	// Check if a workspace with this name already exists
-	if localWorkspaceIndex[c.Name] != "" {
-		// We found a workspace with that name in the index
+// 	// Check if a workspace with this name already exists
+// 	if localWorkspaceIndex[c.Name] != "" {
+// 		// We found a workspace with that name in the index
 
-		c.err = fmt.Errorf("workspace already exists: %s", localWorkspaceIndex[c.Name])
-		return c
-	}
+// 		c.err = fmt.Errorf("workspace already exists: %s", localWorkspaceIndex[c.Name])
+// 		return c
+// 	}
 
-	// Check if the directory for this workspace already exists in polycrateWorkspaceDir
-	if _, err := os.Stat(workspacePath); !os.IsNotExist(err) {
-		// Directory already exists
-		c.err = fmt.Errorf("workspace directory already exists: %s", workspacePath)
-		return c
-	} else {
-		err := CreateDir(workspacePath)
-		if err != nil {
-			c.err = err
-			return c
-		}
+// 	// Check if the directory for this workspace already exists in polycrateWorkspaceDir
+// 	if _, err := os.Stat(workspacePath); !os.IsNotExist(err) {
+// 		// Directory already exists
+// 		c.err = fmt.Errorf("workspace directory already exists: %s", workspacePath)
+// 		return c
+// 	} else {
+// 		err := CreateDir(workspacePath)
+// 		if err != nil {
+// 			c.err = err
+// 			return c
+// 		}
 
-		// Set the new directory as workspace.Path
-		c.LocalPath = workspacePath
-	}
-	// Save a new workspace config to workspace.poly in the given directory
-	var n Workspace
+// 		// Set the new directory as workspace.Path
+// 		c.LocalPath = workspacePath
+// 	}
+// 	// Save a new workspace config to workspace.poly in the given directory
+// 	var n Workspace
 
-	// Update workspace vars with minimum defaults
-	n.Name = c.Name
+// 	// Update workspace vars with minimum defaults
+// 	n.Name = c.Name
 
-	if c.SyncOptions.Enabled {
-		n.SyncOptions.Enabled = true
-	}
+// 	if c.SyncOptions.Enabled {
+// 		n.SyncOptions.Enabled = true
+// 	}
 
-	if c.SyncOptions.Auto {
-		n.SyncOptions.Auto = true
-	}
+// 	if c.SyncOptions.Auto {
+// 		n.SyncOptions.Auto = true
+// 	}
 
-	if c.SyncOptions.Remote.Url != "" {
-		n.SyncOptions.Remote.Url = c.SyncOptions.Remote.Url
-		n.SyncOptions.Remote.Branch.Name = c.SyncOptions.Remote.Branch.Name
-	}
+// 	if c.SyncOptions.Remote.Url != "" {
+// 		n.SyncOptions.Remote.Url = c.SyncOptions.Remote.Url
+// 		n.SyncOptions.Remote.Branch.Name = c.SyncOptions.Remote.Branch.Name
+// 	}
 
-	n.saveWorkspace(c.LocalPath).Flush()
+// 	n.saveWorkspace(c.LocalPath).Flush()
 
-	return c
-}
+// 	return c
+// }
 
 func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
@@ -2362,27 +2365,19 @@ func (w *Workspace) IsBlockInstalled(fullTag string, registryUrl string, blockNa
 }
 
 func (w *Workspace) UpdateBlocks(ctx context.Context, args []string) error {
+	log := polycrate.GetContextLogger(ctx)
+
 	eg := new(errgroup.Group)
 	for _, arg := range args {
 		arg := arg // https://go.dev/doc/faq#closures_and_goroutines
 		eg.Go(func() error {
 			fullTag, registryUrl, blockName, blockVersion := mapDockerTag(arg)
-			//blockName, blockVersion, err := registry.resolveArg(arg)
 
-			// if w.IsBlockInstalled(fullTag, registryUrl, blockName, blockVersion) {
-			// 	log.WithFields(log.Fields{
-			// 		"workspace":       w.Name,
-			// 		"block":           blockName,
-			// 		"desired_version": blockVersion,
-			// 	}).Debugf("Block is already installed")
-			// 	return nil
-			// }
+			log = log.WithField("version", blockVersion)
+			log = log.WithField("block", blockName)
+			ctx = polycrate.SetContextLogger(ctx, log)
 
-			log.WithFields(log.Fields{
-				"workspace":       w.Name,
-				"block":           blockName,
-				"desired_version": blockVersion,
-			}).Debugf("Updating block")
+			log.Debugf("Updating dependency")
 
 			// Download blocks from registry
 			err := w.PullBlock(ctx, fullTag, registryUrl, blockName, blockVersion)
@@ -2417,30 +2412,27 @@ func (w *Workspace) UpdateBlocks(ctx context.Context, args []string) error {
 // 		}
 
 func (w *Workspace) PullBlock(ctx context.Context, fullTag string, registryUrl string, blockName string, blockVersion string) error {
-	// if registryUrl == "" {
-	// 	// Set default registry URL when no registry has been given in the tag
-	// 	registryUrl = config.Registry.Url
-	// }
+	log := polycrate.GetContextLogger(ctx)
+
+	log = log.WithField("block", blockName)
+	log = log.WithField("version", blockVersion)
+	log = log.WithField("registry", registryUrl)
+	ctx = polycrate.SetContextLogger(ctx, log)
 
 	if w.IsBlockInstalled(fullTag, registryUrl, blockName, blockVersion) {
-		log.WithFields(log.Fields{
-			"workspace":       w.Name,
-			"block":           blockName,
-			"desired_version": blockVersion,
-			"registry":        registryUrl,
-		}).Debugf("Block is already installed")
+		log.Debugf("Block is already installed")
 		return nil
 	}
 
 	targetDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot, registryUrl, blockName)
 
 	//log.Debugf("Pulling block %s:%s", blockName, blockVersion)
-	log.WithFields(log.Fields{
-		"block":   blockName,
-		"version": blockVersion,
-	}).Debugf("Pulling block")
+	log = log.WithField("path", targetDir)
+	ctx = polycrate.SetContextLogger(ctx, log)
 
-	err := UnwrapOCIImage(targetDir, registryUrl, blockName, blockVersion)
+	log.Debugf("Pulling block")
+
+	err := UnwrapOCIImage(ctx, targetDir, registryUrl, blockName, blockVersion)
 	if err != nil {
 		return err
 	}
@@ -2459,7 +2451,8 @@ func (w *Workspace) PullBlock(ctx context.Context, fullTag string, registryUrl s
 	return nil
 }
 
-func (c *Workspace) PushBlock(blockName string) error {
+func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
+	log := polycrate.GetContextLogger(ctx)
 	// Get the block
 	// Check that it has a version
 	// Check if release with new version exists in registry
@@ -2477,15 +2470,14 @@ func (c *Workspace) PushBlock(blockName string) error {
 	} else {
 		return fmt.Errorf("block not found in workspace: %s", blockName)
 	}
+	log = log.WithField("block", block.Name)
+	log = log.WithField("version", block.Version)
+	log = log.WithField("path", block.Workdir.LocalPath)
 
-	log.WithFields(log.Fields{
-		"block":   block.Name,
-		"version": block.Version,
-		"path":    block.Workdir.LocalPath,
-	}).Debugf("Pushing block")
+	log.Debugf("Pushing block")
 
 	_, registryUrl, blockName, _ := mapDockerTag(block.Name)
-	err := WrapOCIImage(block.Workdir.LocalPath, registryUrl, blockName, block.Version, block.Labels)
+	err := WrapOCIImage(ctx, block.Workdir.LocalPath, registryUrl, blockName, block.Version, block.Labels)
 	if err != nil {
 		return err
 	}
@@ -2524,22 +2516,23 @@ func (c *Workspace) Print() {
 	printObject(c)
 }
 
-func (w *Workspace) ImportInstalledBlocks() *Workspace {
-	log.WithFields(log.Fields{
-		"workspace": w.Name,
-	}).Debugf("Importing installed blocks")
+func (w *Workspace) ImportInstalledBlocks(ctx context.Context) *Workspace {
+	log := polycrate.GetContextLogger(ctx)
+	log.Debugf("Importing installed blocks")
 
 	for _, installedBlock := range w.installedBlocks {
+		log = log.WithField("installed_block", installedBlock.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
 
 		// Check if Block exists
 		existingBlock := w.getBlockByName(installedBlock.Name)
 
 		if existingBlock != nil {
+			log = log.WithField("existing_block", installedBlock.Name)
+			ctx = polycrate.SetContextLogger(ctx, log)
+
 			// Block exists
-			log.WithFields(log.Fields{
-				"block":     installedBlock.Name,
-				"workspace": w.Name,
-			}).Debugf("Found existing block. Merging.")
+			log.Tracef("Found existing block. Merging.")
 
 			err := existingBlock.MergeIn(installedBlock)
 			if err != nil {
@@ -2554,7 +2547,10 @@ func (w *Workspace) ImportInstalledBlocks() *Workspace {
 
 }
 func (w *Workspace) LoadInstalledBlocks(ctx context.Context) error {
+	log := polycrate.GetContextLogger(ctx)
 	for _, installedBlock := range w.installedBlocks {
+		log = log.WithField("block", installedBlock.Name)
+		ctx = polycrate.SetContextLogger(ctx, log)
 
 		// Check if Block exists
 		existingBlock, err := w.GetBlock(installedBlock.Name)
@@ -2563,11 +2559,9 @@ func (w *Workspace) LoadInstalledBlocks(ctx context.Context) error {
 			// Block is not in the index yet
 			w.Blocks = append(w.Blocks, installedBlock)
 		} else {
+
 			// Block exists
-			log.WithFields(log.Fields{
-				"block":     installedBlock.Name,
-				"workspace": w.Name,
-			}).Debugf("Found existing block. Merging.")
+			log.Tracef("Found existing block with the same name. Merging.")
 
 			err := existingBlock.MergeIn(installedBlock)
 			if err != nil {
@@ -2799,7 +2793,7 @@ func (c *Workspace) PullDependencies() *Workspace {
 	return c
 }
 
-func (c *Workspace) getTempFile(filename string) (*os.File, error) {
+func (c *Workspace) getTempFile(ctx context.Context, filename string) (*os.File, error) {
 	fp := filepath.Join(workspace.runtimeDir, filename)
 	f, err := os.Create(fp)
 	if err != nil {

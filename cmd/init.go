@@ -16,78 +16,27 @@ limitations under the License.
 package cmd
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var fileUrl string
 
 // installCmd represents the install command
 var initCmd = &cobra.Command{
-	Hidden: true,
-	Use:    "init",
-	Short:  "Initalize a stack",
-	Long:   `Initalize a stack`,
+	Use:   "init",
+	Short: "Initalize a workspace",
+	Long:  `Initalize a workspace`,
+	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		// Create context directory if not exists
-		contextDir := workspace.LocalPath
-		err := os.MkdirAll(contextDir, os.ModePerm)
-		CheckErr(err)
-
-		pluginsDir := filepath.Join(workspace.LocalPath, "plugins")
-		err = os.MkdirAll(pluginsDir, os.ModePerm)
-		CheckErr(err)
-
-		// Create Stackfile if not exists
-		configPath := ""
-		if configPath == "" {
-			// Load from basic example
-			// download to /tmp-asdasdasd
-			// load into viper var
-			// override values
-			// save to Stackfile
-			// remove tempfile
-			donwloadTempPath := filepath.Join("/tmp", "cloudstack-example-stackfile")
-			err := DownloadFile(fileUrl, donwloadTempPath)
-			if err != nil {
-				log.Fatal(err)
-			}
-			exampleConfig := viper.New()
-
-			// Check overrides
-			if len([]string{}) > 0 {
-				for _, override := range []string{} {
-					// Split string by =
-					kv := strings.Split(override, "=")
-
-					// Override property
-					log.Debug("Setting " + kv[0] + " to " + kv[1])
-					exampleConfig.Set(kv[0], kv[1])
-				}
-			}
-			exampleConfig.SetConfigType("yaml")
-			exampleConfig.SetConfigFile(donwloadTempPath)
-			err = exampleConfig.MergeInConfig()
-			CheckErr(err)
-
-			exampleConfig.WriteConfigAs(workspace.LocalPath + "/Stackfile")
-			log.Info("Created config from " + fileUrl + " at " + workspace.LocalPath + "/Stackfile")
-
-			err = os.Remove(donwloadTempPath)
-			CheckErr(err)
-		}
-
-		// Create SSH Keys if not exists
-		CreateSSHKeyCmd.Run(cmd, []string{})
+		workspaceCreateCmd.Run(cmd, args)
 	},
 }
 
 func init() {
+	initCmd.Flags().StringVar(&withName, "with-name", "", "The name of the workspace")
+	initCmd.Flags().BoolVar(&withSshKeys, "with-ssh-keys", true, "Create SSH keys")
+	initCmd.Flags().BoolVar(&withSshKeys, "with-config", true, "Create config file")
+
 	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().StringVar(&fileUrl, "template", "https://gitlab.com/ayedocloudsolutions/cloudstack/cloudstack/-/raw/main/examples/hcloud-single-node/Stackfile", "Stackfile to init from")
+
 }
