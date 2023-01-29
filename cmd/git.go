@@ -323,6 +323,7 @@ func GitGetUserEmail(ctx context.Context) (string, error) {
 
 	return output, nil
 }
+
 func GitGetUserName(ctx context.Context) (string, error) {
 	args := []string{
 		"config",

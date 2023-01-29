@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	goErrors "errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,7 +68,17 @@ type PolycrateConfig struct {
 	Sync      SyncOptions `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	Loglevel  int         `yaml:"loglevel,omitempty" mapstructure:"loglevel,omitempty" json:"loglevel,omitempty"`
 	Logformat string      `yaml:"logformat,omitempty" mapstructure:"logformat,omitempty" json:"logformat,omitempty"`
+	Webhooks  []Webhook   `yaml:"webhooks,omitempty" mapstructure:"webhooks,omitempty" json:"webhooks,omitempty"`
 	//Workspace PolycrateWorkspaceDefaults `yaml:"workspace,omitempty" mapstructure:"workspace,omitempty" json:"workspace,omitempty"`
+}
+
+type PolycrateEvent struct {
+	Labels map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Data   interface{}       `yaml:"data,omitempty" mapstructure:"data,omitempty" json:"data,omitempty"`
+}
+
+type Webhook struct {
+	Endpoint string `yaml:"endpoint,omitempty" mapstructure:"endpoint,omitempty" json:"endpoint,omitempty"`
 }
 
 type PolycrateTransaction struct {
@@ -79,6 +92,76 @@ type Polycrate struct {
 	Config       PolycrateConfig `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	Workspaces   []*Workspace
 	Transactions []PolycrateTransaction
+}
+
+func (e *PolycrateEvent) ToJSON() ([]byte, error) {
+	eventData, err := json.Marshal(e)
+	if err != nil {
+		return nil, err
+	}
+	return eventData, nil
+}
+
+func (e *PolycrateEvent) Submit(ctx context.Context, webhook Webhook) error {
+	log := polycrate.GetContextLogger(ctx)
+	log.WithField("endpoint", webhook.Endpoint)
+	log.Debugf("Submitting event to webhook endpoint")
+
+	eventData, err := e.ToJSON()
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequest("POST", webhook.Endpoint, bytes.NewBuffer(eventData))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	body, _ := ioutil.ReadAll(response.Body)
+	log.Tracef("Webhook returned status '%s'", response.Status)
+	log.Tracef(string(body))
+	return nil
+}
+
+func (p *Polycrate) EventHandler(ctx context.Context, data interface{}) error {
+	for _, webhook := range p.Config.Webhooks {
+		err := p.PublishEvent(ctx, data, webhook)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Polycrate) GetUserInfo(ctx context.Context) map[string]string {
+	email, _ := GitGetUserEmail(ctx)
+	name, _ := GitGetUserName(ctx)
+	user := map[string]string{
+		"email": email,
+		"name":  name,
+	}
+
+	return user
+}
+
+func (p *Polycrate) PublishEvent(ctx context.Context, data interface{}, webhook Webhook) error {
+	//log := polycrate.GetContextLogger(ctx)
+
+	event := PolycrateEvent{}
+	event.Data = data
+
+	if err := event.Submit(ctx, webhook); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *Polycrate) Load(ctx context.Context) error {

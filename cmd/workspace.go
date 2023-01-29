@@ -191,33 +191,28 @@ func (w *Workspace) FormatCommand(cmd *cobra.Command) string {
 	return command
 }
 
-func (this *Workspace) SaveRevision() *Workspace {
-	log.WithFields(log.Fields{
-		"workspace":   this.Name,
-		"transaction": this.revision.Transaction,
-	}).Debugf("Saving revision")
+func (w *Workspace) SaveRevision(ctx context.Context) error {
+	log := polycrate.GetContextLogger(ctx)
+	log.Debugf("Saving revision")
 
-	f, err := os.OpenFile(filepath.Join(this.LocalPath, "revision.poly"), os.O_CREATE|os.O_WRONLY, 0666)
+	f, err := os.OpenFile(filepath.Join(w.LocalPath, "revision.poly"), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		this.err = err
-		return this
+		return err
 	}
 	defer f.Close()
 
 	// Export revision to yaml
-	yaml, err := yaml.Marshal(this.revision)
+	yaml, err := yaml.Marshal(w.revision)
 	if err != nil {
-		this.err = err
-		return this
+		return err
 	}
 
 	// Write yaml export to file
 	_, err = f.Write(yaml)
 	if err != nil {
-		this.err = err
-		return this
+		return err
 	}
-	return this
+	return nil
 }
 
 func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
@@ -321,6 +316,13 @@ func (w *Workspace) RunAction(ctx context.Context, address string) error {
 		if err != nil {
 			return err
 		}
+
+		// Run event handler
+		w.revision.Snapshot = WorkspaceSnapshot{}
+		if err := polycrate.EventHandler(ctx, w.revision); err != nil {
+			return err
+		}
+
 	} else {
 		return goErrors.New("cannot find Action with address " + address)
 	}
@@ -445,9 +447,11 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 
 func (w *Workspace) PruneContainer(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
+	txid := polycrate.GetContextTXID(ctx)
+
 	// docker container prune --filter label=polycrate.workspace.revision.transaction=%sw.
 	filters := []string{
-		fmt.Sprintf("label=polycrate.workspace.name=%s", w.Name),
+		fmt.Sprintf("label=polycrate.txid=%s", txid),
 	}
 
 	exitCode, _, err := PruneContainer(ctx,
@@ -467,6 +471,7 @@ func (w *Workspace) PruneContainer(ctx context.Context) error {
 
 func (w *Workspace) RunContainer(ctx context.Context, name string, workdir string, cmd []string) error {
 	log := polycrate.GetContextLogger(ctx)
+	txid := polycrate.GetContextTXID(ctx)
 
 	// Goroutine to capture signals (SIGINT, etc)
 	// Exits with exit code 1 when ctrl-c is captured
@@ -540,7 +545,7 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 
 	// Setup labels
 	labels := []string{}
-	labels = append(labels, fmt.Sprintf("polycrate.workspace.name=%s", w.Name))
+	labels = append(labels, fmt.Sprintf("polycrate.txid=%s", txid))
 
 	w.containerStatus.Running = true
 	w.containerStatus.Transaction = w.revision.Transaction
@@ -1042,6 +1047,7 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	log := polycrate.GetContextLogger(ctx)
 	log = log.WithField("workspace", w.Name)
 	ctx = polycrate.SetContextLogger(ctx, log)
+	txid := polycrate.GetContextTXID(ctx)
 
 	// Set workspace.Path depending on --local
 	w.ContainerPath = filepath.Join([]string{w.Config.ContainerRoot}...)
@@ -1055,11 +1061,12 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	w.revision = &WorkspaceRevision{}
 	w.revision.Date = time.Now().Format(time.RFC3339)
 	w.revision.Command = w.FormatCommand(globalCmd)
-	w.revision.Transaction = uuid.New()
+	w.revision.Transaction = txid
 	w.revision.Version = w.Version
 
-	w.revision.UserEmail, _ = GitGetUserEmail(ctx)
-	w.revision.UserName, _ = GitGetUserName(ctx)
+	userInfo := polycrate.GetUserInfo(ctx)
+	w.revision.UserEmail = userInfo["email"]
+	w.revision.UserName = userInfo["name"]
 
 	// Cleanup workspace runtime dir
 	// w.Cleanup().Flush()
