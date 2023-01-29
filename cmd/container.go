@@ -148,7 +148,7 @@ func logDocker(reader io.ReadCloser) error {
 // 	return nil
 // }
 
-func PruneContainer(filters []string) (int, string, error) {
+func PruneContainer(ctx context.Context, filters []string) (int, string, error) {
 
 	// Prepare container command
 	var runCmd []string
@@ -162,7 +162,7 @@ func PruneContainer(filters []string) (int, string, error) {
 	}
 
 	// Prune container
-	exitCode, output, err := RunCommandWithOutput("docker", runCmd...)
+	exitCode, output, err := RunCommandWithOutput(ctx, nil, "docker", runCmd...)
 
 	return exitCode, output, err
 }

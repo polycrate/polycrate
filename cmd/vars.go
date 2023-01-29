@@ -74,6 +74,9 @@ const GitLabDefaultTransport string = "ssh"
 const GitDefaultBranch string = "main"
 const GitDefaultRemote string = "origin"
 
+// Variable to decide if polycrate is run during block development
+var dev bool
+
 // Global variable to decide if an action runs local or in the container
 // Can be overriden with the --local flag
 var local bool

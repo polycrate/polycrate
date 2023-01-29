@@ -360,7 +360,7 @@ func (a *Action) Run(ctx context.Context, workspace *Workspace) error {
 				} else {
 					return goErrors.New("no execution script path given. Nothing to do")
 				}
-				err := workspace.RunContainer(ctx, containerName, workspace.ContainerPath, runCommand)
+				err := workspace.RunContainer(ctx, containerName, workspace.currentBlock.Workdir.Path, runCommand)
 				if err != nil {
 					return err
 				}

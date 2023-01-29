@@ -453,12 +453,12 @@ func (b *Block) Reload(ctx context.Context, workspace *Workspace) error {
 			return err
 		}
 
-		err = b.LoadInventory()
+		err = b.LoadInventory(ctx, workspace)
 		if err != nil {
 			return err
 		}
 
-		err = b.LoadKubeconfig()
+		err = b.LoadKubeconfig(ctx, workspace)
 		if err != nil {
 			return err
 		}
@@ -674,8 +674,9 @@ func (c *Block) Inspect() {
 	printObject(c)
 }
 
-func (c *Block) LoadInventory() error {
+func (c *Block) LoadInventory(ctx context.Context, workspace *Workspace) error {
 	// Locate "inventory.yml" in blockArtifactsDir
+	log := polycrate.GetContextLogger(ctx)
 
 	var blockInventoryFile string
 	if c.Inventory.Filename != "" {
@@ -707,19 +708,18 @@ func (c *Block) LoadInventory() error {
 			c.Inventory.Path = c.Inventory.ContainerPath
 		}
 
-		log.WithFields(log.Fields{
-			"path":      blockInventoryFile,
-			"block":     c.Name,
-			"workspace": workspace.Name,
-		}).Debugf("Inventory loaded")
+		log = log.WithField("path", blockInventoryFile)
+		log.Debugf("Inventory loaded")
 	} else {
 		c.Inventory.exists = false
 	}
 	return nil
 }
 
-func (c *Block) LoadKubeconfig() error {
+func (c *Block) LoadKubeconfig(ctx context.Context, workspace *Workspace) error {
 	// Locate "kubeconfig.yml" in blockArtifactsDir
+	log := polycrate.GetContextLogger(ctx)
+
 	var blockKubeconfigFile string
 	if c.Kubeconfig.Filename != "" {
 		blockKubeconfigFile = filepath.Join(c.Artifacts.LocalPath, c.Kubeconfig.Filename)
@@ -744,11 +744,8 @@ func (c *Block) LoadKubeconfig() error {
 			c.Kubeconfig.Path = c.Kubeconfig.ContainerPath
 		}
 
-		log.WithFields(log.Fields{
-			"workspace": workspace.Name,
-			"block":     c.Name,
-			"path":      c.Kubeconfig.Path,
-		}).Debugf("Kubeconfig loaded")
+		log = log.WithField("path", c.Kubeconfig.Path)
+		log.Debugf("Kubeconfig loaded")
 	} else {
 		c.Kubeconfig.exists = false
 	}

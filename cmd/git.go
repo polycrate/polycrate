@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -12,60 +13,60 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func GitGetRemoteUrl(path string, name string) (string, error) {
+func GitGetRemoteUrl(ctx context.Context, path string, name string) (string, error) {
 	remoteArgs := []string{
 		"remote",
 		"get-url",
 		name,
 	}
-	output, err := GitExecute(path, remoteArgs)
+	output, err := GitExecute(ctx, path, remoteArgs)
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(output), nil
 }
 
-func GitUpdateRemoteUrl(path string, remote string, url string) error {
-	err := GitDeleteRemote(path, remote)
+func GitUpdateRemoteUrl(ctx context.Context, path string, remote string, url string) error {
+	err := GitDeleteRemote(ctx, path, remote)
 	if err != nil {
 		return err
 	}
 
-	err = GitCreateRemote(path, remote, url)
+	err = GitCreateRemote(ctx, path, remote, url)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func GitCreateRepo(path string, remote string, branch string, url string) error {
+func GitCreateRepo(ctx context.Context, path string, remote string, branch string, url string) error {
 	err := CreateDir(path)
 	if err != nil {
 		return err
 	}
 
-	_, err = GitInit(path)
+	_, err = GitInit(ctx, path)
 	if err != nil {
 		return err
 	}
 
-	_, err = GitCheckout(path, branch, true)
+	_, err = GitCheckout(ctx, path, branch, true)
 	if err != nil {
 		return err
 	}
 
-	err = GitCreateRemote(path, remote, url)
+	err = GitCreateRemote(ctx, path, remote, url)
 	if err != nil {
 		return err
 	}
 
 	//Make an initial commit
-	_, err = GitCommitAll(path, "Initial sync")
+	_, err = GitCommitAll(ctx, path, "Initial sync")
 	if err != nil {
 		return err
 	}
 
-	_, err = GitPush(path, remote, branch)
+	_, err = GitPush(ctx, path, remote, branch)
 	if err != nil {
 		return err
 	}
@@ -73,7 +74,7 @@ func GitCreateRepo(path string, remote string, branch string, url string) error 
 	return nil
 }
 
-func GitCheckout(path string, branch string, create bool) (string, error) {
+func GitCheckout(ctx context.Context, path string, branch string, create bool) (string, error) {
 	checkoutArgs := []string{
 		"checkout",
 	}
@@ -84,7 +85,7 @@ func GitCheckout(path string, branch string, create bool) (string, error) {
 
 	checkoutArgs = append(checkoutArgs, branch)
 
-	output, err := GitExecute(path, checkoutArgs)
+	output, err := GitExecute(ctx, path, checkoutArgs)
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +93,7 @@ func GitCheckout(path string, branch string, create bool) (string, error) {
 	return output, nil
 }
 
-func GitInit(path string) (string, error) {
+func GitInit(ctx context.Context, path string) (string, error) {
 	log.WithFields(log.Fields{
 		"path": path,
 	}).Debugf("Initializing git repository")
@@ -101,7 +102,7 @@ func GitInit(path string) (string, error) {
 		"init",
 	}
 
-	output, err := GitExecute(path, initArgs)
+	output, err := GitExecute(ctx, path, initArgs)
 	if err != nil {
 		return "", err
 	}
@@ -159,7 +160,7 @@ func GitCreateAndCheckoutBranch(repository *git.Repository, branch string, remot
 	return nil
 }
 
-func GitDeleteRemote(path string, name string) error {
+func GitDeleteRemote(ctx context.Context, path string, name string) error {
 	log.WithFields(log.Fields{
 		"path":   workspace.LocalPath,
 		"remote": name,
@@ -171,7 +172,7 @@ func GitDeleteRemote(path string, name string) error {
 		name,
 	}
 
-	output, err := GitExecute(path, args)
+	output, err := GitExecute(ctx, path, args)
 	if err != nil {
 		return err
 	}
@@ -189,12 +190,12 @@ func GitDeleteRemote(path string, name string) error {
 // 	return url != ""
 // }
 
-func GitHasRemote(path string) bool {
+func GitHasRemote(ctx context.Context, path string) bool {
 	args := []string{
 		"remote",
 		"-v",
 	}
-	output, err := GitExecute(path, args)
+	output, err := GitExecute(ctx, path, args)
 	if err != nil {
 		return false
 	}
@@ -205,11 +206,11 @@ func GitHasRemote(path string) bool {
 	return false
 }
 
-func GitIsRepo(path string) bool {
+func GitIsRepo(ctx context.Context, path string) bool {
 	args := []string{
 		"status",
 	}
-	_, err := GitExecute(path, args)
+	_, err := GitExecute(ctx, path, args)
 
 	return err == nil
 }
@@ -292,13 +293,13 @@ func GitIsAncestor(r *git.Repository) (bool, error) {
 	return isAncestor, nil
 }
 
-func GitHasChanges(path string) bool {
+func GitHasChanges(ctx context.Context, path string) bool {
 	statusArgs := []string{
 		"status",
 		"--porcelain",
 	}
 
-	output, err := GitExecute(path, statusArgs)
+	output, err := GitExecute(ctx, path, statusArgs)
 	if err != nil {
 		return false
 	}
@@ -309,12 +310,12 @@ func GitHasChanges(path string) bool {
 	return false
 }
 
-func GitGetUserEmail() (string, error) {
+func GitGetUserEmail(ctx context.Context) (string, error) {
 	args := []string{
 		"config",
 		"user.email",
 	}
-	output, err := GitExecute(polycrateConfigDir, args)
+	output, err := GitExecute(ctx, polycrateConfigDir, args)
 	if err != nil {
 		log.Error(err)
 		return "", err
@@ -322,13 +323,13 @@ func GitGetUserEmail() (string, error) {
 
 	return output, nil
 }
-func GitGetUserName() (string, error) {
+func GitGetUserName(ctx context.Context) (string, error) {
 	args := []string{
 		"config",
 		"user.name",
 	}
 
-	output, err := GitExecute(polycrateConfigDir, args)
+	output, err := GitExecute(ctx, polycrateConfigDir, args)
 	if err != nil {
 		log.Error(err)
 		return "", err
@@ -337,13 +338,13 @@ func GitGetUserName() (string, error) {
 	return output, nil
 }
 
-func GitCommitAll(path string, message string) (string, error) {
+func GitCommitAll(ctx context.Context, path string, message string) (string, error) {
 	addArgs := []string{
 		"add",
 		".",
 	}
 
-	_, err := GitExecute(path, addArgs)
+	_, err := GitExecute(ctx, path, addArgs)
 	if err != nil {
 		return "", err
 	}
@@ -354,7 +355,7 @@ func GitCommitAll(path string, message string) (string, error) {
 		fmt.Sprintf("--message=%s", message),
 	}
 
-	_, err = GitExecute(path, commitArgs)
+	_, err = GitExecute(ctx, path, commitArgs)
 	if err != nil {
 		return "", err
 	}
@@ -365,7 +366,7 @@ func GitCommitAll(path string, message string) (string, error) {
 		"HEAD",
 	}
 
-	hash, err := GitExecute(path, hashArgs)
+	hash, err := GitExecute(ctx, path, hashArgs)
 	if err != nil {
 		return "", err
 	}
@@ -373,7 +374,7 @@ func GitCommitAll(path string, message string) (string, error) {
 	return hash, nil
 }
 
-func GitExecute(path string, args []string) (string, error) {
+func GitExecute(ctx context.Context, path string, args []string) (string, error) {
 	pwd, _ := os.Getwd()
 
 	// Change to commit dir
@@ -382,7 +383,7 @@ func GitExecute(path string, args []string) (string, error) {
 		return "", err
 	}
 
-	_, output, err := RunCommandWithOutput("git", args...)
+	_, output, err := RunCommandWithOutput(ctx, nil, "git", args...)
 	if err != nil {
 		return output, err
 	}
@@ -395,11 +396,11 @@ func GitExecute(path string, args []string) (string, error) {
 	return strings.TrimSpace(output), nil
 }
 
-func GitFetch(path string) (string, error) {
+func GitFetch(ctx context.Context, path string) (string, error) {
 	fetchArgs := []string{
 		"fetch",
 	}
-	output, err := GitExecute(path, fetchArgs)
+	output, err := GitExecute(ctx, path, fetchArgs)
 	if err != nil {
 		return "", err
 	}
@@ -407,14 +408,14 @@ func GitFetch(path string) (string, error) {
 	return output, nil
 }
 
-func GitPush(path string, remote string, branch string) (string, error) {
+func GitPush(ctx context.Context, path string, remote string, branch string) (string, error) {
 	pushArgs := []string{
 		"push",
 		"--set-upstream",
 		remote,
 		branch,
 	}
-	output, err := GitExecute(path, pushArgs)
+	output, err := GitExecute(ctx, path, pushArgs)
 
 	if err != nil {
 		return "", err
@@ -422,14 +423,14 @@ func GitPush(path string, remote string, branch string) (string, error) {
 
 	return output, nil
 }
-func GitSetUpstreamTracking(path string, remote string, branch string) (string, error) {
+func GitSetUpstreamTracking(ctx context.Context, path string, remote string, branch string) (string, error) {
 	pushArgs := []string{
 		"branch",
 		"-u",
 		strings.Join([]string{remote, branch}, "/"),
 		branch,
 	}
-	output, err := GitExecute(path, pushArgs)
+	output, err := GitExecute(ctx, path, pushArgs)
 
 	if err != nil {
 		return "", err
@@ -438,13 +439,13 @@ func GitSetUpstreamTracking(path string, remote string, branch string) (string, 
 	return output, nil
 }
 
-func GitPull(path string, remote string, branch string) (string, error) {
+func GitPull(ctx context.Context, path string, remote string, branch string) (string, error) {
 	pullArgs := []string{
 		"pull",
 		remote,
 		branch,
 	}
-	output, err := GitExecute(path, pullArgs)
+	output, err := GitExecute(ctx, path, pullArgs)
 
 	if err != nil {
 		return "", err
@@ -453,7 +454,7 @@ func GitPull(path string, remote string, branch string) (string, error) {
 	return output, nil
 }
 
-func GitBehindBy(path string) (int, error) {
+func GitBehindBy(ctx context.Context, path string) (int, error) {
 	// behind_count = $(git rev-list --count HEAD..@{u}).
 	revArgs := []string{
 		"rev-list",
@@ -461,7 +462,7 @@ func GitBehindBy(path string) (int, error) {
 		"HEAD..@{u}",
 	}
 
-	output, err := GitExecute(path, revArgs)
+	output, err := GitExecute(ctx, path, revArgs)
 	if err != nil {
 		return 0, err
 	}
@@ -472,20 +473,20 @@ func GitBehindBy(path string) (int, error) {
 	return int, nil
 }
 
-func GitGetHeadCommit(path string, revision string) (string, error) {
+func GitGetHeadCommit(ctx context.Context, path string, revision string) (string, error) {
 	revArgs := []string{
 		"rev-parse",
 		revision,
 	}
 
-	output, err := GitExecute(path, revArgs)
+	output, err := GitExecute(ctx, path, revArgs)
 	if err != nil {
 		return "", err
 	}
 	return output, nil
 }
 
-func GitAheadBy(path string) (int, error) {
+func GitAheadBy(ctx context.Context, path string) (int, error) {
 	// ahead_count = $(git rev-list --count @{u}..HEAD)
 	revArgs := []string{
 		"rev-list",
@@ -493,7 +494,7 @@ func GitAheadBy(path string) (int, error) {
 		"@{u}..HEAD",
 	}
 
-	output, err := GitExecute(path, revArgs)
+	output, err := GitExecute(ctx, path, revArgs)
 	if err != nil {
 		return 0, err
 	}
@@ -505,7 +506,7 @@ func GitAheadBy(path string) (int, error) {
 	return int, nil
 }
 
-func GitCreateRemote(path string, name string, url string) error {
+func GitCreateRemote(ctx context.Context, path string, name string, url string) error {
 	log.WithFields(log.Fields{
 		"path":   workspace.LocalPath,
 		"remote": name,
@@ -519,7 +520,7 @@ func GitCreateRemote(path string, name string, url string) error {
 		url,
 	}
 
-	_, err := GitExecute(path, remoteArgs)
+	_, err := GitExecute(ctx, path, remoteArgs)
 
 	if err != nil {
 		return err
@@ -530,7 +531,7 @@ func GitCreateRemote(path string, name string, url string) error {
 		"remote": GitDefaultRemote,
 	}).Debugf("Fetching remote")
 
-	_, err = GitFetch(path)
+	_, err = GitFetch(ctx, path)
 
 	if err != nil {
 		return err

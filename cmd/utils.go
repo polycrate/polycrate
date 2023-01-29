@@ -172,19 +172,23 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 	return exitCode, stdBuffer.String(), err
 }
 
-func RunCommandWithOutput(name string, args ...string) (exitCode int, output string, err error) {
+func RunCommandWithOutput(ctx context.Context, env []string, name string, args ...string) (exitCode int, output string, err error) {
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("command", name)
+	log = log.WithField("args", strings.Join(args, " "))
+	ctx = polycrate.SetContextLogger(ctx, log)
+
 	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))
-	log.WithFields(log.Fields{
-		"command": name,
-		"args":    strings.Join(args, " "),
-	}).Trace("Running shell command")
+	log.Trace("Running shell command")
 
 	var outb, errb bytes.Buffer
 
 	cmd := exec.Command(name, args...)
 
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, workspace.DumpEnv()...)
+	if len(env) > 0 {
+		cmd.Env = append(cmd.Env, env...)
+	}
 
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb

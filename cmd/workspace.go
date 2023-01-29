@@ -403,11 +403,14 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 		if err != nil {
 			return err
 		}
-		err = block.LoadInventory()
+		err = block.LoadInventory(ctx, w)
 		if err != nil {
 			return err
 		}
-		block.LoadKubeconfig()
+		err = block.LoadKubeconfig(ctx, w)
+		if err != nil {
+			return err
+		}
 
 		// Update Action addresses for all blocks not covered by dependencies
 		if len(block.Actions) > 0 {
@@ -447,7 +450,7 @@ func (w *Workspace) PruneContainer(ctx context.Context) error {
 		fmt.Sprintf("label=polycrate.workspace.name=%s", w.Name),
 	}
 
-	exitCode, _, err := PruneContainer(
+	exitCode, _, err := PruneContainer(ctx,
 		filters,
 	)
 
@@ -561,7 +564,7 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 		labels,
 	)
 
-	log.Debugf("Stopped container. Exit code: %s", exitCode)
+	log.Debugf("Stopped container. Exit code: %d", exitCode)
 
 	// Update revision
 	w.revision.Output = output
@@ -1028,7 +1031,7 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	//w.LoadWorkspaceConfig().Flush()
 
 	// Check if this is a git repo
-	w.isGitRepo = GitIsRepo(path)
+	w.isGitRepo = GitIsRepo(ctx, path)
 
 	err := w.LoadConfigFromFile(ctx, path)
 	if err != nil {
@@ -1055,8 +1058,8 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	w.revision.Transaction = uuid.New()
 	w.revision.Version = w.Version
 
-	w.revision.UserEmail, _ = GitGetUserEmail()
-	w.revision.UserName, _ = GitGetUserName()
+	w.revision.UserEmail, _ = GitGetUserEmail(ctx)
+	w.revision.UserName, _ = GitGetUserName(ctx)
 
 	// Cleanup workspace runtime dir
 	// w.Cleanup().Flush()
@@ -1100,7 +1103,7 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	}
 
 	// Bootstrap env vars
-	w.bootstrapEnvVars().Flush()
+	w.bootstrapEnvVars(ctx).Flush()
 
 	// Bootstrap container mounts
 	if err := w.bootstrapMounts(); err != nil {
@@ -1161,8 +1164,8 @@ func (w *Workspace) load() *Workspace {
 	w.revision.Transaction = uuid.New()
 	w.revision.Version = w.Version
 
-	w.revision.UserEmail, _ = GitGetUserEmail()
-	w.revision.UserName, _ = GitGetUserName()
+	w.revision.UserEmail, _ = GitGetUserEmail(ctx)
+	w.revision.UserName, _ = GitGetUserName(ctx)
 
 	// Cleanup workspace runtime dir
 	w.Cleanup().Flush()
@@ -1188,7 +1191,7 @@ func (w *Workspace) load() *Workspace {
 	w.resolveWorkflows().Flush()
 
 	// Bootstrap env vars
-	w.bootstrapEnvVars().Flush()
+	w.bootstrapEnvVars(ctx).Flush()
 
 	// Bootstrap container mounts
 	w.bootstrapMounts()
@@ -1776,29 +1779,29 @@ func (c *Workspace) templateActionScripts() *Workspace {
 	return c
 }
 
-func (c *Workspace) DumpEnv() []string {
+func (w *Workspace) DumpEnv() []string {
 	envVars := []string{}
-	for envVar := range workspace.env {
-		value := workspace.env[envVar]
+	for envVar := range w.env {
+		value := w.env[envVar]
 		s := strings.Join([]string{envVar, value}, "=")
 		envVars = append(envVars, s)
 	}
 	return envVars
 }
 
-func (c *Workspace) DumpMounts() []string {
+func (w *Workspace) DumpMounts() []string {
 	mounts := []string{}
-	for mount := range workspace.mounts {
-		value := workspace.mounts[mount]
+	for mount := range w.mounts {
+		value := w.mounts[mount]
 		s := strings.Join([]string{mount, value}, "=")
 		mounts = append(mounts, s)
 	}
 	return mounts
 }
 
-func (c *Workspace) bootstrapEnvVars() *Workspace {
+func (w *Workspace) bootstrapEnvVars(ctx context.Context) *Workspace {
 	// Prepare env map
-	c.env = map[string]string{}
+	w.env = map[string]string{}
 
 	var _force string
 	if force {
@@ -1812,53 +1815,53 @@ func (c *Workspace) bootstrapEnvVars() *Workspace {
 	} else {
 		_in_container = "1"
 	}
-	c.registerEnvVar("ANSIBLE_DISPLAY_SKIPPED_HOSTS", "False")
-	c.registerEnvVar("ANSIBLE_DISPLAY_OK_HOSTS", "True")
-	c.registerEnvVar("ANSIBLE_HOST_KEY_CHECKING", "False")
-	c.registerEnvVar("ANSIBLE_ACTION_WARNINGS", "False")
-	c.registerEnvVar("ANSIBLE_COMMAND_WARNINGS", "False")
-	c.registerEnvVar("ANSIBLE_LOCALHOST_WARNING", "False")
-	c.registerEnvVar("ANSIBLE_DEPRECATION_WARNINGS", "False")
-	c.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
-	c.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
-	c.registerEnvVar("ANSIBLE_VERBOSITY", strconv.Itoa(logLevel))
-	c.registerEnvVar("ANSIBLE_SSH_PRIVATE_KEY_FILE", filepath.Join(c.ContainerPath, c.Config.SshPrivateKey))
-	c.registerEnvVar("ANSIBLE_PRIVATE_KEY_FILE", filepath.Join(c.ContainerPath, c.Config.SshPrivateKey))
+	w.registerEnvVar("ANSIBLE_DISPLAY_SKIPPED_HOSTS", "False")
+	w.registerEnvVar("ANSIBLE_DISPLAY_OK_HOSTS", "True")
+	w.registerEnvVar("ANSIBLE_HOST_KEY_CHECKING", "False")
+	w.registerEnvVar("ANSIBLE_ACTION_WARNINGS", "False")
+	w.registerEnvVar("ANSIBLE_COMMAND_WARNINGS", "False")
+	w.registerEnvVar("ANSIBLE_LOCALHOST_WARNING", "False")
+	w.registerEnvVar("ANSIBLE_DEPRECATION_WARNINGS", "False")
+	w.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
+	w.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
+	w.registerEnvVar("ANSIBLE_VERBOSITY", strconv.Itoa(logLevel))
+	w.registerEnvVar("ANSIBLE_SSH_PRIVATE_KEY_FILE", filepath.Join(w.ContainerPath, w.Config.SshPrivateKey))
+	w.registerEnvVar("ANSIBLE_PRIVATE_KEY_FILE", filepath.Join(w.ContainerPath, w.Config.SshPrivateKey))
 	//c.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
-	c.registerEnvVar("ANSIBLE_RUN_VARS_PLUGINS", "start")
-	c.registerEnvVar("ANSIBLE_VARS_PLUGINS", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
-	c.registerEnvVar("DEFAULT_VARS_PLUGIN_PATH", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
+	w.registerEnvVar("ANSIBLE_RUN_VARS_PLUGINS", "start")
+	w.registerEnvVar("ANSIBLE_VARS_PLUGINS", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
+	w.registerEnvVar("DEFAULT_VARS_PLUGIN_PATH", "/root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars")
 	//c.registerEnvVar("ANSIBLE_CALLBACKS_ENABLED", "timer,profile_tasks,profile_roles")
-	c.registerEnvVar("POLYCRATE_CLI_VERSION", version)
-	c.registerEnvVar("POLYCRATE_IMAGE_REFERENCE", workspace.Config.Image.Reference)
-	c.registerEnvVar("POLYCRATE_IMAGE_VERSION", workspace.Config.Image.Version)
-	c.registerEnvVar("POLYCRATE_FORCE", _force)
-	c.registerEnvVar("POLYCRATE_VERSION", version)
-	c.registerEnvVar("IN_CI", "true")
-	c.registerEnvVar("IN_CONTAINER", _in_container)
-	c.registerEnvVar("TERM", "xterm-256color")
+	w.registerEnvVar("POLYCRATE_CLI_VERSION", version)
+	w.registerEnvVar("POLYCRATE_IMAGE_REFERENCE", workspace.Config.Image.Reference)
+	w.registerEnvVar("POLYCRATE_IMAGE_VERSION", workspace.Config.Image.Version)
+	w.registerEnvVar("POLYCRATE_FORCE", _force)
+	w.registerEnvVar("POLYCRATE_VERSION", version)
+	w.registerEnvVar("IN_CI", "true")
+	w.registerEnvVar("IN_CONTAINER", _in_container)
+	w.registerEnvVar("TERM", "xterm-256color")
 
 	if local {
 		// Not in container
-		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.LocalPath)
+		w.registerEnvVar("POLYCRATE_WORKSPACE", workspace.LocalPath)
 	} else {
 		// In container
-		c.registerEnvVar("POLYCRATE_WORKSPACE", workspace.ContainerPath)
+		w.registerEnvVar("POLYCRATE_WORKSPACE", workspace.ContainerPath)
 	}
 
-	for _, envVar := range c.ExtraEnv {
+	for _, envVar := range w.ExtraEnv {
 		// Split by =
 		p := strings.Split(envVar, "=")
 
 		if len(p) == 2 {
-			c.registerEnvVar(p[0], p[1])
+			w.registerEnvVar(p[0], p[1])
 		} else {
-			c.err = goErrors.New("Illegal value for env var found: " + envVar)
-			return c
+			w.err = goErrors.New("Illegal value for env var found: " + envVar)
+			return w
 		}
 	}
 
-	return c
+	return w
 }
 
 func (c *Workspace) GetSnapshot(ctx context.Context) WorkspaceSnapshot {
@@ -1930,8 +1933,8 @@ func (w *Workspace) SaveSnapshot(ctx context.Context) (string, error) {
 
 }
 
-func (c *Workspace) registerEnvVar(key string, value string) {
-	c.env[key] = value
+func (w *Workspace) registerEnvVar(key string, value string) {
+	w.env[key] = value
 }
 
 func (c *Workspace) registerMount(host string, container string) {
@@ -2075,12 +2078,12 @@ func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
 
 	if polycrate.Config.Sync.Enabled {
-		if GitHasRemote(w.LocalPath) {
+		if GitHasRemote(ctx, w.LocalPath) {
 			log.Tracef("Getting remote repository status")
 
 			// https://stackoverflow.com/posts/68187853/revisions
 			// Get remote reference
-			_, err := GitFetch(w.LocalPath)
+			_, err := GitFetch(ctx, w.LocalPath)
 			if err != nil {
 				return err
 			}
@@ -2105,13 +2108,13 @@ func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 			// }
 
 			log.Tracef("Checking if behind remote")
-			behindBy, err := GitBehindBy(w.LocalPath)
+			behindBy, err := GitBehindBy(ctx, w.LocalPath)
 			if err != nil {
 				return err
 			}
 
 			log.Tracef("Checking if ahead of remote")
-			aheadBy, err := GitAheadBy(w.LocalPath)
+			aheadBy, err := GitAheadBy(ctx, w.LocalPath)
 			if err != nil {
 				return err
 			}
@@ -2139,7 +2142,7 @@ func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 			log.Tracef("Checking for uncommited changes")
 
 			// Has uncommited changes?
-			if GitHasChanges(w.LocalPath) {
+			if GitHasChanges(ctx, w.LocalPath) {
 				w.syncStatus = "changed"
 			}
 
@@ -2183,7 +2186,7 @@ func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 func (w *Workspace) Commit(ctx context.Context, message string) error {
 	log := polycrate.GetContextLogger(ctx)
 
-	hash, err := GitCommitAll(w.LocalPath, message)
+	hash, err := GitCommitAll(ctx, w.LocalPath, message)
 	if err != nil {
 		return err
 	}
@@ -2206,7 +2209,7 @@ func (w *Workspace) Commit(ctx context.Context, message string) error {
 
 func (w *Workspace) Pull(ctx context.Context) error {
 
-	_, err := GitPull(w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
+	_, err := GitPull(ctx, w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
 	if err != nil {
 		return err
 	}
@@ -2225,7 +2228,7 @@ func (w *Workspace) Pull(ctx context.Context) error {
 
 func (w *Workspace) Push(ctx context.Context) error {
 
-	_, err := GitPush(w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
+	_, err := GitPush(ctx, w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
 	if err != nil {
 		return err
 	}
@@ -2476,7 +2479,22 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 	log.Debugf("Pushing block")
 
 	_, registryUrl, blockName, _ := mapDockerTag(block.Name)
-	err := WrapOCIImage(ctx, block.Workdir.LocalPath, registryUrl, blockName, block.Version, block.Labels)
+	tagVersion := block.Version
+
+	// if --dev flag has been used, assume we're just developing that block
+	// append "dev" and the first 98 chars of the transaction ID to the tag (still sem-ver compatible)
+	if dev {
+		// Append "-dev" to tag
+		txid := polycrate.GetContextTXID(ctx)
+		_tagVersion := strings.Join([]string{tagVersion, "dev"}, "-")
+		tagVersion = strings.Join([]string{_tagVersion, txid.String()[:8]}, ".")
+
+		if block.Labels == nil {
+			block.Labels = map[string]string{}
+		}
+		block.Labels["polycrate.flags.dev"] = "true"
+	}
+	err := WrapOCIImage(ctx, block.Workdir.LocalPath, registryUrl, blockName, tagVersion, block.Labels)
 	if err != nil {
 		return err
 	}

@@ -131,11 +131,14 @@ func WrapOCIImage(ctx context.Context, path string, registryUrl string, imageNam
 		return err
 	}
 
-	//log.Debugf("Pushing image %s", latestTag.String())
-	log = log.WithField("tag", latestTag.String())
-	log.Debugf("Pushing image")
-	if err := crane.Push(newImg, latestTag.String()); err != nil {
-		return err
+	// Don't push the latest tag if the global development flag has been enabled
+	if !dev {
+		//log.Debugf("Pushing image %s", latestTag.String())
+		log = log.WithField("tag", latestTag.String())
+		log.Debugf("Pushing image")
+		if err := crane.Push(newImg, latestTag.String()); err != nil {
+			return err
+		}
 	}
 
 	return nil

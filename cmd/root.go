@@ -88,6 +88,7 @@ func init() {
 	fs.StringVarP(&outputFormat, "output-format", "o", "yaml", "Output format (currently no-op).")
 	fs.BoolVarP(&force, "force", "f", false, "Force whatever you want to do. Like sudo with more willpower. Defaults to false.")
 	fs.BoolVarP(&snapshot, "snapshot", "", false, "Only dump the workspace snapshot, do not run anything.")
+	fs.BoolVarP(&dev, "dev", "d", false, "Enable development mode for working with blocks")
 	fs.StringVar(&editor, "editor", DefaultEditor, "Editor to use to open the workspace")
 
 	// Polycrate main config
