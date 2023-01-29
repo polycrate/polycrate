@@ -51,7 +51,7 @@ var blocksUninstallCmd = &cobra.Command{
 			polycrate.ContextExit(ctx, cancelFunc, err)
 		}
 
-		err = workspace.UninstallBlocks(args)
+		err = workspace.UninstallBlocks(ctx, args)
 		if err != nil {
 			polycrate.ContextExit(ctx, cancelFunc, err)
 		}

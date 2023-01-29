@@ -138,7 +138,8 @@ If you want to use a custom registry, reference it when pulling blocks or adding
 
 To push a block to an OCI-compatible registry, run the following command: `polycrate block push $BLOCK_NAME`. 
 
-If you want to push it to a custom registry (see the [default registry](#registry)), add a second argument to the push command referencing the registry and image name: `polycrate block push $BLOCK_NAME index.docker.io/$BLOCK_NAME`.
+If the block name doesn't contain a valid registry url, a default registry will be used. A custom registry can be used as target by giving the block an appropriate name, like: `my.registry.com/block/name`. Polycrate will resolve the registry url from the block's name.
+
 
 !!! note
     When pushing a block, omit the `tag` (what's coming after the `:`) as Polycrate will automatically add the `version` defined in the block's `block.poly` to the image.
@@ -293,6 +294,40 @@ BLOCK_WORKDIR_LOCALPATH: $HOME/.polycrate/workspaces/polycrate-demo/blocks/custo
 
 You can use the `--snapshot` flag when invoking `polycrate run`. This will prevent any action from running and instead dumps the workspace snapshot. Also, `polycrate workspace snapshot` has the same effect, but doesn't contain data about the current action and block.
 
+## Workflows
+
+Polycrate supports workflows, i.e. the ordered execution of block actions.
+
+```yaml
+# workspace.poly
+name: workflow-workspace
+blocks:
+  - name: block-1
+    actions:
+      - name: action-1
+        script:
+          - echo "block 1 action 1"
+  - name: block-2
+    actions:
+      - name: action-1
+        script:
+          - echo "block 2 action 1"
+workflows:
+  - name: workflow-1
+    steps:
+      - name: block-1-action-1
+        block: block-1
+        action: action-1
+      - name: block-2-action-1
+        block: block-2
+        action: action-1
+        prompt: "Do you really want to run this action?"
+```
+
+You can use `polycrate workflows run workflow-1` (or for short `polycrate run workflow-1`) to execute this workflow.
+
+If a step has the `prompt` stanza an it's not empty, Polycrate will interrupt the workflow and lets the user confirm the execution of the current step.
+
 ## Loglevel
 
 Polycrate supports 3 loglevel:
@@ -323,9 +358,9 @@ With `polycrate log $MESSAGE` you can write and sync arbitrary history logs.
 
 ## Registry
 
-Polycrate blocks can be pushed and pulled to and from a OCI-compatible registry. By default, Polycrate uses `cargo.ayedo.cloud` as its registry targets to obtain blocks from. 
+Polycrate blocks can be pushed and pulled to and from a OCI-compatible registry. Polycrate uses `cargo.ayedo.cloud` as the default registry to obtain blocks from or push them to.
 
-You can define your own registry by using `--registry-url` and pointing it to your OCI-compatible registry or simply add the registry URL when pushing/pulling blocks, just like with Docker.
+You can define your own registry by using `--registry-url` and pointing it to your OCI-compatible registry or simply include the registry URL in the block's name, just like with Docker.
 
 Polycrate does not implement authentication with the registry but instead makes use of your local Docker credential helper. To authenticate against a registry, run `docker login $REGISTRY_URL` before pushing or pulling blocks.
 

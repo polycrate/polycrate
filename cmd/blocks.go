@@ -777,20 +777,14 @@ func (b *Block) LoadArtifacts(ctx context.Context, workspace *Workspace) error {
 
 }
 
-func (c *Block) Uninstall(prune bool) error {
+func (c *Block) Uninstall(ctx context.Context, prune bool) error {
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
+	log := polycrate.GetContextLogger(ctx)
+	log.WithField("path", c.Workdir.LocalPath)
 	if _, err := os.Stat(c.Workdir.LocalPath); os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"workspace": workspace.Name,
-			"block":     c.Name,
-			"path":      c.Workdir.LocalPath,
-		}).Debugf("Block directory does not exist")
+		log.Debugf("Block directory does not exist")
 	} else {
-		log.WithFields(log.Fields{
-			"workspace": workspace.Name,
-			"block":     c.Name,
-			"path":      c.Workdir.LocalPath,
-		}).Debugf("Removing block directory")
+		log.Debugf("Removing block directory")
 
 		err := os.RemoveAll(c.Workdir.LocalPath)
 		if err != nil {
@@ -798,11 +792,7 @@ func (c *Block) Uninstall(prune bool) error {
 		}
 
 		if prune {
-			log.WithFields(log.Fields{
-				"workspace": workspace.Name,
-				"block":     c.Name,
-				"path":      c.Artifacts.LocalPath,
-			}).Debugf("Pruning artifacts")
+			log.Debugf("Pruning artifacts")
 
 			err := os.RemoveAll(c.Artifacts.LocalPath)
 			if err != nil {
@@ -810,11 +800,7 @@ func (c *Block) Uninstall(prune bool) error {
 			}
 		}
 	}
-	log.WithFields(log.Fields{
-		"workspace": workspace.Name,
-		"block":     c.Name,
-		"version":   c.Version,
-	}).Debugf("Successfully uninstalled block from workspace")
+	log.Debugf("Successfully uninstalled block from workspace")
 	return nil
 
 }

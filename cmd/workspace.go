@@ -2501,11 +2501,11 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 	return nil
 }
 
-func (c *Workspace) UninstallBlocks(args []string) error {
+func (c *Workspace) UninstallBlocks(ctx context.Context, args []string) error {
 	for _, blockName := range args {
 		block := c.GetBlockFromIndex(blockName)
 		if block != nil {
-			err := block.Uninstall(pruneBlock)
+			err := block.Uninstall(ctx, pruneBlock)
 			if err != nil {
 				return err
 			}
