@@ -732,7 +732,7 @@ func (c *Workspace) LookupStep(address string) *Step {
 }
 
 func (w *Workspace) SoftloadWorkspaceConfig() *Workspace {
-	var workspaceConfig = viper.New()
+	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
 	workspaceConfigFilePath := filepath.Join(w.Path, WorkspaceConfigFile)
 
 	workspaceConfig.SetConfigType("yaml")
@@ -755,7 +755,7 @@ func (w *Workspace) SoftloadWorkspaceConfig() *Workspace {
 func (w *Workspace) LoadConfig() *Workspace {
 	log.Warn("LoadConfig is deprecated")
 	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
-	var workspaceConfig = viper.New()
+	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
 
 	// Match CLI Flags with Config options
 	// CLI Flags have precedence
@@ -843,7 +843,7 @@ func (w *Workspace) LoadConfig() *Workspace {
 }
 func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string) error {
 	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
-	var workspaceConfig = viper.New()
+	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
 	log := polycrate.GetContextLogger(ctx)
 
 	// Match CLI Flags with Config options
@@ -949,7 +949,7 @@ func (w *Workspace) Save(ctx context.Context) error {
 }
 
 func (c *Workspace) updateConfig(path string, value string) *Workspace {
-	var sideloadConfig = viper.New()
+	var sideloadConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
 	//var sideloadStruct Workspace
 
 	// Check if a full path has been given
@@ -1901,7 +1901,7 @@ func (w *Workspace) SaveSnapshot(ctx context.Context) (string, error) {
 		}
 
 		// Create a viper config object
-		snapshotConfig := viper.New()
+		snapshotConfig := viper.NewWithOptions(viper.KeyDelimiter("::"))
 		snapshotConfig.SetConfigType("yaml")
 		snapshotConfig.ReadConfig(bytes.NewBuffer(data))
 		err = snapshotConfig.WriteConfigAs(f.Name())
@@ -2576,7 +2576,10 @@ func (w *Workspace) LoadBlock(ctx context.Context, path string) (*Block, error) 
 	blockConfigFilePath := filepath.Join(path, w.Config.BlocksConfig)
 	block.Workdir.LocalPath = path
 
-	blockConfigObject := viper.New()
+	//blockConfigObject := viper.New()
+	// https: //github.com/spf13/viper#unmarshaling
+	// allows to use dots in keys
+	blockConfigObject := viper.NewWithOptions(viper.KeyDelimiter("::"))
 	blockConfigObject.SetConfigType("yaml")
 	blockConfigObject.SetConfigFile(blockConfigFilePath)
 
