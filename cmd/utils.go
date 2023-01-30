@@ -114,7 +114,6 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 	log := polycrate.GetContextLogger(ctx)
 	log = log.WithField("command", name)
 	log = log.WithField("args", strings.Join(args, " "))
-	ctx = polycrate.SetContextLogger(ctx, log)
 
 	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))
 	log.Trace("Running shell command")
@@ -590,7 +589,7 @@ func HighjackSigint(ctx context.Context) {
 
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		s := <-signals
+		<-signals
 
 		//signalHandler(s)
 		workspace.PruneContainer(ctx)

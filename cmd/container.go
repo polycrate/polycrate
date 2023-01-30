@@ -223,6 +223,8 @@ func RunContainer(ctx context.Context, image string, command []string, env []str
 	if interactive {
 		log.Info("Running in interactive mode")
 		runCmd = append(runCmd, []string{"-it"}...)
+	} else {
+		runCmd = append(runCmd, []string{"-t"}...)
 	}
 
 	// Platform
@@ -240,7 +242,7 @@ func RunContainer(ctx context.Context, image string, command []string, env []str
 	runCmd = append(runCmd, command...)
 
 	// Run container
-	exitCode, output, err := RunCommand(ctx, nil, "docker", runCmd...)
+	exitCode, output, err := RunCommand(ctx, env, "docker", runCmd...)
 
 	return exitCode, output, err
 }
