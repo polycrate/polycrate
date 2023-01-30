@@ -42,16 +42,6 @@ type promptContent struct {
 
 var activateFlag bool
 
-func signalHandler(s os.Signal) {
-	// Deal with running containers
-	ctx := context.Background()
-	workspace.PruneContainer(ctx)
-	//workspace.Sync().Flush()
-
-	log.Fatalf("ctrl-c received")
-
-}
-
 func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
@@ -602,7 +592,11 @@ func HighjackSigint(ctx context.Context) {
 	go func() {
 		s := <-signals
 
-		signalHandler(s)
+		//signalHandler(s)
+		workspace.PruneContainer(ctx)
+		//workspace.Sync().Flush()
+
+		log.Fatalf("ctrl-c received")
 
 	}()
 }
