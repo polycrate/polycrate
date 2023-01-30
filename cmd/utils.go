@@ -595,7 +595,7 @@ func validateBlockName(fl validator.FieldLevel) bool {
 	return ValidateBlockName(name)
 }
 
-func HighjackSigint() {
+func HighjackSigint(ctx context.Context) {
 	signals := make(chan os.Signal, 1)
 
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)

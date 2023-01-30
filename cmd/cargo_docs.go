@@ -121,10 +121,11 @@ type DocsBlocksCatalogBlock struct {
 }
 
 var cargoDocsCmd = &cobra.Command{
-	Use:   "docs",
-	Short: "Generate docs from the available registry blocks",
-	Long:  ``,
-	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
+	Hidden: true,
+	Use:    "docs",
+	Short:  "Generate docs from the available registry blocks",
+	Long:   ``,
+	Args:   cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	RunE: func(cmd *cobra.Command, args []string) error {
 		catalog := DocsBlocksCatalog{}
 		registry := "cargo.ayedo.cloud"

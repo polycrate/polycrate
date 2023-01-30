@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	semver "github.com/hashicorp/go-version"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -702,4 +704,103 @@ func (p *Polycrate) getTempFile(ctx context.Context, filename string) (*os.File,
 		return nil, err
 	}
 	return f, nil
+}
+
+func (p *Polycrate) PullImage(ctx context.Context, image string) error {
+	_, _, err := PullImage(ctx, image)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Polycrate) CreateContainer(ctx context.Context, name string, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (string, error) {
+	_, name, err := CreateContainer(ctx, name, image, command, env, mounts, workdir, ports, labels)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+func (p *Polycrate) RemoveContainer(ctx context.Context, name string) error {
+	err := RemoveContainer(ctx, name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Polycrate) CopyFromImage(ctx context.Context, image string, src string, dst string) error {
+	txid := p.GetContextTXID(ctx)
+
+	name, err := p.CreateContainer(ctx, txid.String(), image, nil, nil, nil, "", nil, nil)
+	if err != nil {
+		return err
+	}
+
+	err = CopyFromContainer(ctx, name, src, dst)
+	if err != nil {
+		return err
+	}
+
+	// err = p.RemoveContainer(ctx, name)
+	// if err != nil {
+	// 	return err
+	// }
+	return nil
+}
+
+func (p *Polycrate) GetStableVersion(ctx context.Context) (string, error) {
+	log := polycrate.GetContextLogger(ctx)
+
+	log.Debugf("Getting stable version from %s", polycrate.Config.Registry.Url)
+
+	url := fmt.Sprintf("https://%s/api/v2.0/projects/library/repositories/polycrate/artifacts?q=%s&page=1&page_size=100", p.Config.Registry.Url, url.QueryEscape("tags=latest"))
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+
+	// Unmarshal artifacts
+	var repositoryArtifactList []HarborRepositoryArtifact
+	err = json.NewDecoder(resp.Body).Decode(&repositoryArtifactList)
+	if err != nil {
+		return "", err
+	}
+
+	// Above query should only ever return 1 artifact
+	if len(repositoryArtifactList) > 1 {
+		return "", fmt.Errorf("unable to determine latest version. too many artifacts")
+	}
+	artifact := repositoryArtifactList[0]
+
+	var v string
+	for _, tag := range artifact.Tags {
+		if tag.Name != "latest" && !strings.HasPrefix(tag.Name, "v") {
+			v = tag.Name
+			_, err := semver.NewVersion(v)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
+	return v, nil
+}
+
+func (p *Polycrate) UpdateCLI(ctx context.Context) error {
+	log.Warn("Starting Self-Update")
+	stableVersion, err := p.GetStableVersion(ctx)
+	if err != nil {
+		return err
+	}
+
+	image := strings.Join([]string{WorkspaceConfigImageRef, stableVersion}, ":")
+	err = p.CopyFromImage(ctx, image, "/usr/local/bin/polycrate", "/usr/local/bin/polycrate")
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"io"
+	"strings"
 
 	"github.com/moby/term"
 	log "github.com/sirupsen/logrus"
@@ -46,6 +47,18 @@ func buildContainerImage(ctx context.Context, path string, dockerfilePath string
 	}
 
 	return tags[0], nil
+}
+
+func PullImage(ctx context.Context, image string) (int, string, error) {
+	// Prepare container command
+	var runCmd []string
+
+	runCmd = append(runCmd, []string{"pull", image}...)
+
+	// Pull image
+	exitCode, output, err := RunCommandWithOutput(ctx, nil, "docker", runCmd...)
+
+	return exitCode, output, err
 }
 
 func pullContainerImage(image string) error {
@@ -230,6 +243,96 @@ func RunContainer(ctx context.Context, image string, command []string, env []str
 	exitCode, output, err := RunCommand(ctx, nil, "docker", runCmd...)
 
 	return exitCode, output, err
+}
+
+func CreateContainer(ctx context.Context, name string, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("container", name)
+	log.Debugf("Creating container")
+
+	// Prepare container command
+	var runCmd []string
+
+	// https://stackoverflow.com/questions/16248241/concatenate-two-slices-in-go
+	runCmd = append(runCmd, []string{"container", "create"}...)
+
+	runCmd = append(runCmd, []string{"--name", name}...)
+
+	// Env
+	for _, envVar := range env {
+		runCmd = append(runCmd, []string{"-e", envVar}...)
+	}
+
+	// Mounts
+	for _, bindMount := range mounts {
+		runCmd = append(runCmd, []string{"-v", bindMount}...)
+	}
+
+	// Ports
+	for _, port := range ports {
+		runCmd = append(runCmd, []string{"-p", port}...)
+	}
+
+	// Labels
+	for _, label := range labels {
+		runCmd = append(runCmd, []string{"-l", label}...)
+	}
+
+	// Workdir
+	if workdir != "" {
+
+		runCmd = append(runCmd, []string{"--workdir", workdir}...)
+	}
+
+	// Entrypoint
+	entrypointCmd := []string{"--entrypoint", "/bin/bash"}
+	runCmd = append(runCmd, entrypointCmd...)
+
+	// Image
+	runCmd = append(runCmd, image)
+
+	if len(command) > 0 {
+		runCmd = append(runCmd, command...)
+	}
+
+	// Run container
+	exitCode, _, err := RunCommandWithOutput(ctx, nil, "docker", runCmd...)
+
+	return exitCode, name, err
+}
+
+func CopyFromContainer(ctx context.Context, container string, src string, dst string) error {
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("container", container)
+	log = log.WithField("src", src)
+	log = log.WithField("dst", dst)
+	log.Debugf("Copying file from container")
+
+	// Prepare container command
+	var runCmd []string
+
+	_src := strings.Join([]string{container, src}, ":")
+	runCmd = append(runCmd, []string{"docker", "cp", _src, dst}...)
+
+	// Copy
+	_, _, err := RunCommandWithOutput(ctx, nil, "sudo", runCmd...)
+
+	return err
+}
+
+func RemoveContainer(ctx context.Context, container string) error {
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("container", container)
+	log.Debugf("Removing container")
+	// Prepare container command
+	var runCmd []string
+
+	runCmd = append(runCmd, []string{"rm", "--force", container}...)
+
+	// Remove container
+	_, _, err := RunCommandWithOutput(ctx, nil, "docker", runCmd...)
+
+	return err
 }
 
 // func runContainer(cli *client.Client, cc *container.Config, hc *container.HostConfig, name string) error {

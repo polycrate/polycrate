@@ -24,9 +24,11 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -475,6 +477,18 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 
 	// Goroutine to capture signals (SIGINT, etc)
 	// Exits with exit code 1 when ctrl-c is captured
+	// Goroutine to capture signals (SIGINT, etc)
+	// Exits with exit code 1 when ctrl-c is captured
+	// signals := make(chan os.Signal, 1)
+	// done := make(chan bool, 1)
+
+	// signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	// go func() {
+	// 	s := <-signals
+
+	// 	signalHandler(s)
+
+	// }()
 
 	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
 
@@ -552,11 +566,10 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 
 	// Capture CTRL-C if the container is running and non-interactive
 	if !interactive {
-		HighjackSigint()
-
-		log.Debugf("Starting container")
+		w.HighjackSigint(ctx)
 
 	}
+	log.Debugf("Starting container")
 
 	exitCode, output, err := RunContainer(
 		ctx,
@@ -1029,6 +1042,26 @@ func (w *Workspace) Reload(ctx context.Context) (*Workspace, error) {
 	log.Debug("Reloading workspace")
 
 	return w.Load(ctx, w.LocalPath)
+}
+
+func (w *Workspace) HighjackSigint(ctx context.Context) {
+	log := polycrate.GetContextLogger(ctx)
+	log.Debugf("Starting signal handler")
+	signals := make(chan os.Signal, 1)
+
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signals
+
+		log.Debugf("Received CTRL-C")
+		w.PruneContainer(ctx)
+
+		//signalHandler(s)
+		//workspace.Sync().Flush()
+
+		log.Fatalf("ctrl-c received")
+
+	}()
 }
 
 func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {

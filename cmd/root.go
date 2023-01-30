@@ -88,7 +88,7 @@ func init() {
 	fs.StringVarP(&outputFormat, "output-format", "o", "yaml", "Output format (currently no-op).")
 	fs.BoolVarP(&force, "force", "f", false, "Force whatever you want to do. Like sudo with more willpower. Defaults to false.")
 	fs.BoolVarP(&snapshot, "snapshot", "", false, "Only dump the workspace snapshot, do not run anything.")
-	fs.BoolVarP(&dev, "dev", "d", false, "Enable development mode for working with blocks")
+	fs.BoolVar(&dev, "dev", false, "Enable development mode for working with blocks")
 	fs.StringVar(&editor, "editor", DefaultEditor, "Editor to use to open the workspace")
 
 	// Polycrate main config
@@ -237,8 +237,8 @@ func initConfig() {
 
 	// Goroutine to capture signals (SIGINT, etc)
 	// Exits with exit code 1 when ctrl-c is captured
-	//signals := make(chan os.Signal, 1)
-	//done := make(chan bool, 1)
+	// signals := make(chan os.Signal, 1)
+	// done := make(chan bool, 1)
 
 	// signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	// go func() {

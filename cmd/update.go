@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"archive/tar"
+	"context"
 
 	"bytes"
 	"compress/gzip"
@@ -56,9 +57,27 @@ Use --force to re-install or downgrade to a specific version
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Warn("Starting Self-Update")
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		if err != nil {
+			polycrate.ContextExit(ctx, cancelFunc, err)
+		}
 
-		stableVersion := getStableVersion()
+		// err = polycrate.UpdateCLI(ctx)
+		// if err != nil {
+		// 	polycrate.ContextExit(ctx, cancelFunc, err)
+		// }
+		// log.Fatal("End update")
+
+		stableVersion, err := polycrate.GetStableVersion(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Info(version)
+
+		//stableVersion := getStableVersion()
+
+		// WorkspaceConfigImageRef
 		downloadVersion := stableVersion
 		if len(args) == 1 {
 			// args[0] is a concrete version the user can request

@@ -6,10 +6,11 @@ package cmd
 import "github.com/spf13/cobra"
 
 var cargoCmd = &cobra.Command{
-	Use:   "cargo",
-	Short: "Deal with the Polycrate registry",
-	Long:  ``,
-	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
+	Hidden: true,
+	Use:    "cargo",
+	Short:  "Deal with the Polycrate registry",
+	Long:   ``,
+	Args:   cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
