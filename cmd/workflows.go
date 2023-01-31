@@ -98,7 +98,7 @@ func (w *Workflow) run(ctx context.Context, workspace *Workspace) error {
 	log = log.WithField("workflow", w.Name)
 	ctx = polycrate.SetContextLogger(ctx, log)
 
-	log.Debugf("Running Workflow")
+	log.Infof("Running Workflow")
 
 	// Check if any steps are configured
 	// Return an error if not
@@ -128,7 +128,7 @@ func (s *Step) run(ctx context.Context, workspace *Workspace) error {
 	// // Get workflow from step
 	// workflow := workspace.GetWorkflowFromIndex(s.Workflow)
 
-	log.Debugf("Running step")
+	log.Infof("Running step")
 
 	// Reloading Workspace to discover new files
 	//workspace.load().Flush()

@@ -680,7 +680,8 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 }
 
 func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
-	// Find action in index and report
+
+	// Find workflow in index
 	workflow := w.LookupWorkflow(name)
 
 	if workflow != nil {
@@ -1067,6 +1068,9 @@ func (w *Workspace) HighjackSigint(ctx context.Context) {
 func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	// Load Workspace config (e.g. workspace.poly)
 	//w.LoadWorkspaceConfig().Flush()
+
+	// Reset blocks
+	w.Blocks = []*Block{}
 
 	// Check if this is a git repo
 	w.isGitRepo = GitIsRepo(ctx, path)
@@ -1544,13 +1548,18 @@ func (c *Workspace) Uninstall() error {
 
 // Resolves the 'from:' stanza of all blocks
 func (w *Workspace) ResolveBlockDependencies(ctx context.Context, workspaceLocalPath string, workspaceContainerPath string) error {
+	log := polycrate.GetContextLogger(ctx)
+
 	missing := len(w.Blocks)
 
 	// Iterate over all Blocks in the Workspace
 	// Until nothing is "missing" anymore
 	for missing > 0 {
+		log.Debugf("Unresolved blocks: %d", missing)
 		for i := 0; i < len(w.Blocks); i++ {
 			loadedBlock := w.Blocks[i]
+
+			log.Tracef("Resolving block %s - resolved? %s", loadedBlock.Name, loadedBlock.resolved)
 
 			if !loadedBlock.resolved {
 				err := w.ResolveBlock(ctx, loadedBlock, workspaceLocalPath, workspaceContainerPath)
@@ -2620,6 +2629,12 @@ func (w *Workspace) LoadInstalledBlocks(ctx context.Context) error {
 			// Block exists
 			log.Tracef("Found existing block with the same name. Merging.")
 
+			// Make sure "resolved" is false
+			// If not, the block will stay "resolved" during a workflow
+			// and base blocks will not be merged in again
+			log.Tracef("Marking block as unresolved")
+			existingBlock.resolved = false
+
 			err := existingBlock.MergeIn(installedBlock)
 			if err != nil {
 				return err
@@ -2765,6 +2780,10 @@ func (w *Workspace) DiscoverInstalledBlocks() *Workspace {
 func (w *Workspace) FindInstalledBlocks(ctx context.Context, path string) error {
 	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
 
+	// reset installedBlocks
+	// when running a workflow, without reseting the count of installed blocks just continuously increases
+	w.installedBlocks = []*Block{}
+
 	if _, err := os.Stat(blocksDir); !os.IsNotExist(err) {
 		// This function adds all valid Blocks to the list of
 		err := filepath.WalkDir(blocksDir, func(path string, d fs.DirEntry, err error) error {
@@ -2799,6 +2818,7 @@ func (w *Workspace) FindInstalledBlocks(ctx context.Context, path string) error 
 		log := polycrate.GetContextLogger(ctx)
 		log.WithField("path", blocksDir).Debugf("Skipping block discovery. Blocks directory not found")
 	}
+	log.Debugf("Installed blocks: %d", len(w.installedBlocks))
 
 	return nil
 }
