@@ -26,36 +26,42 @@ import (
 var actionsRunCmd = &cobra.Command{
 	Use:   "run 'block.action'",
 	Short: "Run an Action",
+	Args:  cobra.ExactArgs(2),
 	Long: `
 To run an Action, use this command with 1 argument - the Action address.
 The action address is a combination of the Block name and the Action name, joined with a dot/period.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			log.Fatal("Need exactly one argument: Action address (e.g. 'Block.Action')")
-		}
+		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		// Save command to context
+		cmdKey := ContextKey("cmd")
+		ctx := context.WithValue(context.Background(), cmdKey, cmd)
+		ctx, cancel, err := polycrate.NewTransaction(ctx)
+		defer polycrate.StopTransaction(ctx, cancel)
+
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		log := polycrate.GetContextLogger(ctx)
-
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		err = cmdRunAction(ctx, _w, args)
 		if err != nil {
 			log.Fatal(err)
 		}
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
-
-		if err := workspace.RunAction(ctx, args[0]); err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
-		}
-
-		polycrate.ContextExit(ctx, cancelFunc, nil)
-
 	},
+}
+
+func cmdRunAction(ctx context.Context, s string, args []string) error {
+
+	ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, s)
+	if err != nil {
+		return err
+	}
+
+	ctx, err = workspace.RunActionWithContext(ctx, args[0], args[1])
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func init() {

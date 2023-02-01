@@ -17,8 +17,8 @@ package cmd
 
 import (
 	"context"
-	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -33,42 +33,38 @@ var runWorkflowCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		workflowName = args[0]
+		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		cmdKey := ContextKey("cmd")
+		ctx := context.WithValue(context.Background(), cmdKey, cmd)
+		ctx, cancel, err := polycrate.NewTransaction(ctx)
+		defer polycrate.StopTransaction(ctx, cancel)
+
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
-		log := polycrate.GetContextLogger(ctx)
-
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		err = cmdRunWorkflow(ctx, _w, args, stepName)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
+			return err
 		}
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
-
-		// Check stepName
-		if stepName != "" && stepIndex == -1 {
-			log = log.WithField("workflow", workflowName)
-			ctx = polycrate.SetContextLogger(ctx, log)
-
-			stepAddress := strings.Join([]string{workflowName, stepName}, ".")
-			err := workspace.RunStep(ctx, stepAddress)
-			if err != nil {
-				polycrate.ContextExit(ctx, cancelFunc, err)
-			}
-		}
-		err = workspace.RunWorkflow(ctx, args[0])
-		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
-		}
-
-		polycrate.ContextExit(ctx, cancelFunc, err)
 
 		return nil
 	},
+}
+
+func cmdRunWorkflow(ctx context.Context, s string, args []string, stepName string) error {
+	ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, s)
+	if err != nil {
+		return err
+	}
+
+	ctx, err = workspace.RunWorkflowWithContext(ctx, args[0], stepName)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func init() {

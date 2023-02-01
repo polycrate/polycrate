@@ -277,6 +277,66 @@ func (w *Workspace) Flush() *Workspace {
 	return w
 }
 
+func (w *Workspace) RunActionWithContext(ctx context.Context, _block string, _action string) (context.Context, error) {
+	//address := strings.Join([]string{block, action}, ":")
+	// err := w.RunAction(ctx, address)
+	// if err != nil {
+	// 	return ctx, err
+	// }
+
+	var err error
+
+	var block *Block
+	ctx, block, err = w.GetBlockWithContext(ctx, _block)
+	if err != nil {
+		return ctx, err
+	}
+
+	var action *Action
+	ctx, action, err = block.GetActionWithContext(ctx, _action)
+	if err != nil {
+		return ctx, err
+	}
+
+	if block.Template {
+		err = goErrors.New("this is a template block. not running action")
+		return ctx, err
+	}
+
+	//log := polycrate.GetContextLogger(ctx)
+
+	w.registerCurrentAction(action)
+	w.registerCurrentBlock(block)
+
+	// If --snapshot is set, print the snapshot and exit
+	if snapshot {
+		w.Snapshot(ctx)
+	} else {
+		ctx, err := action.RunWithContext(ctx)
+		if err != nil {
+			return ctx, err
+		}
+	}
+
+	// Reload Block after action execution to update artifacts, inventory and kubeconfig
+	err = block.Reload(ctx, w)
+	if err != nil {
+		return ctx, err
+	}
+
+	// Run event handler
+	//w.revision.Snapshot = WorkspaceSnapshot{}
+
+	event, err := polycrate.GetContextEvent(ctx)
+	if err == nil {
+		event.Labels["monk.event.level"] = "Info"
+
+		ctx = polycrate.SetContextEvent(ctx, event)
+	}
+
+	return ctx, nil
+}
+
 func (w *Workspace) RunAction(ctx context.Context, address string) error {
 	log := polycrate.GetContextLogger(ctx)
 
@@ -306,7 +366,7 @@ func (w *Workspace) RunAction(ctx context.Context, address string) error {
 		if snapshot {
 			w.Snapshot(ctx)
 		} else {
-			err := action.Run(ctx, w)
+			_, err := action.RunWithContext(ctx)
 			if err != nil {
 				return err
 			}
@@ -320,9 +380,23 @@ func (w *Workspace) RunAction(ctx context.Context, address string) error {
 		}
 
 		// Run event handler
-		w.revision.Snapshot = WorkspaceSnapshot{}
-		if err := polycrate.EventHandler(ctx, w.revision); err != nil {
-			return err
+		//w.revision.Snapshot = WorkspaceSnapshot{}
+		log.Debugf("Running event handler")
+		event := NewEvent(ctx)
+		event.Action = w.revision.Snapshot.Action.Name
+		event.Block = w.revision.Snapshot.Block.Name
+		event.Workspace = w.revision.Snapshot.Workspace.Name
+		event.Command = w.revision.Command
+		event.ExitCode = w.revision.ExitCode
+		event.UserEmail = w.revision.UserEmail
+		event.UserName = w.revision.UserName
+		event.Date = w.revision.Date
+		event.Output = w.revision.Output
+		event.Labels["monk.event.level"] = "Info"
+
+		if err := polycrate.EventHandler(ctx); err != nil {
+			// We're not terminating here to not block further execution
+			log.Warnf("Event handler failed: %s", err)
 		}
 
 	} else {
@@ -448,47 +522,14 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 }
 
 func (w *Workspace) PruneContainer(ctx context.Context) error {
-	log := polycrate.GetContextLogger(ctx)
-	txid := polycrate.GetContextTXID(ctx)
-
-	// docker container prune --filter label=polycrate.workspace.revision.transaction=%sw.
-	filters := []string{
-		fmt.Sprintf("label=polycrate.txid=%s", txid),
-	}
-
-	exitCode, _, err := PruneContainer(ctx,
-		filters,
-	)
-
-	log.WithField("exit_code", exitCode)
-	log.Debugf("Pruned container")
-
-	// Handle pruning error
-	if err != nil {
-		return err
-	}
-	w.containerStatus.Pruned = true
-	return nil
+	return polycrate.PruneContainer(ctx)
 }
 
-func (w *Workspace) RunContainer(ctx context.Context, name string, workdir string, cmd []string) error {
+func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, workdir string, cmd []string) (context.Context, error) {
 	log := polycrate.GetContextLogger(ctx)
 	txid := polycrate.GetContextTXID(ctx)
 
-	// Goroutine to capture signals (SIGINT, etc)
-	// Exits with exit code 1 when ctrl-c is captured
-	// Goroutine to capture signals (SIGINT, etc)
-	// Exits with exit code 1 when ctrl-c is captured
-	// signals := make(chan os.Signal, 1)
-	// done := make(chan bool, 1)
-
-	// signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	// go func() {
-	// 	s := <-signals
-
-	// 	signalHandler(s)
-
-	// }()
+	log.Infof("Starting container")
 
 	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
 
@@ -507,17 +548,17 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 				log.Warnf("Building custom image: %s", tag)
 
 				tags := []string{tag}
-				containerImage, err = buildContainerImage(ctx, w.LocalPath, w.Config.Dockerfile, tags)
+				containerImage, err = polycrate.BuildContainer(ctx, w.LocalPath, w.Config.Dockerfile, tags)
 				if err != nil {
-					return err
+					return ctx, err
 				}
 			} else {
 				if pull {
 					log.Debugf("Pulling image: %s", containerImage)
-					err := pullContainerImage(containerImage)
+					err := polycrate.PullImage(ctx, containerImage)
 
 					if err != nil {
-						return err
+						return ctx, err
 					}
 				} else {
 					log.Debugf("Not pulling/building image")
@@ -526,10 +567,10 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 		} else {
 			if pull {
 				log.Debugf("Pulling image: %s", containerImage)
-				err := pullContainerImage(containerImage)
+				err := polycrate.PullImage(ctx, containerImage)
 
 				if err != nil {
-					return err
+					return ctx, err
 				}
 			} else {
 				log.Debugf("Not pulling/building image")
@@ -538,10 +579,10 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 	} else {
 		if pull {
 			log.Debugf("Pulling image: %s", containerImage)
-			err := pullContainerImage(containerImage)
+			err := polycrate.PullImage(ctx, containerImage)
 
 			if err != nil {
-				return err
+				return ctx, err
 			}
 		} else {
 			log.Debugf("Not pulling/building image")
@@ -551,10 +592,10 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 	runCommand := cmd
 
 	// Setup mounts
-	containerMounts := []string{}
-	for containerMount := range w.mounts {
-		m := strings.Join([]string{containerMount, w.mounts[containerMount]}, ":")
-		containerMounts = append(containerMounts, m)
+	mounts := []string{}
+	for mount := range w.mounts {
+		m := strings.Join([]string{mount, w.mounts[mount]}, ":")
+		mounts = append(mounts, m)
 	}
 
 	// Setup labels
@@ -565,41 +606,64 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 	w.containerStatus.Transaction = w.revision.Transaction
 
 	// Capture CTRL-C if the container is running and non-interactive
+	var cancelHighjack context.CancelFunc
 	if !interactive {
-		w.HighjackSigint(ctx)
+		ctx, cancelHighjack = context.WithCancel(ctx)
+		defer cancelHighjack()
+		polycrate.HighjackSigint(ctx)
 
 	}
 	log.Debugf("Starting container")
 
-	exitCode, output, err := RunContainer(
+	ports := []string{}
+
+	env := w.DumpEnv()
+
+	containerName := polycrate.GetContextTXID(ctx).String()
+
+	exitCode, output, err := polycrate.RunContainer(
 		ctx,
+		mounts,
+		env,
+		ports,
+		containerName,
+		labels,
+		workdir,
 		containerImage,
 		runCommand,
-		w.DumpEnv(),
-		containerMounts,
-		workdir,
-		[]string{},
-		labels,
 	)
+
+	ctx = polycrate.SetContextOutput(ctx, output)
+	ctx = polycrate.SetContextExitCode(ctx, exitCode)
+
+	if err != nil {
+		return ctx, err
+	}
 
 	log.Debugf("Stopped container. Exit code: %d", exitCode)
 
 	// Update revision
-	w.revision.Output = output
-	w.revision.ExitCode = exitCode
-	w.revision.Snapshot = w.GetSnapshot(ctx)
+	revision, err := polycrate.GetContextRevision(ctx)
+	if err == nil {
+		revision.Output = output
+		revision.ExitCode = exitCode
+		revision.Snapshot = w.GetSnapshot(ctx)
+
+		revisionKey := ContextKey("revision")
+		ctx = context.WithValue(ctx, revisionKey, revision)
+	}
 
 	w.containerStatus.Running = false
 
 	// Handle container error
 	if err != nil {
-		return err
+		return ctx, err
 	}
 
 	// Prune container
 	w.PruneContainer(ctx)
 
-	return nil
+	return ctx, nil
 
 	// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 
@@ -679,6 +743,28 @@ func (w *Workspace) RunContainer(ctx context.Context, name string, workdir strin
 	// return w
 }
 
+func (w *Workspace) RunWorkflowWithContext(ctx context.Context, name string, stepName string) (context.Context, error) {
+
+	var err error
+
+	var workflow *Workflow
+	ctx, workflow, err = w.GetWorkflowWithContext(ctx, name)
+	if err != nil {
+		return ctx, err
+	}
+
+	w.registerCurrentWorkflow(workflow)
+
+	if snapshot {
+		w.Snapshot(ctx)
+	} else {
+		ctx, err := workflow.RunWithContext(ctx, stepName)
+		if err != nil {
+			return ctx, err
+		}
+	}
+	return ctx, nil
+}
 func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
 
 	// Find workflow in index
@@ -690,7 +776,7 @@ func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
 		if snapshot {
 			w.Snapshot(ctx)
 		} else {
-			err := workflow.run(ctx, w)
+			err := workflow.Run(ctx)
 			if err != nil {
 				return err
 			}
@@ -701,7 +787,7 @@ func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
 	return nil
 }
 
-func (w *Workspace) RunStep(ctx context.Context, name string) error {
+func (w *Workspace) RunStep(ctx context.Context, workflow string, name string) error {
 	log := polycrate.GetContextLogger(ctx)
 	log = log.WithField("workspace", workspace.Name)
 	ctx = polycrate.SetContextLogger(ctx, log)
@@ -713,7 +799,7 @@ func (w *Workspace) RunStep(ctx context.Context, name string) error {
 		if snapshot {
 			w.Snapshot(ctx)
 		} else {
-			err := step.run(ctx, w)
+			err := step.Run(ctx)
 			if err != nil {
 				return err
 			}
@@ -1033,6 +1119,24 @@ func (c *Workspace) updateConfig(path string, value string) *Workspace {
 		return c
 	}
 	return c
+}
+
+func (w *Workspace) LoadWithContext(ctx context.Context) (context.Context, *Workspace, error) {
+
+	log := polycrate.GetContextLogger(ctx)
+
+	workspace, err := w.Load(ctx, w.LocalPath)
+	if err != nil {
+		return ctx, nil, err
+	}
+
+	workspaceKey := ContextKey("workspace")
+	ctx = context.WithValue(ctx, workspaceKey, workspace)
+
+	log = log.WithField("workspace", w.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	return ctx, workspace, nil
 }
 
 func (w *Workspace) Reload(ctx context.Context) (*Workspace, error) {
@@ -2040,6 +2144,38 @@ func (c *Workspace) GetActionFromIndex(name string) *Action {
 // 	return nil
 // }
 
+func (w *Workspace) GetBlockWithContext(ctx context.Context, name string) (context.Context, *Block, error) {
+	block, err := w.GetBlock(name)
+	if err != nil {
+		return ctx, nil, err
+	}
+
+	blockKey := ContextKey("block")
+	ctx = context.WithValue(ctx, blockKey, block)
+
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("block", block.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	return ctx, block, nil
+}
+
+func (w *Workspace) GetWorkflowWithContext(ctx context.Context, name string) (context.Context, *Workflow, error) {
+	workflow, err := w.GetWorkflow(name)
+	if err != nil {
+		return ctx, nil, err
+	}
+
+	workflowKey := ContextKey("workflow")
+	ctx = context.WithValue(ctx, workflowKey, workflow)
+
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("workflow", workflow.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	return ctx, workflow, nil
+}
+
 func (c *Workspace) GetBlockFromIndex(name string) *Block {
 	if block, ok := c.index.Blocks[name]; ok {
 		return block
@@ -2064,6 +2200,15 @@ func (c *Workspace) GetBlock(name string) (*Block, error) {
 		}
 	}
 	return nil, fmt.Errorf("block not found: %s", name)
+}
+func (c *Workspace) GetWorkflow(name string) (*Workflow, error) {
+	for i := 0; i < len(c.Workflows); i++ {
+		workflow := c.Workflows[i]
+		if workflow.Name == name {
+			return workflow, nil
+		}
+	}
+	return nil, fmt.Errorf("workflow not found: %s", name)
 }
 
 func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {

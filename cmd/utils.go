@@ -7,7 +7,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
+
+	// "encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -21,6 +22,8 @@ import (
 	"syscall"
 
 	"github.com/gosimple/slug"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
 
 	goErrors "errors"
@@ -118,7 +121,7 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))
 	log.Trace("Running shell command")
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(ctx, name, args...)
 
 	cmd.Env = os.Environ()
 
@@ -150,7 +153,7 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 			// in this situation, exit code could not be get, and stderr will be
 			// empty string very likely, so we use the default fail code, and format err
 			// to string and set to stderr
-			log.Warn("Could not get exit code for failed program: %v, %v", name, args)
+			log.Warnf("Could not get exit code for failed program: %v, %v", name, args)
 			exitCode = defaultFailedCode
 		}
 	} else {
@@ -172,7 +175,7 @@ func RunCommandWithOutput(ctx context.Context, env []string, name string, args .
 
 	var outb, errb bytes.Buffer
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(ctx, name, args...)
 
 	cmd.Env = os.Environ()
 	if len(env) > 0 {
@@ -194,7 +197,7 @@ func RunCommandWithOutput(ctx context.Context, env []string, name string, args .
 			// in this situation, exit code could not be get, and stderr will be
 			// empty string very likely, so we use the default fail code, and format err
 			// to string and set to stderr
-			log.Printf("Could not get exit code for failed program: %v, %v", name, args)
+			log.Warnf("Could not get exit code for failed program: %v, %v", name, args)
 			exitCode = defaultFailedCode
 		}
 	} else {
@@ -840,4 +843,25 @@ func CreateSSHKeys(ctx context.Context, path string, SshPrivateKey string, SshPu
 	}
 
 	return nil
+}
+
+func FormatCommand(cmd *cobra.Command) string {
+
+	commandPath := cmd.CommandPath()
+	localArgs := cmd.Flags().Args()
+
+	localFlags := []string{}
+
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		//fmt.Printf("--%s=%s\n", flag.Name, flag.Value)
+		localFlags = append(localFlags, fmt.Sprintf("--%s=%s", flag.Name, flag.Value))
+	})
+
+	command := strings.Join([]string{
+		commandPath,
+		strings.Join(localArgs, " "),
+		strings.Join(localFlags, " "),
+	}, " ")
+
+	return command
 }

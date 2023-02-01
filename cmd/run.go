@@ -16,8 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"strings"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -37,8 +35,8 @@ To run an Action, use this command with 2 arguments - the Block name and the Act
 				log.Fatal(err)
 			}
 		} else if len(args) == 2 {
-			action := strings.Join([]string{args[0], args[1]}, ".")
-			actionsRunCmd.Run(cmd, []string{action})
+			//action := strings.Join([]string{args[0], args[1]}, ".")
+			actionsRunCmd.Run(cmd, []string{args[0], args[1]})
 		}
 
 	},

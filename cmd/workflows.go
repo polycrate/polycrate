@@ -18,6 +18,7 @@ package cmd
 import (
 	"context"
 	goErrors "errors"
+	"fmt"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -93,10 +94,51 @@ func (c *Workflow) Inspect() {
 	printObject(c)
 }
 
-func (w *Workflow) run(ctx context.Context, workspace *Workspace) error {
+func (w *Workflow) RunWithContext(ctx context.Context, stepName string) (context.Context, error) {
 	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("workflow", w.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
+
+	log.Infof("Running Workflow")
+
+	// Check if any steps are configured
+	// Return an error if not
+	if len(w.Steps) == 0 {
+		return ctx, goErrors.New("no steps defined for workflow " + w.Name)
+	}
+
+	// If a step name has been given, only run this step
+	if stepName != "" {
+		ctx, step, err := w.GetStepWithContext(ctx, stepName)
+		if err != nil {
+			return ctx, err
+		}
+
+		return ctx, step.Run(ctx)
+	}
+
+	for _, step := range w.Steps {
+		ctx, step, err := w.GetStepWithContext(ctx, step.Name)
+		if err != nil {
+			return ctx, err
+		}
+
+		err = step.Run(ctx)
+		if err != nil {
+			return ctx, err
+		}
+
+		// reloading workspace to account for new artifacts
+		//workspace.Reload(ctx)
+	}
+
+	return ctx, nil
+}
+func (w *Workflow) Run(ctx context.Context) error {
+	log := polycrate.GetContextLogger(ctx)
+
+	workspace, err := polycrate.GetContextWorkspace(ctx)
+	if err != nil {
+		return err
+	}
 
 	log.Infof("Running Workflow")
 
@@ -110,7 +152,7 @@ func (w *Workflow) run(ctx context.Context, workspace *Workspace) error {
 		log = log.WithField("step", step.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
 
-		err := step.run(ctx, workspace)
+		err := step.Run(ctx)
 		if err != nil {
 			return err
 		}
@@ -122,8 +164,13 @@ func (w *Workflow) run(ctx context.Context, workspace *Workspace) error {
 	return nil
 }
 
-func (s *Step) run(ctx context.Context, workspace *Workspace) error {
+func (s *Step) Run(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
+
+	workspace, err := polycrate.GetContextWorkspace(ctx)
+	if err != nil {
+		return err
+	}
 
 	// // Get workflow from step
 	// workflow := workspace.GetWorkflowFromIndex(s.Workflow)
@@ -164,8 +211,7 @@ func (s *Step) run(ctx context.Context, workspace *Workspace) error {
 	}
 
 	if runStep {
-		actionAddress := strings.Join([]string{s.Block, s.Action}, ".")
-		err := workspace.RunAction(ctx, actionAddress)
+		ctx, err = workspace.RunActionWithContext(ctx, s.Block, s.Action)
 		if err != nil {
 			return err
 		}
@@ -241,6 +287,44 @@ func (c *Workflow) getStepByName(stepName string) *Step {
 	for i := 0; i < len(c.Steps); i++ {
 		step := &c.Steps[i]
 		if step.Name == stepName {
+			return step
+		}
+	}
+	return nil
+}
+func (w *Workflow) GetStepWithContext(ctx context.Context, name string) (context.Context, *Step, error) {
+	step, err := w.GetStep(name)
+	if err != nil {
+		return ctx, nil, err
+	}
+
+	stepKey := ContextKey("step")
+	ctx = context.WithValue(ctx, stepKey, step)
+
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("step", step.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	return ctx, step, nil
+}
+
+func (c *Workflow) GetStep(name string) (*Step, error) {
+
+	//for _, block := range c.Blocks {
+	for i := 0; i < len(c.Steps); i++ {
+		step := &c.Steps[i]
+		if step.Name == name {
+			return step, nil
+		}
+	}
+	return nil, fmt.Errorf("step not found: %s", name)
+}
+func (c *Workflow) GetStepByIndex(index int) *Step {
+
+	//for _, block := range c.Blocks {
+	for i := 0; i < len(c.Steps); i++ {
+		step := &c.Steps[i]
+		if i == index {
 			return step
 		}
 	}

@@ -142,7 +142,7 @@ func (b *Block) SSH(ctx context.Context, hostname string, workspace *Workspace) 
 		"--output-file",
 		f.Name(),
 	}
-	err = workspace.RunContainer(ctx, containerName, workspace.ContainerPath, cmd)
+	ctx, err = workspace.RunContainerWithContext(ctx, containerName, workspace.ContainerPath, cmd)
 	if err != nil {
 		return err
 	}
@@ -518,6 +518,32 @@ func (c *Block) getKubeconfigPath() string {
 		}
 	}
 	return ""
+}
+
+func (b *Block) GetActionWithContext(ctx context.Context, name string) (context.Context, *Action, error) {
+	action, err := b.GetAction(name)
+	if err != nil {
+		return ctx, nil, err
+	}
+
+	actionKey := ContextKey("action")
+	ctx = context.WithValue(ctx, actionKey, action)
+
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("action", action.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	return ctx, action, nil
+}
+
+func (b *Block) GetAction(name string) (*Action, error) {
+	for i := 0; i < len(b.Actions); i++ {
+		action := &b.Actions[i]
+		if action.Name == name {
+			return action, nil
+		}
+	}
+	return nil, fmt.Errorf("action not found: %s", name)
 }
 
 func (c *Block) getActionByName(actionName string) *Action {

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-playground/validator/v10"
+	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -127,6 +128,7 @@ var snapshot bool
 // Global validator variable
 // We're hooking up special validators in root.go->init()
 var validate = validator.New()
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // Build meta
 // These variables will be set at build time

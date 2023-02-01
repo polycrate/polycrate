@@ -297,22 +297,32 @@ func (c *Action) MergeIn(action Action) error {
 // 	return err
 // }
 
-func (a *Action) Run(ctx context.Context, workspace *Workspace) error {
+func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("action", a.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
+
+	log.Infof("Running action")
+
+	workspace, err := polycrate.GetContextWorkspace(ctx)
+	if err != nil {
+		return ctx, err
+	}
+
+	block, err := polycrate.GetContextBlock(ctx)
+	if err != nil {
+		return ctx, err
+	}
 
 	log.Debugf("Running action")
 
 	// 3. Determine inventory path
-	inventoryPath := workspace.currentBlock.getInventoryPath(workspace)
-	log.Debugf("Updating inventory: %s", inventoryPath)
+	inventoryPath := block.getInventoryPath(workspace)
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", inventoryPath)
+	log.Tracef("Updating inventory: %s", inventoryPath)
 
 	// 4. Determine kubeconfig path
-	kubeconfigPath := workspace.currentBlock.getKubeconfigPath()
-	log.Debugf("Updating kubeconfig: %s", kubeconfigPath)
+	kubeconfigPath := block.getKubeconfigPath()
 	workspace.registerEnvVar("KUBECONFIG", kubeconfigPath)
+	log.Tracef("Updating kubeconfig: %s", kubeconfigPath)
 
 	// register environment variables
 	workspace.registerEnvVar("POLYCRATE_RUNTIME_SCRIPT_PATH", a.executionScriptPath)
@@ -328,12 +338,12 @@ func (a *Action) Run(ctx context.Context, workspace *Workspace) error {
 	} else {
 		// Save snapshot before running the action
 		if snapshotContainerPath, err := workspace.SaveSnapshot(ctx); err != nil {
-			return err
+			return ctx, err
 		} else {
 			// Save execution script
 			var err error
 			if len(a.Script) > 0 {
-				err = a.saveExecutionScript(ctx, workspace)
+				err = a.SaveExecutionScript(ctx)
 				// We use the vars plugin in "script" mode
 				workspace.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
 			} else if a.Playbook != "" {
@@ -343,7 +353,7 @@ func (a *Action) Run(ctx context.Context, workspace *Workspace) error {
 			}
 
 			if err != nil {
-				return err
+				return ctx, err
 			}
 
 			// register mounts
@@ -352,34 +362,40 @@ func (a *Action) Run(ctx context.Context, workspace *Workspace) error {
 			if !local {
 				txid := polycrate.GetContextTXID(ctx)
 				containerName := txid.String()
+
 				runCommand := []string{}
 				if a.executionScriptPath != "" {
 					log.Debugf("Running script: %s", a.executionScriptPath)
 
 					runCommand = append(runCommand, a.executionScriptPath)
 				} else {
-					return goErrors.New("no execution script path given. Nothing to do")
+					return ctx, goErrors.New("no execution script path given. Nothing to do")
 				}
-				err := workspace.RunContainer(ctx, containerName, workspace.currentBlock.Workdir.Path, runCommand)
+
+				ctx, err = workspace.RunContainerWithContext(ctx, containerName, block.Workdir.Path, runCommand)
 				if err != nil {
-					return err
+					return ctx, err
 				}
 			} else {
 				err := fmt.Errorf("'local' mode not yet implemented")
-				return err
+				return ctx, err
 			}
 		}
 	}
-	return nil
+	return ctx, nil
 }
 
-func (c *Action) saveExecutionScript(ctx context.Context, workspace *Workspace) error {
+func (c *Action) SaveExecutionScript(ctx context.Context) error {
+	txid := polycrate.GetContextTXID(ctx)
+	workspace, err := polycrate.GetContextWorkspace(ctx)
+	if err != nil {
+		return err
+	}
 	log := polycrate.GetContextLogger(ctx)
 
 	script := c.GetExecutionScript(ctx)
 	snapshot := workspace.GetSnapshot(ctx)
 
-	txid := polycrate.GetContextTXID(ctx)
 	scriptSlug := slugify([]string{txid.String(), "execution", "script"})
 	scriptFilename := strings.Join([]string{scriptSlug, "sh"}, ".")
 
@@ -431,7 +447,7 @@ func (c *Action) saveExecutionScript(ctx context.Context, workspace *Workspace) 
 		c.executionScriptPath = f.Name()
 		return nil
 	} else {
-		return fmt.Errorf("'script' section of Action is empty")
+		return fmt.Errorf("'script' section of action is empty")
 	}
 
 }
@@ -501,7 +517,7 @@ func (a *Action) saveAnsibleScript(ctx context.Context, snapshotContainerPath st
 		a.executionScriptPath = f.Name()
 		return nil
 	} else {
-		return fmt.Errorf("ansible: 'script' section of Action is empty")
+		return fmt.Errorf("ansible: 'script' section of action is empty")
 	}
 
 }

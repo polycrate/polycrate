@@ -35,8 +35,12 @@ var workspaceInitCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		cmdKey := ContextKey("cmd")
+		ctx := context.WithValue(context.Background(), cmdKey, cmd)
+		ctx, cancel, err := polycrate.NewTransaction(ctx)
+		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -105,13 +109,10 @@ var workspaceInitCmd = &cobra.Command{
 			}
 		}
 
-		workspace, err := polycrate.InitWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String(), withName, withSshKeys, withConfig)
+		_, err = polycrate.InitWorkspace(ctx, _w, withName, withSshKeys, withConfig)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
-
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
 
 		// // Check if a git repo has been given via flag
 		// if withRemoteUrl == "" {
@@ -233,8 +234,6 @@ var workspaceInitCmd = &cobra.Command{
 		// }
 
 		// Check if a git repo has been given via flag
-
-		polycrate.ContextExit(ctx, cancelFunc, nil)
 
 		return nil
 
