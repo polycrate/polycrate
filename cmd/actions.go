@@ -40,25 +40,23 @@ var actionsCmd = &cobra.Command{
 	Short: "Control Polycrate actions",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String(), true)
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
-
-		workspace.ListActions().Flush()
-
-		polycrate.ContextExit(ctx, cancelFunc, err)
+		workspace.ListActions()
 	},
 }
 

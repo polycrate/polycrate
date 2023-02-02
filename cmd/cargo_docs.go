@@ -156,10 +156,11 @@ var cargoDocsCmd = &cobra.Command{
 			log.Fatal("'docs/blocks' does not exist")
 		}
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err = polycrate.StartTransaction(ctx, cancelFunc)
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
 		// Loop over repositories

@@ -73,7 +73,6 @@ Use --force to re-install or downgrade to a specific version
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Info(version)
 
 		//stableVersion := getStableVersion()
 

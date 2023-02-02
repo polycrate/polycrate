@@ -101,8 +101,9 @@ func init() {
 	fs.StringVarP(&defaultWorkspace.LocalPath, "workspace", "w", cwd, "The path to the workspace. Defaults to $PWD")
 
 	// Common config
-	fs.IntVar(&polycrate.Config.Loglevel, "loglevel", 1, "loglevel")
-	fs.StringVar(&polycrate.Config.Logformat, "logformat", "default", "loglevel")
+	fs.IntVar(&polycrate.Config.Loglevel, "loglevel", 1, "How verbose Polycrate should be")
+	fs.BoolVar(&polycrate.Config.CheckUpdates, "check-updates", false, "Check for Polycrate updates on program start")
+	fs.StringVar(&polycrate.Config.Logformat, "logformat", "default", "Log format (JSON/YAML)")
 	fs.StringVar(&polycrate.Config.Registry.Url, "registry-url", RegistryUrl, "The URL of the OCI registry")
 	fs.StringVar(&polycrate.Config.Registry.BaseImage, "registry-base-image", RegistryBaseImage, "The base image to package blocks in OCI format")
 
@@ -178,9 +179,27 @@ func init() {
 
 func initConfig() {
 	ctx := context.Background()
+	ctx, cancel, err := polycrate.NewTransaction(ctx, nil)
+	defer polycrate.StopTransaction(ctx, cancel)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log := polycrate.GetContextLogger(ctx)
 
 	if err := polycrate.Load(ctx); err != nil {
 		log.Fatal(err)
+	}
+
+	if polycrate.Config.CheckUpdates {
+		stableVersion, err := polycrate.GetStableVersion(ctx)
+		if err != nil {
+			log.Warn(err)
+		} else {
+			if stableVersion != version {
+				log.Infof("There's a new version of Polycrate available: %s. Run `polycrate update` to update", stableVersion)
+			}
+		}
+
 	}
 
 	if version == "latest" {

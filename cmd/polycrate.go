@@ -74,11 +74,12 @@ type PolycrateConfig struct {
 	//Sync      PolycrateSyncConfig     `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	//Providers []PolycrateProvider     `yaml:"providers,omitempty" mapstructure:"providers,omitempty" json:"providers,omitempty"`
 	//Gitlab   PolycrateGitlabProvider `yaml:"gitlab,omitempty" mapstructure:"gitlab,omitempty" json:"gitlab,omitempty"`
-	Registry  Registry    `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty"`
-	Sync      SyncOptions `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
-	Loglevel  int         `yaml:"loglevel,omitempty" mapstructure:"loglevel,omitempty" json:"loglevel,omitempty"`
-	Logformat string      `yaml:"logformat,omitempty" mapstructure:"logformat,omitempty" json:"logformat,omitempty"`
-	Webhooks  []Webhook   `yaml:"webhooks,omitempty" mapstructure:"webhooks,omitempty" json:"webhooks,omitempty"`
+	Registry     Registry    `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty"`
+	Sync         SyncOptions `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
+	Loglevel     int         `yaml:"loglevel,omitempty" mapstructure:"loglevel,omitempty" json:"loglevel,omitempty"`
+	Logformat    string      `yaml:"logformat,omitempty" mapstructure:"logformat,omitempty" json:"logformat,omitempty"`
+	Webhooks     []Webhook   `yaml:"webhooks,omitempty" mapstructure:"webhooks,omitempty" json:"webhooks,omitempty"`
+	CheckUpdates bool        `yaml:"check_updates,omitempty" mapstructure:"check_updates,omitempty" json:"check_updates,omitempty"`
 	//Workspace PolycrateWorkspaceDefaults `yaml:"workspace,omitempty" mapstructure:"workspace,omitempty" json:"workspace,omitempty"`
 }
 
@@ -693,6 +694,7 @@ func (p *Polycrate) GetContextVersion(ctx context.Context) string {
 func (p *Polycrate) GetContextLogger(ctx context.Context) *log.Entry {
 	LoggerKey := ContextKey("Logger")
 	_log := ctx.Value(LoggerKey)
+
 	return _log.(*log.Entry)
 }
 
@@ -1154,7 +1156,7 @@ func (p *Polycrate) CopyFromImage(ctx context.Context, image string, src string,
 }
 
 func (p *Polycrate) GetStableVersion(ctx context.Context) (string, error) {
-	log := polycrate.GetContextLogger(ctx)
+	log := p.GetContextLogger(ctx)
 
 	log.Debugf("Getting stable version from %s", polycrate.Config.Registry.Url)
 
