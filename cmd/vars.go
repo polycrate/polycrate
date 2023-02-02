@@ -174,7 +174,8 @@ var polycrateRuntimeDir = filepath.Join(polycrateConfigDir, "run")
 var polycrateConfigFilePath = filepath.Join(polycrateConfigDir, "polycrate.yml")
 
 // Errors
-var DependencyNotResolved = errors.New("Block dependency not resolved")
+var ErrDependencyNotResolved = errors.New("block dependency not resolved")
+var ErrWorkspaceConfigNotFound = errors.New("workspace config not found")
 
 var signals = make(chan os.Signal, 1)
 

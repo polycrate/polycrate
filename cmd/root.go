@@ -179,12 +179,6 @@ func init() {
 
 func initConfig() {
 	ctx := context.Background()
-	ctx, cancel, err := polycrate.NewTransaction(ctx, nil)
-	defer polycrate.StopTransaction(ctx, cancel)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log := polycrate.GetContextLogger(ctx)
 
 	if err := polycrate.Load(ctx); err != nil {
 		log.Fatal(err)

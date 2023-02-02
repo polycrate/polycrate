@@ -808,7 +808,7 @@ func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string,
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		log = log.WithField("path", path)
-		log.Info("Creating directory")
+		log.Debugf("Creating directory")
 
 		if err := CreateDir(path); err != nil {
 			return nil, err
@@ -827,28 +827,26 @@ func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string,
 	blocksDir := filepath.Join([]string{workspace.LocalPath, workspace.Config.BlocksRoot}...)
 	if _, err := os.Stat(blocksDir); os.IsNotExist(err) {
 		log = log.WithField("path", blocksDir)
-		log.Info("Creating directory")
+		log.Debugf("Creating directory")
 
 		if err := CreateDir(blocksDir); err != nil {
 			return nil, err
 		}
 	}
 
-	log = log.WithField("workspace", workspace.Name)
-
 	if withConfig {
 		log = log.WithField("config", workspace.Config.WorkspaceConfig)
 		if err := workspace.Save(ctx); err != nil {
-			log.Warn("Config already exists")
+			log.Debug("Config already exists")
 		} else {
-			log.Info("Config created")
+			log.Infof("Config created")
 		}
 	}
 
 	if withSSHKeys {
 		err := workspace.CreateSshKeys(ctx)
 		if err != nil {
-			log.Warn(err)
+			log.Debug(err)
 		}
 	}
 
@@ -882,6 +880,22 @@ func (p *Polycrate) CleanupRuntimeDir(ctx context.Context) error {
 	return nil
 }
 
+func (p *Polycrate) PreloadWorkspaceWithContext(ctx context.Context, path string, validate bool) (context.Context, *Workspace, error) {
+	workspace, err := p.PreloadWorkspace(ctx, path, validate)
+	if err != nil {
+		return ctx, nil, err
+	}
+
+	workspaceKey := ContextKey("workspace")
+	ctx = context.WithValue(ctx, workspaceKey, workspace)
+
+	log := polycrate.GetContextLogger(ctx)
+	log = log.WithField("workspace", workspace.Name)
+	ctx = polycrate.SetContextLogger(ctx, log)
+
+	return ctx, workspace, nil
+}
+
 func (p *Polycrate) GetWorkspaceWithContext(ctx context.Context, path string, validate bool) (context.Context, *Workspace, error) {
 	workspace, err := p.LoadWorkspace(ctx, path, validate)
 	if err != nil {
@@ -896,6 +910,28 @@ func (p *Polycrate) GetWorkspaceWithContext(ctx context.Context, path string, va
 	ctx = polycrate.SetContextLogger(ctx, log)
 
 	return ctx, workspace, nil
+}
+
+func (p *Polycrate) PreloadWorkspace(ctx context.Context, path string, validate bool) (*Workspace, error) {
+	var workspace *Workspace
+	var err error
+	log := p.GetContextLogger(ctx)
+	log = log.WithField("path", path)
+
+	log.Debugf("Loading workspace from path")
+
+	workspace = new(Workspace)
+
+	// Make a hard copy of the defaultWorkspace
+	*workspace = defaultWorkspace
+
+	// Set the path to the given path
+	workspace, err = workspace.Preload(ctx, path, validate)
+	if err != nil {
+		return nil, err
+	}
+
+	return workspace, nil
 }
 
 func (p *Polycrate) LoadWorkspace(ctx context.Context, path string, validate bool) (*Workspace, error) {

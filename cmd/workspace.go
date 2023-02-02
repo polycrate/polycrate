@@ -443,7 +443,7 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 				log.WithField("dependency", block.From).Tracef("Dependency not resolved. Deferring.")
 
 				block.resolved = false
-				err := DependencyNotResolved
+				err := ErrDependencyNotResolved
 				return err
 			}
 
@@ -1003,8 +1003,8 @@ func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string, validat
 			w.LocalPath = path
 			workspaceConfigFilePath = filepath.Join(w.LocalPath, WorkspaceConfigFile)
 		} else {
-			err = fmt.Errorf("couldn't find workspace config at %s", workspaceConfigFilePath)
-			return err
+			// err = fmt.Errorf("couldn't find workspace config at %s", workspaceConfigFilePath)
+			return ErrWorkspaceConfigNotFound
 		}
 	}
 
@@ -1163,9 +1163,8 @@ func (w *Workspace) HighjackSigint(ctx context.Context) {
 	}()
 }
 
-func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Workspace, error) {
-	// Load Workspace config (e.g. workspace.poly)
-	//w.LoadWorkspaceConfig().Flush()
+func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (*Workspace, error) {
+	var err error
 
 	// Reset blocks
 	w.Blocks = []*Block{}
@@ -1173,7 +1172,8 @@ func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Work
 	// Check if this is a git repo
 	w.isGitRepo = GitIsRepo(ctx, path)
 
-	err := w.LoadConfigFromFile(ctx, path, validate)
+	// Load Workspace config (e.g. workspace.poly)
+	err = w.LoadConfigFromFile(ctx, path, validate)
 	if err != nil {
 		return nil, err
 	}
@@ -1192,20 +1192,6 @@ func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Work
 		w.Path = w.ContainerPath
 	}
 
-	// Save revision data
-	w.revision = &WorkspaceRevision{}
-	w.revision.Date = time.Now().Format(time.RFC3339)
-	w.revision.Command = w.FormatCommand(globalCmd)
-	w.revision.Transaction = txid
-	w.revision.Version = w.Version
-
-	userInfo := polycrate.GetUserInfo(ctx)
-	w.revision.UserEmail = userInfo["email"]
-	w.revision.UserName = userInfo["name"]
-
-	// Cleanup workspace runtime dir
-	// w.Cleanup().Flush()
-
 	// Bootstrap the workspace index
 	if w.index == nil {
 		w.index = &WorkspaceIndex{}
@@ -1216,19 +1202,38 @@ func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Work
 	}
 
 	// Find all blocks in the workspace
-	log.Debugf("Finding installed blocks")
+	log.Debugf("Searching for installed blocks")
 	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
 	if err := w.FindInstalledBlocks(ctx, blocksDir); err != nil {
 		return nil, err
 	}
 
-	// Pull dependencies
-	//w.PullDependencies().Flush()
-
 	// Load all discovered blocks in the workspace
-	//w.ImportInstalledBlocks().Flush()
 	log.Debugf("Loading installed blocks")
 	if err := w.LoadInstalledBlocks(ctx); err != nil {
+		return nil, err
+	}
+
+	// Bootstrap revision data
+	// TODO: deprecate
+	w.revision = &WorkspaceRevision{}
+	w.revision.Date = time.Now().Format(time.RFC3339)
+	w.revision.Command = w.FormatCommand(globalCmd)
+	w.revision.Transaction = txid
+	w.revision.Version = w.Version
+
+	userInfo := polycrate.GetUserInfo(ctx)
+	w.revision.UserEmail = userInfo["email"]
+	w.revision.UserName = userInfo["name"]
+
+	return w, nil
+}
+
+func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Workspace, error) {
+	var err error
+
+	w, err = w.Preload(ctx, path, validate)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1664,7 +1669,7 @@ func (w *Workspace) ResolveBlockDependencies(ctx context.Context, workspaceLocal
 
 				if err != nil {
 					switch {
-					case errors.Is(err, DependencyNotResolved):
+					case errors.Is(err, ErrDependencyNotResolved):
 						loadedBlock.resolved = false
 						loadedBlock.err = nil
 						continue
@@ -2024,6 +2029,7 @@ func (w *Workspace) bootstrapEnvVars(ctx context.Context) *Workspace {
 func (c *Workspace) GetSnapshot(ctx context.Context) WorkspaceSnapshot {
 	log := polycrate.GetContextLogger(ctx)
 	log.Debug("Generating snapshot")
+
 	snapshot := WorkspaceSnapshot{
 		Workspace: c,
 		Action:    c.currentAction,
@@ -2034,7 +2040,7 @@ func (c *Workspace) GetSnapshot(ctx context.Context) WorkspaceSnapshot {
 		Mounts:    c.mounts,
 	}
 
-	c.RegisterSnapshotEnv(snapshot).Flush()
+	// c.RegisterSnapshotEnv(snapshot).Flush()
 	return snapshot
 }
 
@@ -2579,7 +2585,7 @@ func (w *Workspace) UpdateBlocks(ctx context.Context, args []string) error {
 			log = log.WithField("block", blockName)
 			ctx = polycrate.SetContextLogger(ctx, log)
 
-			log.Debugf("Updating dependency")
+			//log.Debugf("Updating dependency")
 
 			// Download blocks from registry
 			err := w.PullBlock(ctx, fullTag, registryUrl, blockName, blockVersion)

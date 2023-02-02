@@ -18,6 +18,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/manifoldco/promptui"
 	log "github.com/sirupsen/logrus"
@@ -47,28 +49,54 @@ var workspaceInitCmd = &cobra.Command{
 		log := polycrate.GetContextLogger(ctx)
 		log.Info("Initializing workspace")
 
-		// Check if a name has been given via flag
-		if withName == "" {
-			// Ask for a name via prompt
-			validate := func(input string) error {
-				valid := ValidateMetaDataName(input)
-				if !valid {
-					return fmt.Errorf("invalid workspace name: %s", input)
+		// Check if config file exists already
+		workspaceConfigFilePath := filepath.Join(_w, defaultWorkspace.Config.WorkspaceConfig)
+		if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
+			log = log.WithField("config", workspace.Config.WorkspaceConfig)
+			// Check if a name has been given via flag
+			if withName == "" {
+				// Ask for a name via prompt
+				validate := func(input string) error {
+					valid := ValidateMetaDataName(input)
+					if !valid {
+						return fmt.Errorf("invalid workspace name: %s", input)
+					}
+					return nil
 				}
-				return nil
+
+				prompt := promptui.Prompt{
+					Label:    "Workspace name",
+					Validate: validate,
+				}
+
+				result, err := prompt.Run()
+
+				if err != nil {
+					log.Fatalf("Failed to save workspace name: %s", err)
+				}
+				withName = result
 			}
 
-			prompt := promptui.Prompt{
-				Label:    "Workspace name",
-				Validate: validate,
-			}
+			if !withConfig {
 
-			result, err := prompt.Run()
+				// Ask if sync with git repo is wanted
+				configConsentPrompt := promptui.Prompt{
+					Label:     "Do you want to create a config file for this workspace?",
+					IsConfirm: true,
+				}
 
-			if err != nil {
-				log.Fatalf("Failed to save workspace name: %s", err)
+				configConsentPromptResult, _ := configConsentPrompt.Run()
+
+				// if err != nil {
+				// 	log.Fatalf("Failed to save git repository: %s", err)
+				// }
+				if configConsentPromptResult == "y" {
+					withConfig = true
+				}
 			}
-			withName = result
+		} else {
+			log.Debug("Config already exists")
+			withConfig = false
 		}
 
 		if !withSshKeys {
@@ -86,24 +114,6 @@ var workspaceInitCmd = &cobra.Command{
 			// }
 			if sshKeysConsentPromptResult == "y" {
 				withSshKeys = true
-			}
-		}
-
-		if !withConfig {
-
-			// Ask if sync with git repo is wanted
-			configConsentPrompt := promptui.Prompt{
-				Label:     "Do you want to create a config file for this workspace?",
-				IsConfirm: true,
-			}
-
-			configConsentPromptResult, _ := configConsentPrompt.Run()
-
-			// if err != nil {
-			// 	log.Fatalf("Failed to save git repository: %s", err)
-			// }
-			if configConsentPromptResult == "y" {
-				withConfig = true
 			}
 		}
 
