@@ -29,31 +29,31 @@ var workflowsInspectCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
-		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
-		}
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
+		var workflow *Workflow
+		ctx, workflow, err = workspace.GetWorkflowWithContext(ctx, args[0])
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		workflow := workspace.GetWorkflowFromIndex(args[0])
 		if workflow != nil {
 			workflow.Inspect()
 		} else {
 			err := fmt.Errorf("Workflow not found: %s", args[0])
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
-
-		polycrate.ContextExit(ctx, cancelFunc, nil)
 	},
 }
 

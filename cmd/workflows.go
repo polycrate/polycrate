@@ -35,29 +35,24 @@ var workflowsCmd = &cobra.Command{
 	Aliases: []string{
 		"workflows",
 	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
-		if err != nil {
-			log.Fatal(err)
-		}
+	Run: func(cmd *cobra.Command, args []string) {
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
 			log.Fatal(err)
 		}
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
 
 		err = workspace.ListWorkflows()
-
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, nil)
+			log.Fatal(err)
 		}
-		polycrate.ContextExit(ctx, cancelFunc, nil)
-		return nil
 	},
 }
 
@@ -158,7 +153,7 @@ func (w *Workflow) Run(ctx context.Context) error {
 		}
 
 		// reloading workspace to account for new artifacts
-		workspace.Reload(ctx)
+		workspace.Reload(ctx, true)
 	}
 
 	return nil

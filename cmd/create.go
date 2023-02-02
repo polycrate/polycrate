@@ -19,10 +19,8 @@ import (
 // createCmd represents the create command
 var createCmd = &cobra.Command{
 	Hidden:     true,
-	Deprecated: "don't use this",
+	Deprecated: "use `polycrate init` instead",
 	Use:        "create",
-	Short:      "Create",
-	Long:       `Create certain resources around your workspace`,
 }
 
 func init() {

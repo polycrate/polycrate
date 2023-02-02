@@ -17,7 +17,7 @@ package cmd
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	"github.com/manifoldco/promptui"
 	log "github.com/sirupsen/logrus"
@@ -34,19 +34,17 @@ var workspaceInitCmd = &cobra.Command{
 	Short: "Initialize a workspace",
 	Long:  ``,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		cmdKey := ContextKey("cmd")
-		ctx := context.WithValue(context.Background(), cmdKey, cmd)
-		ctx, cancel, err := polycrate.NewTransaction(ctx)
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		log := polycrate.GetContextLogger(ctx)
-
 		log.Info("Initializing workspace")
 
 		// Check if a name has been given via flag
@@ -55,7 +53,7 @@ var workspaceInitCmd = &cobra.Command{
 			validate := func(input string) error {
 				valid := ValidateMetaDataName(input)
 				if !valid {
-					return errors.New("invalid workspace name")
+					return fmt.Errorf("invalid workspace name: %s", input)
 				}
 				return nil
 			}
@@ -234,8 +232,6 @@ var workspaceInitCmd = &cobra.Command{
 		// }
 
 		// Check if a git repo has been given via flag
-
-		return nil
 
 	},
 }

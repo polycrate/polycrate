@@ -949,7 +949,7 @@ func (w *Workspace) LoadConfig() *Workspace {
 
 	return w
 }
-func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string) error {
+func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string, validate bool) error {
 	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
 	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
 	log := polycrate.GetContextLogger(ctx)
@@ -1020,11 +1020,23 @@ func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string) error {
 		return err
 	}
 
-	if errors, err := w.Validate(ctx); err != nil {
-		for errorString := range errors {
-			log.Error(errorString)
+	if validate {
+		errors, err := w.Validate(ctx)
+		if err != nil {
+			for errorString := range errors {
+				log.Error(errorString)
+			}
+			return err
 		}
-		return err
+	} else {
+		errors, err := w.Validate(ctx)
+		if err != nil {
+			log.Warn("You have validation errors in your workspace")
+			for _, errorString := range errors {
+				fmt.Printf("%T\n", errorString)
+				log.Warn(errorString)
+			}
+		}
 	}
 
 	// set runtime dir
@@ -1121,32 +1133,14 @@ func (c *Workspace) updateConfig(path string, value string) *Workspace {
 	return c
 }
 
-func (w *Workspace) LoadWithContext(ctx context.Context) (context.Context, *Workspace, error) {
-
-	log := polycrate.GetContextLogger(ctx)
-
-	workspace, err := w.Load(ctx, w.LocalPath)
-	if err != nil {
-		return ctx, nil, err
-	}
-
-	workspaceKey := ContextKey("workspace")
-	ctx = context.WithValue(ctx, workspaceKey, workspace)
-
-	log = log.WithField("workspace", w.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
-
-	return ctx, workspace, nil
-}
-
-func (w *Workspace) Reload(ctx context.Context) (*Workspace, error) {
+func (w *Workspace) Reload(ctx context.Context, validate bool) (*Workspace, error) {
 	log := polycrate.GetContextLogger(ctx)
 	log = log.WithField("workspace", w.Name)
 	ctx = polycrate.SetContextLogger(ctx, log)
 
 	log.Debug("Reloading workspace")
 
-	return w.Load(ctx, w.LocalPath)
+	return w.Load(ctx, w.LocalPath, validate)
 }
 
 func (w *Workspace) HighjackSigint(ctx context.Context) {
@@ -1169,7 +1163,7 @@ func (w *Workspace) HighjackSigint(ctx context.Context) {
 	}()
 }
 
-func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
+func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Workspace, error) {
 	// Load Workspace config (e.g. workspace.poly)
 	//w.LoadWorkspaceConfig().Flush()
 
@@ -1179,7 +1173,7 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	// Check if this is a git repo
 	w.isGitRepo = GitIsRepo(ctx, path)
 
-	err := w.LoadConfigFromFile(ctx, path)
+	err := w.LoadConfigFromFile(ctx, path, validate)
 	if err != nil {
 		return nil, err
 	}
@@ -1279,95 +1273,95 @@ func (w *Workspace) Load(ctx context.Context, path string) (*Workspace, error) {
 	//os.Exit(1)
 }
 
-func (w *Workspace) load() *Workspace {
-	log.Fatal("DEPRECATED")
-	// Return the workspace if it has been already loaded
-	if w.loaded {
-		return w
-	}
-	ctx := context.Background()
+// func (w *Workspace) load() *Workspace {
+// 	log.Fatal("DEPRECATED")
+// 	// Return the workspace if it has been already loaded
+// 	if w.loaded {
+// 		return w
+// 	}
+// 	ctx := context.Background()
 
-	log.WithFields(log.Fields{
-		"path": w.LocalPath,
-	}).Debugf("Loading workspace")
+// 	log.WithFields(log.Fields{
+// 		"path": w.LocalPath,
+// 	}).Debugf("Loading workspace")
 
-	// Load Workspace config (e.g. workspace.poly)
-	//w.LoadWorkspaceConfig().Flush()
-	err := w.LoadConfigFromFile(ctx, w.LocalPath)
-	if err != nil {
-		log.Fatal(err)
-	}
+// 	// Load Workspace config (e.g. workspace.poly)
+// 	//w.LoadWorkspaceConfig().Flush()
+// 	err := w.LoadConfigFromFile(ctx, w.LocalPath, true)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
 
-	// Set workspace.Path depending on --local
-	if local {
-		w.Path = w.LocalPath
-	} else {
-		w.Path = w.ContainerPath
-	}
+// 	// Set workspace.Path depending on --local
+// 	if local {
+// 		w.Path = w.LocalPath
+// 	} else {
+// 		w.Path = w.ContainerPath
+// 	}
 
-	// Save revision data
-	w.revision = &WorkspaceRevision{}
-	w.revision.Date = time.Now().Format(time.RFC3339)
-	w.revision.Command = w.FormatCommand(globalCmd)
-	w.revision.Transaction = uuid.New()
-	w.revision.Version = w.Version
+// 	// Save revision data
+// 	w.revision = &WorkspaceRevision{}
+// 	w.revision.Date = time.Now().Format(time.RFC3339)
+// 	w.revision.Command = w.FormatCommand(globalCmd)
+// 	w.revision.Transaction = uuid.New()
+// 	w.revision.Version = w.Version
 
-	w.revision.UserEmail, _ = GitGetUserEmail(ctx)
-	w.revision.UserName, _ = GitGetUserName(ctx)
+// 	w.revision.UserEmail, _ = GitGetUserEmail(ctx)
+// 	w.revision.UserName, _ = GitGetUserName(ctx)
 
-	// Cleanup workspace runtime dir
-	w.Cleanup().Flush()
+// 	// Cleanup workspace runtime dir
+// 	w.Cleanup().Flush()
 
-	// Bootstrap the workspace index
-	w.BootstrapIndex().Flush()
+// 	// Bootstrap the workspace index
+// 	w.BootstrapIndex().Flush()
 
-	// Find all blocks in the workspace
-	w.DiscoverInstalledBlocks().Flush()
+// 	// Find all blocks in the workspace
+// 	w.DiscoverInstalledBlocks().Flush()
 
-	// Pull dependencies
-	w.PullDependencies().Flush()
+// 	// Pull dependencies
+// 	w.PullDependencies().Flush()
 
-	// Load all discovered blocks in the workspace
-	w.ImportInstalledBlocks(ctx).Flush()
+// 	// Load all discovered blocks in the workspace
+// 	w.ImportInstalledBlocks(ctx).Flush()
 
-	// Resolve block dependencies
-	if err := w.ResolveBlockDependencies(ctx, w.LocalPath, w.ContainerPath); err != nil {
-		log.Fatal(err)
-	}
+// 	// Resolve block dependencies
+// 	if err := w.ResolveBlockDependencies(ctx, w.LocalPath, w.ContainerPath); err != nil {
+// 		log.Fatal(err)
+// 	}
 
-	// Update workflow and step addresses
-	w.resolveWorkflows().Flush()
+// 	// Update workflow and step addresses
+// 	w.resolveWorkflows().Flush()
 
-	// Bootstrap env vars
-	w.bootstrapEnvVars(ctx).Flush()
+// 	// Bootstrap env vars
+// 	w.bootstrapEnvVars(ctx).Flush()
 
-	// Bootstrap container mounts
-	w.bootstrapMounts()
+// 	// Bootstrap container mounts
+// 	w.bootstrapMounts()
 
-	// Template action scripts
-	w.templateActionScripts().Flush()
+// 	// Template action scripts
+// 	w.templateActionScripts().Flush()
 
-	log.WithFields(log.Fields{
-		"workspace": w.Name,
-		"blocks":    len(workspace.Blocks),
-		"workflows": len(workspace.Workflows),
-	}).Debugf("Workspace ready")
+// 	log.WithFields(log.Fields{
+// 		"workspace": w.Name,
+// 		"blocks":    len(workspace.Blocks),
+// 		"workflows": len(workspace.Workflows),
+// 	}).Debugf("Workspace ready")
 
-	// Mark workspace as loaded
-	w.loaded = true
+// 	// Mark workspace as loaded
+// 	w.loaded = true
 
-	// if sync.Options.Enabled && sync.Options.Auto {
-	// 	sync.Sync().Flush()
-	// 	// Commented out, takes too much time, a commit is enough
-	// 	//sync.Commit("Workspace loaded").Flush()
-	// }
+// 	// if sync.Options.Enabled && sync.Options.Auto {
+// 	// 	sync.Sync().Flush()
+// 	// 	// Commented out, takes too much time, a commit is enough
+// 	// 	//sync.Commit("Workspace loaded").Flush()
+// 	// }
 
-	// if err := w.LoadSync(ctx); err != nil {
-	// 	log.Fatal(err)
-	// }
+// 	// if err := w.LoadSync(ctx); err != nil {
+// 	// 	log.Fatal(err)
+// 	// }
 
-	return w
-}
+// 	return w
+// }
 
 // func (w *Workspace) SyncLoadRepo() *Workspace {
 // 	path := w.LocalPath
@@ -1774,12 +1768,21 @@ func (c *Workspace) Validate(ctx context.Context) ([]string, error) {
 		// an invalid value for validation such as interface with nil
 		// value most including myself do not usually have code like this.
 		if _, ok := err.(*validator.InvalidValidationError); ok {
+			log.Error("Encountered problematic validation error")
 			log.Error(err)
 			return errors, nil
 		}
 
 		for _, err := range err.(validator.ValidationErrors) {
-			errorString := strings.Join([]string{"Validation error:", "option", strings.ToLower(err.Namespace()), "is", err.Tag()}, " ")
+			var tag string = err.Tag()
+			var namespace string = strings.ToLower(err.Namespace())
+			var errorString string
+			if tag == "metadata_name" {
+				tag = "malformed"
+				errorString = strings.Join([]string{"Validation error:", "option", namespace, "is", fmt.Sprintf("malformed: '%s'", err.Value()), fmt.Sprintf("(regex: `%s`)", ValidateMetaDataNameRegex)}, " ")
+			} else {
+				errorString = strings.Join([]string{"Validation error:", "option", strings.ToLower(err.Namespace()), "is", tag}, " ")
+			}
 			errors = append(errors, errorString)
 		}
 
@@ -1788,6 +1791,7 @@ func (c *Workspace) Validate(ctx context.Context) ([]string, error) {
 	}
 	return errors, nil
 }
+
 func (c *Workspace) validate() error {
 	log.WithFields(log.Fields{
 		"workspace": c.Name,
@@ -2563,6 +2567,8 @@ func (w *Workspace) IsBlockInstalled(fullTag string, registryUrl string, blockNa
 func (w *Workspace) UpdateBlocks(ctx context.Context, args []string) error {
 	log := polycrate.GetContextLogger(ctx)
 
+	log.Infof("%d blocks to update", len(args))
+
 	eg := new(errgroup.Group)
 	for _, arg := range args {
 		arg := arg // https://go.dev/doc/faq#closures_and_goroutines
@@ -2626,7 +2632,7 @@ func (w *Workspace) PullBlock(ctx context.Context, fullTag string, registryUrl s
 	log = log.WithField("path", targetDir)
 	ctx = polycrate.SetContextLogger(ctx, log)
 
-	log.Debugf("Pulling block")
+	log.Infof("Pulling block")
 
 	err := UnwrapOCIImage(ctx, targetDir, registryUrl, blockName, blockVersion)
 	if err != nil {

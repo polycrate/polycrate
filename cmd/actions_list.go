@@ -18,7 +18,6 @@ package cmd
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,24 +26,19 @@ var listActionsCmd = &cobra.Command{
 	Short: "List Actions",
 	Long:  `List Actions`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
-		if err != nil {
-			log.Fatal(err)
-		}
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		workspace, err := polycrate.LoadWorkspace(ctx, _w, true)
 		if err != nil {
 			log.Fatal(err)
 		}
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
 
 		workspace.ListActions()
-
-		polycrate.ContextExit(ctx, cancelFunc, err)
 	},
 }
 

@@ -19,7 +19,6 @@ import (
 	"context"
 	"path/filepath"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -32,21 +31,18 @@ var workspaceEditCmd = &cobra.Command{
 	Deprecated: "don't use this",
 	Args:       cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
-		if err != nil {
-			log.Fatal(err)
-		}
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
 
 		workspaceConfigFilePath := filepath.Join(workspace.LocalPath, workspace.Config.WorkspaceConfig)
 		// TODO: "code" should be configurable

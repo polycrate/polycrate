@@ -18,7 +18,6 @@ package cmd
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -28,34 +27,25 @@ var blocksPushCmd = &cobra.Command{
 	Short: "Upload a block to the registry",
 	Long:  ``,
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		blockName := args[0]
+		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
+
+		log := polycrate.GetContextLogger(ctx)
+
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, false)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		log := polycrate.GetContextLogger(ctx)
-
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
-		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
-		}
-
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
-
 		err = workspace.PushBlock(ctx, blockName)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
-
-		polycrate.ContextExit(ctx, cancelFunc, nil)
-
-		return nil
-
 	},
 }
 

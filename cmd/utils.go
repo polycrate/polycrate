@@ -561,14 +561,14 @@ func promptYesNo(pc promptContent) string {
 }
 
 func ValidateMetaDataName(name string) bool {
-	regex := regexp.MustCompile("^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$")
+	regex := regexp.MustCompile(ValidateMetaDataNameRegex)
 	// (?!.*--.*)^(?!.*__.*)
 
 	return regex.MatchString(name)
 }
 
 func ValidateBlockName(name string) bool {
-	regex := regexp.MustCompile(`([^\/]+\.[^\/.]+)?\/?([^:]+):?(.+)?`)
+	regex := regexp.MustCompile(ValidateBlockNameRegex)
 	//regex := regexp.MustCompile("^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$")
 	// (?!.*--.*)^(?!.*__.*)
 

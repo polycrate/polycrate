@@ -29,35 +29,26 @@ var workspaceUpdateCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.ExactArgs(0),
 	//Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// if len(args) == 0 {
-		// 	log.WithFields(log.Fields{
-		// 		"workspace": workspace.Name,
-		// 	}).Fatalf("No blocks given")
-		// }
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+	Run: func(cmd *cobra.Command, args []string) {
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx, cancel, err := polycrate.NewTransaction(context.Background(), cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, false)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
-
 		err = workspace.UpdateBlocks(ctx, workspace.Dependencies)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
-
-		polycrate.ContextExit(ctx, cancelFunc, nil)
-		return nil
 	},
 }
 

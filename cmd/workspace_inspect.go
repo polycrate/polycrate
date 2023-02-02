@@ -58,28 +58,21 @@ var workspaceInspectCmd = &cobra.Command{
 	Short: "Inspect the workspace",
 	Long:  ``,
 	Args:  cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
-		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
-		}
+	Run: func(cmd *cobra.Command, args []string) {
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
-
 		workspace.Inspect(ctx)
-
-		polycrate.ContextExit(ctx, cancelFunc, nil)
-
-		return nil
 	},
 }
 

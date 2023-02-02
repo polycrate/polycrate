@@ -33,35 +33,20 @@ The action address is a combination of the Block name and the Action name, joine
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		// Save command to context
-		cmdKey := ContextKey("cmd")
-		ctx := context.WithValue(context.Background(), cmdKey, cmd)
-		ctx, cancel, err := polycrate.NewTransaction(ctx)
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
 
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = cmdRunAction(ctx, _w, args)
+		ctx, err = workspace.RunActionWithContext(ctx, args[0], args[1])
 		if err != nil {
 			log.Fatal(err)
 		}
 	},
-}
-
-func cmdRunAction(ctx context.Context, s string, args []string) error {
-
-	ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, s)
-	if err != nil {
-		return err
-	}
-
-	ctx, err = workspace.RunActionWithContext(ctx, args[0], args[1])
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func init() {

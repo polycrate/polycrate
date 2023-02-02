@@ -18,6 +18,7 @@ package cmd
 import (
 	"context"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -26,32 +27,37 @@ var actionsInspectCmd = &cobra.Command{
 	Use:   "inspect",
 	Short: "Inspect an Action",
 	Long:  ``,
-	Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
+	Args:  cobra.ExactArgs(2), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
+		var block *Block
+		ctx, block, err = workspace.GetBlockWithContext(ctx, args[0])
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		action := workspace.GetActionFromIndex(args[0])
+		var action *Action
+		ctx, action, err = block.GetActionWithContext(ctx, args[1])
 		if action != nil {
 			action.Inspect()
 		} else {
 			log.Fatalf("Action not found: %s", args[0])
 		}
-
-		polycrate.ContextExit(ctx, cancelFunc, err)
 	},
 }
 

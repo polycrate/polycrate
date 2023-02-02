@@ -254,11 +254,13 @@ func (p *Polycrate) WithTransaction(fn PolycrateTransactionFn, s string) error {
 }
 
 func (p *Polycrate) EventHandler(ctx context.Context) error {
-	eg := new(errgroup.Group)
+	// Exit if there's no event in the context
 	event, err := polycrate.GetContextEvent(ctx)
 	if err != nil {
 		return err
 	}
+
+	eg := new(errgroup.Group)
 
 	eg.Go(func() error {
 		for _, webhook := range p.Config.Webhooks {
@@ -442,7 +444,7 @@ func (p *Polycrate) UnregisterTransaction(transaction *PolycrateTransaction) err
 	return nil
 }
 
-func (p *Polycrate) NewTransaction(ctx context.Context) (context.Context, context.CancelFunc, error) {
+func (p *Polycrate) NewTransaction(ctx context.Context, cmd *cobra.Command) (context.Context, context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	ctx, err := p.StartTransaction(ctx, cancel)
 	if err != nil {
@@ -455,8 +457,9 @@ func (p *Polycrate) NewTransaction(ctx context.Context) (context.Context, contex
 	revision.Transaction = p.GetContextTXID(ctx)
 	revision.Version = p.GetContextVersion(ctx)
 
-	cmd, err := polycrate.GetContextCmd(ctx)
-	if err == nil {
+	if cmd != nil {
+		cmdKey := ContextKey("cmd")
+		ctx = context.WithValue(ctx, cmdKey, cmd)
 		revision.Command = FormatCommand(cmd)
 	}
 
@@ -689,8 +692,8 @@ func (p *Polycrate) GetContextVersion(ctx context.Context) string {
 
 func (p *Polycrate) GetContextLogger(ctx context.Context) *log.Entry {
 	LoggerKey := ContextKey("Logger")
-	log := ctx.Value(LoggerKey).(*log.Entry)
-	return log
+	_log := ctx.Value(LoggerKey)
+	return _log.(*log.Entry)
 }
 
 func (p *Polycrate) GetContextCancel(ctx context.Context) context.CancelFunc {
@@ -802,7 +805,7 @@ func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string,
 	log := p.GetContextLogger(ctx)
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		log.WithField("path", path)
+		log = log.WithField("path", path)
 		log.Info("Creating directory")
 
 		if err := CreateDir(path); err != nil {
@@ -821,7 +824,7 @@ func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string,
 
 	blocksDir := filepath.Join([]string{workspace.LocalPath, workspace.Config.BlocksRoot}...)
 	if _, err := os.Stat(blocksDir); os.IsNotExist(err) {
-		log.WithField("path", blocksDir)
+		log = log.WithField("path", blocksDir)
 		log.Info("Creating directory")
 
 		if err := CreateDir(blocksDir); err != nil {
@@ -829,20 +832,21 @@ func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string,
 		}
 	}
 
-	log.WithField("workspace", workspace.Name)
+	log = log.WithField("workspace", workspace.Name)
 
 	if withConfig {
-		log.WithField("config", workspace.Config.WorkspaceConfig)
-		log.Info("Saving config")
+		log = log.WithField("config", workspace.Config.WorkspaceConfig)
 		if err := workspace.Save(ctx); err != nil {
-			return nil, err
+			log.Warn("Config already exists")
+		} else {
+			log.Info("Config created")
 		}
 	}
 
 	if withSSHKeys {
 		err := workspace.CreateSshKeys(ctx)
 		if err != nil {
-			return nil, err
+			log.Warn(err)
 		}
 	}
 
@@ -876,8 +880,8 @@ func (p *Polycrate) CleanupRuntimeDir(ctx context.Context) error {
 	return nil
 }
 
-func (p *Polycrate) GetWorkspaceWithContext(ctx context.Context, path string) (context.Context, *Workspace, error) {
-	workspace, err := p.LoadWorkspace(ctx, path)
+func (p *Polycrate) GetWorkspaceWithContext(ctx context.Context, path string, validate bool) (context.Context, *Workspace, error) {
+	workspace, err := p.LoadWorkspace(ctx, path, validate)
 	if err != nil {
 		return ctx, nil, err
 	}
@@ -892,7 +896,7 @@ func (p *Polycrate) GetWorkspaceWithContext(ctx context.Context, path string) (c
 	return ctx, workspace, nil
 }
 
-func (p *Polycrate) LoadWorkspace(ctx context.Context, path string) (*Workspace, error) {
+func (p *Polycrate) LoadWorkspace(ctx context.Context, path string, validate bool) (*Workspace, error) {
 	// 1. Check if its in polycrate.Workspaces via GetWorkspace
 	// 2. If yes, load it from there, lock Polycrate, run workspace.Load(), and unlock
 	// 3. If not, bootstrap from defaultWorkspace and add to polycrate.Workspaces
@@ -911,7 +915,7 @@ func (p *Polycrate) LoadWorkspace(ctx context.Context, path string) (*Workspace,
 		*workspace = defaultWorkspace
 
 		// Set the path to the given path
-		workspace, err = workspace.Load(ctx, path)
+		workspace, err = workspace.Load(ctx, path, validate)
 		if err != nil {
 			return nil, err
 		}
@@ -920,7 +924,7 @@ func (p *Polycrate) LoadWorkspace(ctx context.Context, path string) (*Workspace,
 		log.Debugf("Reloading workspace")
 
 		//workspace.Reload(ctx)
-		workspace, err = workspace.Reload(ctx)
+		workspace, err = workspace.Reload(ctx, validate)
 		if err != nil {
 			return nil, err
 		}
@@ -1105,6 +1109,7 @@ func (p *Polycrate) getTempFile(ctx context.Context, filename string) (*os.File,
 }
 
 func (p *Polycrate) PullImage(ctx context.Context, image string) error {
+	log.Infof("Pulling image: %s", image)
 	_, _, err := PullImage(ctx, image)
 	if err != nil {
 		return err

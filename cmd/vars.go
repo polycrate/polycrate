@@ -75,6 +75,9 @@ const GitLabDefaultTransport string = "ssh"
 const GitDefaultBranch string = "main"
 const GitDefaultRemote string = "origin"
 
+const ValidateMetaDataNameRegex string = "^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$"
+const ValidateBlockNameRegex string = `([^\/]+\.[^\/.]+)?\/?([^:]+):?(.+)?`
+
 // Variable to decide if polycrate is run during block development
 var dev bool
 

@@ -45,8 +45,20 @@ var blocksCmd = &cobra.Command{
 	Long: ``,
 	Args: cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		workspace.load().Flush()
-		workspace.ListBlocks().Flush()
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
+
+		log := polycrate.GetContextLogger(ctx)
+
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		workspace.ListBlocks()
 	},
 }
 

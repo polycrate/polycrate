@@ -48,7 +48,7 @@ var actionsCmd = &cobra.Command{
 
 		log := polycrate.GetContextLogger(ctx)
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String(), true)
 		if err != nil {
 			polycrate.ContextExit(ctx, cancelFunc, err)
 		}

@@ -18,7 +18,6 @@ package cmd
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -31,40 +30,26 @@ var runWorkflowCmd = &cobra.Command{
 	Short: "Run Workflow",
 	Long:  `Run Workflow`,
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		workflowName = args[0]
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		cmdKey := ContextKey("cmd")
-		ctx := context.WithValue(context.Background(), cmdKey, cmd)
-		ctx, cancel, err := polycrate.NewTransaction(ctx)
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
 
+		log := polycrate.GetContextLogger(ctx)
+
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = cmdRunWorkflow(ctx, _w, args, stepName)
+		ctx, err = workspace.RunWorkflowWithContext(ctx, args[0], stepName)
 		if err != nil {
 			log.Fatal(err)
-			return err
 		}
-
-		return nil
 	},
-}
-
-func cmdRunWorkflow(ctx context.Context, s string, args []string, stepName string) error {
-	ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, s)
-	if err != nil {
-		return err
-	}
-
-	ctx, err = workspace.RunWorkflowWithContext(ctx, args[0], stepName)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func init() {

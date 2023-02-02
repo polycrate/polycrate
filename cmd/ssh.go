@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -32,48 +31,42 @@ var sshCmd = &cobra.Command{
 	Hidden: true,
 	Long:   ``,
 	Args:   cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
-		if err != nil {
-			log.Fatal(err)
-		}
+	Run: func(cmd *cobra.Command, args []string) {
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 
 		log := polycrate.GetContextLogger(ctx)
 
 		hostname := args[0]
 
-		workspace, err := polycrate.LoadWorkspace(ctx, cmd.Flags().Lookup("workspace").Value.String())
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
-
-		log = log.WithField("workspace", workspace.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
 
 		if _sshBlock == "" {
 			err := fmt.Errorf("no block selected. Use ' --block $BLOCK_NAME' to select an inventory source")
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
-		block := workspace.GetBlockFromIndex(_sshBlock)
+		var block *Block
+		ctx, block, err = workspace.GetBlockWithContext(ctx, _sshBlock)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		if block != nil {
-			log = log.WithField("block", block.Name)
-			ctx = polycrate.SetContextLogger(ctx, log)
-
 			err := block.SSH(ctx, hostname, workspace)
 			if err != nil {
-				polycrate.ContextExit(ctx, cancelFunc, err)
+				log.Fatal(err)
 			}
 		} else {
 			err := fmt.Errorf("block does not exist: %s", _sshBlock)
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
-
-		//workspace.RunAction(args[0]).Flush()
-		polycrate.ContextExit(ctx, cancelFunc, nil)
-		return nil
 	},
 }
 
