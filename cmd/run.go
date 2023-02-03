@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -30,10 +29,7 @@ To run an Action, use this command with 2 arguments - the Block name and the Act
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 1 {
 			// Run a Worlflow
-			err := runWorkflowCmd.RunE(cmd, args)
-			if err != nil {
-				log.Fatal(err)
-			}
+			runWorkflowCmd.Run(cmd, args)
 		} else if len(args) == 2 {
 			//action := strings.Join([]string{args[0], args[1]}, ".")
 			actionsRunCmd.Run(cmd, []string{args[0], args[1]})
