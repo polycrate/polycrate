@@ -19,6 +19,7 @@ import (
 	"context"
 	"path/filepath"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +37,9 @@ var workspaceEditCmd = &cobra.Command{
 		ctx := context.Background()
 		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		log := polycrate.GetContextLogger(ctx)
 

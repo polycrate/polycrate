@@ -11,8 +11,7 @@ var cargoCmd = &cobra.Command{
 	Short:  "Deal with the Polycrate registry",
 	Long:   ``,
 	Args:   cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return nil
+	Run: func(cmd *cobra.Command, args []string) {
 	},
 }
 

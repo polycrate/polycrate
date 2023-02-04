@@ -127,7 +127,7 @@ var cargoDocsCmd = &cobra.Command{
 	Short:  "Generate docs from the available registry blocks",
 	Long:   ``,
 	Args:   cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		catalog := DocsBlocksCatalog{}
 		registry := "cargo.ayedo.cloud"
 		project := "ayedo"
@@ -353,8 +353,6 @@ var cargoDocsCmd = &cobra.Command{
 		log.Infof("Created file at %s", f.Name())
 
 		//printObject(catalog)
-
-		return nil
 	},
 }
 

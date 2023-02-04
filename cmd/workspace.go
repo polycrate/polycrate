@@ -1239,7 +1239,7 @@ func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Work
 
 	// Resolve block dependencies
 	log.Debugf("Resolving block dependencies")
-	if err := w.ResolveBlockDependencies(ctx, w.LocalPath, w.ContainerPath); err != nil {
+	if err := w.ResolveBlockDependencies(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1650,7 +1650,7 @@ func (c *Workspace) Uninstall() error {
 }
 
 // Resolves the 'from:' stanza of all blocks
-func (w *Workspace) ResolveBlockDependencies(ctx context.Context, workspaceLocalPath string, workspaceContainerPath string) error {
+func (w *Workspace) ResolveBlockDependencies(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
 
 	missing := len(w.Blocks)
@@ -1665,7 +1665,7 @@ func (w *Workspace) ResolveBlockDependencies(ctx context.Context, workspaceLocal
 			log.Tracef("Resolving block %s - resolved? %s", loadedBlock.Name, loadedBlock.resolved)
 
 			if !loadedBlock.resolved {
-				err := w.ResolveBlock(ctx, loadedBlock, workspaceLocalPath, workspaceContainerPath)
+				err := w.ResolveBlock(ctx, loadedBlock, w.LocalPath, w.ContainerPath)
 
 				if err != nil {
 					switch {

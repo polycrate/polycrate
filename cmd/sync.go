@@ -13,8 +13,6 @@ var syncCmd = &cobra.Command{
 	Deprecated: "don't use it",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		return
-
 		//sync.Sync().Flush()
 
 		//workspace.RunAction(args[0]).Flush()

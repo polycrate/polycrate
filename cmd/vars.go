@@ -153,12 +153,12 @@ var defaultWorkspace Workspace
 // var registry Registry
 
 // Global variable that holds the block paths discovered at block discovery in workspace.load()
-var blockPaths []string
+//var blockPaths []string
 
 // var installedBlocks []Block
 
 // Global variable that holds the workspace paths discovered at workspace discovery
-var workspacePaths []string
+//var workspacePaths []string
 
 var localWorkspaceIndex map[string]string = make(map[string]string)
 
@@ -177,6 +177,6 @@ var polycrateConfigFilePath = filepath.Join(polycrateConfigDir, "polycrate.yml")
 var ErrDependencyNotResolved = errors.New("block dependency not resolved")
 var ErrWorkspaceConfigNotFound = errors.New("workspace config not found")
 
-var signals = make(chan os.Signal, 1)
+//var signals = make(chan os.Signal, 1)
 
 var globalCmd *cobra.Command

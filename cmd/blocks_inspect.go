@@ -47,7 +47,7 @@ var blocksInspectCmd = &cobra.Command{
 		}
 
 		var block *Block
-		ctx, block, err = workspace.GetBlockWithContext(ctx, args[0])
+		_, block, err = workspace.GetBlockWithContext(ctx, args[0])
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -41,10 +41,13 @@ var workflowsCmd = &cobra.Command{
 		ctx := context.Background()
 		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		log := polycrate.GetContextLogger(ctx)
 
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		_, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -206,7 +209,7 @@ func (s *Step) Run(ctx context.Context) error {
 	}
 
 	if runStep {
-		ctx, err = workspace.RunActionWithContext(ctx, s.Block, s.Action)
+		_, err = workspace.RunActionWithContext(ctx, s.Block, s.Action)
 		if err != nil {
 			return err
 		}

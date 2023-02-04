@@ -36,13 +36,16 @@ The action address is a combination of the Block name and the Action name, joine
 		ctx := context.Background()
 		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		ctx, err = workspace.RunActionWithContext(ctx, args[0], args[1])
+		_, err = workspace.RunActionWithContext(ctx, args[0], args[1])
 		if err != nil {
 			log.Fatal(err)
 		}

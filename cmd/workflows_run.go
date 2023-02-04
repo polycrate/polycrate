@@ -18,10 +18,11 @@ package cmd
 import (
 	"context"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-var workflowName string
+//var workflowName string
 var stepName string
 var stepIndex int
 
@@ -31,12 +32,15 @@ var runWorkflowCmd = &cobra.Command{
 	Long:  `Run Workflow`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		workflowName = args[0]
+		//workflowName = args[0]
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
 		ctx := context.Background()
 		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		log := polycrate.GetContextLogger(ctx)
 
@@ -45,7 +49,7 @@ var runWorkflowCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		ctx, err = workspace.RunWorkflowWithContext(ctx, args[0], stepName)
+		_, err = workspace.RunWorkflowWithContext(ctx, args[0], stepName)
 		if err != nil {
 			log.Fatal(err)
 		}

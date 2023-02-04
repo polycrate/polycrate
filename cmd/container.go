@@ -61,28 +61,28 @@ func PullImage(ctx context.Context, image string) (int, string, error) {
 	return exitCode, output, err
 }
 
-func pullContainerImage(image string) error {
-	ctx := context.Background()
-	cli, err := getDockerCLI()
-	if err != nil {
-		return err
-	}
+// func pullContainerImage(image string) error {
+// 	ctx := context.Background()
+// 	cli, err := getDockerCLI()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	reader, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
+// 	reader, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer reader.Close()
 
-	err = logDocker(reader)
-	if err != nil {
-		return err
-	}
+// 	err = logDocker(reader)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	//io.Copy(os.Stdout, reader)
-	log.Debugf("Successfully pulled image %s", image)
-	return nil
-}
+// 	//io.Copy(os.Stdout, reader)
+// 	log.Debugf("Successfully pulled image %s", image)
+// 	return nil
+// }
 
 func logDocker(reader io.ReadCloser) error {
 	dockerLogger := log.New()

@@ -792,16 +792,16 @@ func (p *Polycrate) CreateConfigFile(ctx context.Context) error {
 	return nil
 }
 
-func (p *Polycrate) ContextExit(ctx context.Context, cancelFunc context.CancelFunc, err error) {
-	if err := p.StopTransaction(ctx, cancelFunc); err != nil {
-		log.Fatal(err)
-	}
+// func (p *Polycrate) ContextExit(ctx context.Context, cancelFunc context.CancelFunc, err error) {
+// 	if err := p.StopTransaction(ctx, cancelFunc); err != nil {
+// 		log.Fatal(err)
+// 	}
 
-	if err != nil {
-		log.Fatal(err)
-	}
-	return
-}
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	return
+// }
 
 func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string, withSSHKeys bool, withConfig bool) (*Workspace, error) {
 	log := p.GetContextLogger(ctx)

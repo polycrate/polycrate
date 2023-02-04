@@ -27,7 +27,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"text/template"
 
 	log "github.com/sirupsen/logrus"
@@ -57,10 +56,11 @@ Use --force to re-install or downgrade to a specific version
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		ctx, err := polycrate.StartTransaction(ctx, cancelFunc)
+		ctx := context.Background()
+		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
-			polycrate.ContextExit(ctx, cancelFunc, err)
+			log.Fatal(err)
 		}
 
 		// err = polycrate.UpdateCLI(ctx)
@@ -153,43 +153,43 @@ type CLIDownload struct {
 	PackageRegistry string
 }
 
-func getStableVersion() string {
-	// Get content of stable version file
-	log.Debug("Determining stable version from " + latestUrl)
-	_stableVersion, err := getRemoteFileContent(latestUrl)
-	if err != nil {
-		log.Fatal(err)
-	}
+// func getStableVersion() string {
+// 	// Get content of stable version file
+// 	log.Debug("Determining stable version from " + latestUrl)
+// 	_stableVersion, err := getRemoteFileContent(latestUrl)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
 
-	stableVersion := strings.Trim(_stableVersion, "\n")
+// 	stableVersion := strings.Trim(_stableVersion, "\n")
 
-	return stableVersion
+// 	return stableVersion
 
-	// // Get Tags
-	// resp, err := http.Get(latestUrl)
-	// if err != nil {
-	// 	return ""
-	// }
+// 	// // Get Tags
+// 	// resp, err := http.Get(latestUrl)
+// 	// if err != nil {
+// 	// 	return ""
+// 	// }
 
-	// if resp.Body != nil {
-	// 	defer resp.Body.Close()
-	// }
+// 	// if resp.Body != nil {
+// 	// 	defer resp.Body.Close()
+// 	// }
 
-	// body, readErr := ioutil.ReadAll(resp.Body)
-	// if readErr != nil {
-	// 	log.Fatal(readErr)
-	// }
+// 	// body, readErr := ioutil.ReadAll(resp.Body)
+// 	// if readErr != nil {
+// 	// 	log.Fatal(readErr)
+// 	// }
 
-	// tags := []GitHubTag{}
+// 	// tags := []GitHubTag{}
 
-	// jsonErr := json.Unmarshal(body, &tags)
-	// if jsonErr != nil {
-	// 	log.Fatal(jsonErr)
-	// }
-	// log.Debug(tags)
+// 	// jsonErr := json.Unmarshal(body, &tags)
+// 	// if jsonErr != nil {
+// 	// 	log.Fatal(jsonErr)
+// 	// }
+// 	// log.Debug(tags)
 
-	// return strings.Split(tags[0].Name, "v")[1]
-}
+// 	// return strings.Split(tags[0].Name, "v")[1]
+// }
 
 func ExtractTarGz(gzipStream io.Reader) error {
 	uncompressedStream, err := gzip.NewReader(gzipStream)

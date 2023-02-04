@@ -50,10 +50,13 @@ var blocksCmd = &cobra.Command{
 		ctx := context.Background()
 		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		log := polycrate.GetContextLogger(ctx)
 
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		_, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -484,50 +487,33 @@ func (b *Block) Reload(ctx context.Context, workspace *Workspace) error {
 }
 
 func (c *Block) getInventoryPath(workspace *Workspace) string {
-
 	if c.Inventory.From != "" {
 		// Take the inventory from another Block
-		log.Debugf("Remote inventory: %s", c.Inventory.From)
+		log.Debugf("Loading inventory from block %s", c.Inventory.From)
 		inventorySourceBlock := workspace.getBlockByName(c.Inventory.From)
 		if inventorySourceBlock != nil {
-			if inventorySourceBlock.Inventory.exists {
-				return inventorySourceBlock.Inventory.Path
-			}
+			return inventorySourceBlock.Inventory.Path
+		} else {
+			log.Errorf("Inventory source '%s' not found", c.Inventory.From)
 		}
 	} else {
-		if c.Inventory.exists {
-			return c.Inventory.Path
-		} else {
-			return "/etc/ansible/hosts"
-		}
+		return c.Inventory.Path
 	}
-	return ""
+	return "/etc/ansible/hosts"
 }
 
 func (c *Block) getKubeconfigPath() string {
 	if c.Kubeconfig.From != "" {
+		// Take the kubeconfig from another Block
 		log.Debugf("Loading Kubeconfig from block %s", c.Kubeconfig.From)
-		// Take the inventory from another Block
 		kubeconfigSourceBlock := workspace.getBlockByName(c.Kubeconfig.From)
 		if kubeconfigSourceBlock != nil {
-			if kubeconfigSourceBlock.Kubeconfig.exists {
-				if local {
-					return kubeconfigSourceBlock.Kubeconfig.LocalPath
-				} else {
-					return kubeconfigSourceBlock.Kubeconfig.ContainerPath
-				}
-			}
+			return kubeconfigSourceBlock.Kubeconfig.Path
 		} else {
-			log.Error("No kubeconfig found")
+			log.Errorf("Kubeconfig source '%s' not found", c.Kubeconfig.From)
 		}
 	} else {
-		if c.Kubeconfig.exists {
-			if local {
-				return c.Kubeconfig.LocalPath
-			} else {
-				return c.Kubeconfig.ContainerPath
-			}
-		}
+		return c.Kubeconfig.Path
 	}
 	return ""
 }
@@ -723,34 +709,29 @@ func (c *Block) LoadInventory(ctx context.Context, workspace *Workspace) error {
 		blockInventoryFile = filepath.Join(c.Artifacts.LocalPath, "inventory.yml")
 	}
 
-	// log.WithFields(log.Fields{
-	// 	"path":      blockInventoryFile,
-	// 	"block":     c.Name,
-	// 	"workspace": workspace.Name,
-	// }).Debugf("Discovering inventory")
+	c.Inventory.LocalPath = blockInventoryFile
+
+	if c.Inventory.Filename != "" {
+		c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, c.Inventory.Filename)
+	} else {
+		c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.yml")
+	}
+
+	if local {
+		c.Inventory.Path = c.Inventory.LocalPath
+	} else {
+		c.Inventory.Path = c.Inventory.ContainerPath
+	}
 
 	if _, err := os.Stat(blockInventoryFile); !os.IsNotExist(err) {
 		// File exists
 		c.Inventory.exists = true
-		c.Inventory.LocalPath = blockInventoryFile
-
-		if c.Inventory.Filename != "" {
-			c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, c.Inventory.Filename)
-		} else {
-			c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.yml")
-		}
-
-		if local {
-			c.Inventory.Path = c.Inventory.LocalPath
-		} else {
-			c.Inventory.Path = c.Inventory.ContainerPath
-		}
-
-		log = log.WithField("path", blockInventoryFile)
-		log.Debugf("Inventory loaded")
 	} else {
 		c.Inventory.exists = false
 	}
+	log = log.WithField("path", blockInventoryFile)
+	log = log.WithField("exists", c.Inventory.exists)
+	log.Debugf("Inventory loaded")
 	return nil
 }
 
@@ -765,28 +746,29 @@ func (c *Block) LoadKubeconfig(ctx context.Context, workspace *Workspace) error 
 		blockKubeconfigFile = filepath.Join(c.Artifacts.LocalPath, "kubeconfig.yml")
 	}
 
+	c.Kubeconfig.LocalPath = blockKubeconfigFile
+
+	if c.Kubeconfig.Filename != "" {
+		c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, c.Kubeconfig.Filename)
+	} else {
+		c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
+	}
+
+	if local {
+		c.Kubeconfig.Path = c.Kubeconfig.LocalPath
+	} else {
+		c.Kubeconfig.Path = c.Kubeconfig.ContainerPath
+	}
+
 	if _, err := os.Stat(blockKubeconfigFile); !os.IsNotExist(err) {
 		// File exists
 		c.Kubeconfig.exists = true
-		c.Kubeconfig.LocalPath = blockKubeconfigFile
-
-		if c.Kubeconfig.Filename != "" {
-			c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, c.Kubeconfig.Filename)
-		} else {
-			c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
-		}
-
-		if local {
-			c.Kubeconfig.Path = c.Kubeconfig.LocalPath
-		} else {
-			c.Kubeconfig.Path = c.Kubeconfig.ContainerPath
-		}
-
-		log = log.WithField("path", c.Kubeconfig.Path)
-		log.Debugf("Kubeconfig loaded")
 	} else {
 		c.Kubeconfig.exists = false
 	}
+	log = log.WithField("path", c.Kubeconfig.Path)
+	log = log.WithField("exists", c.Kubeconfig.exists)
+	log.Debugf("Kubeconfig loaded")
 	return nil
 }
 

@@ -1,13 +1,6 @@
 package cmd
 
-import (
-	"fmt"
-
-	"golang.org/x/exp/slices"
-
-	log "github.com/sirupsen/logrus"
-	//"github.com/apex/log"
-)
+//"github.com/apex/log"
 
 type PostRaw struct {
 	Id          int    `yaml:"id" mapstructure:"id" json:"id" validate:"required"`
@@ -367,67 +360,67 @@ type Registry struct {
 // 	// }
 // }
 
-func (o *RegistryBlock) GetRelease(version string) (*RegistryRelease, error) {
-	// Get the correct release
-	var releaseIndex int
-	if version == "latest" {
-		// Pick the latest release
-		releaseIndex = 0
-	} else {
-		// Search release with given version
-		releaseIndex = slices.IndexFunc(o.Releases, func(r RegistryRelease) bool { return r.Version == version })
-	}
+// func (o *RegistryBlock) GetRelease(version string) (*RegistryRelease, error) {
+// 	// Get the correct release
+// 	var releaseIndex int
+// 	if version == "latest" {
+// 		// Pick the latest release
+// 		releaseIndex = 0
+// 	} else {
+// 		// Search release with given version
+// 		releaseIndex = slices.IndexFunc(o.Releases, func(r RegistryRelease) bool { return r.Version == version })
+// 	}
 
-	if len(o.Releases) > 0 && releaseIndex != -1 {
-		release := &o.Releases[releaseIndex]
-		if release != nil {
-			log.WithFields(log.Fields{
-				"workspace":         workspace.Name,
-				"block":             o.BlockName,
-				"resolved_version":  release.Version,
-				"requested_version": version,
-			}).Debugf("Found release in registry")
-			return release, nil
-		} else {
-			err := fmt.Errorf("Release not found: %s:%s", o.BlockName, version)
-			return nil, err
-		}
-	} else {
-		err := fmt.Errorf("Release not found: %s:%s", o.BlockName, version)
-		return nil, err
-	}
-}
+// 	if len(o.Releases) > 0 && releaseIndex != -1 {
+// 		release := &o.Releases[releaseIndex]
+// 		if release != nil {
+// 			log.WithFields(log.Fields{
+// 				"workspace":         workspace.Name,
+// 				"block":             o.BlockName,
+// 				"resolved_version":  release.Version,
+// 				"requested_version": version,
+// 			}).Debugf("Found release in registry")
+// 			return release, nil
+// 		} else {
+// 			err := fmt.Errorf("release not found: %s:%s", o.BlockName, version)
+// 			return nil, err
+// 		}
+// 	} else {
+// 		err := fmt.Errorf("Release not found: %s:%s", o.BlockName, version)
+// 		return nil, err
+// 	}
+// }
 
-func (o *RegistryWorkspace) GetRelease(version string) (*RegistryRelease, error) {
-	// Get the correct release
-	var releaseIndex int
-	if version == "latest" {
-		// Pick the latest release
-		releaseIndex = 0
-	} else {
-		// Search release with given version
-		releaseIndex = slices.IndexFunc(o.Releases, func(r RegistryRelease) bool { return r.Version == version })
-	}
+// func (o *RegistryWorkspace) GetRelease(version string) (*RegistryRelease, error) {
+// 	// Get the correct release
+// 	var releaseIndex int
+// 	if version == "latest" {
+// 		// Pick the latest release
+// 		releaseIndex = 0
+// 	} else {
+// 		// Search release with given version
+// 		releaseIndex = slices.IndexFunc(o.Releases, func(r RegistryRelease) bool { return r.Version == version })
+// 	}
 
-	if len(o.Releases) > 0 && releaseIndex != -1 {
-		release := &o.Releases[releaseIndex]
-		if release != nil {
-			log.WithFields(log.Fields{
-				"workspace":         workspace.Name,
-				"block":             o.WorkspaceName,
-				"resolved_version":  release.Version,
-				"requested_version": version,
-			}).Debugf("Found release in registry")
-			return release, nil
-		} else {
-			err := fmt.Errorf("Release not found: %s:%s", o.WorkspaceName, version)
-			return nil, err
-		}
-	} else {
-		err := fmt.Errorf("Release not found: %s:%s", o.WorkspaceName, version)
-		return nil, err
-	}
-}
+// 	if len(o.Releases) > 0 && releaseIndex != -1 {
+// 		release := &o.Releases[releaseIndex]
+// 		if release != nil {
+// 			log.WithFields(log.Fields{
+// 				"workspace":         workspace.Name,
+// 				"block":             o.WorkspaceName,
+// 				"resolved_version":  release.Version,
+// 				"requested_version": version,
+// 			}).Debugf("Found release in registry")
+// 			return release, nil
+// 		} else {
+// 			err := fmt.Errorf("Release not found: %s:%s", o.WorkspaceName, version)
+// 			return nil, err
+// 		}
+// 	} else {
+// 		err := fmt.Errorf("Release not found: %s:%s", o.WorkspaceName, version)
+// 		return nil, err
+// 	}
+// }
 
 // func (o *Registry) resolveArg(arg string) (string, string, error) {
 // 	var name string

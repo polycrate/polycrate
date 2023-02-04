@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -34,6 +35,9 @@ var workflowsInspectCmd = &cobra.Command{
 		ctx := context.Background()
 		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		log := polycrate.GetContextLogger(ctx)
 
@@ -43,7 +47,7 @@ var workflowsInspectCmd = &cobra.Command{
 		}
 
 		var workflow *Workflow
-		ctx, workflow, err = workspace.GetWorkflowWithContext(ctx, args[0])
+		_, workflow, err = workspace.GetWorkflowWithContext(ctx, args[0])
 		if err != nil {
 			log.Fatal(err)
 		}

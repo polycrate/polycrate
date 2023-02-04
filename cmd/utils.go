@@ -12,7 +12,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -43,7 +42,7 @@ type promptContent struct {
 	label    string
 }
 
-var activateFlag bool
+// var activateFlag bool
 
 func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
@@ -364,66 +363,66 @@ func DownloadFile(url string, fp string) error {
 	return nil
 }
 
-func cleanupWorkspace() {
-	if !workspace.containerStatus.Pruned {
-		ctx := context.Background()
-		workspace.PruneContainer(ctx)
-	}
-}
+// func cleanupWorkspace() {
+// 	if !workspace.containerStatus.Pruned {
+// 		ctx := context.Background()
+// 		workspace.PruneContainer(ctx)
+// 	}
+// }
 
-func walkWorkspacesDir(path string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
+// func walkWorkspacesDir(path string, d fs.DirEntry, err error) error {
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if !d.IsDir() {
-		fileinfo, _ := d.Info()
+// 	if !d.IsDir() {
+// 		fileinfo, _ := d.Info()
 
-		if fileinfo.Name() == WorkspaceConfigFile {
-			workspaceConfigFileDir := filepath.Dir(path)
-			log.WithFields(log.Fields{
-				"path": workspaceConfigFileDir,
-			}).Tracef("Local workspace detected")
+// 		if fileinfo.Name() == WorkspaceConfigFile {
+// 			workspaceConfigFileDir := filepath.Dir(path)
+// 			log.WithFields(log.Fields{
+// 				"path": workspaceConfigFileDir,
+// 			}).Tracef("Local workspace detected")
 
-			w := Workspace{}
-			w.LocalPath = workspaceConfigFileDir
-			w.Path = workspaceConfigFileDir
+// 			w := Workspace{}
+// 			w.LocalPath = workspaceConfigFileDir
+// 			w.Path = workspaceConfigFileDir
 
-			log.WithFields(log.Fields{
-				"path": w.Path,
-			}).Tracef("Reading in local workspace")
+// 			log.WithFields(log.Fields{
+// 				"path": w.Path,
+// 			}).Tracef("Reading in local workspace")
 
-			w.SoftloadWorkspaceConfig().Flush()
+// 			w.SoftloadWorkspaceConfig().Flush()
 
-			// Check if the workspace has already been loaded to the local workspace index
-			if localWorkspaceIndex[w.Name] != "" {
-				err := fmt.Errorf("Workspace already exists: %s", w.Path)
-				return err
-			}
-			localWorkspaceIndex[w.Name] = w.LocalPath
-			workspacePaths = append(workspacePaths, workspaceConfigFileDir)
-		}
-	}
-	return nil
-}
-func walkBlocksDir(path string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
+// 			// Check if the workspace has already been loaded to the local workspace index
+// 			if localWorkspaceIndex[w.Name] != "" {
+// 				err := fmt.Errorf("Workspace already exists: %s", w.Path)
+// 				return err
+// 			}
+// 			localWorkspaceIndex[w.Name] = w.LocalPath
+// 			workspacePaths = append(workspacePaths, workspaceConfigFileDir)
+// 		}
+// 	}
+// 	return nil
+// }
+// func walkBlocksDir(path string, d fs.DirEntry, err error) error {
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if !d.IsDir() {
-		fileinfo, _ := d.Info()
+// 	if !d.IsDir() {
+// 		fileinfo, _ := d.Info()
 
-		if fileinfo.Name() == workspace.Config.BlocksConfig {
-			blockConfigFileDir := filepath.Dir(path)
-			log.WithFields(log.Fields{
-				"path": blockConfigFileDir,
-			}).Debugf("Block detected")
-			blockPaths = append(blockPaths, blockConfigFileDir)
-		}
-	}
-	return nil
-}
+// 		if fileinfo.Name() == workspace.Config.BlocksConfig {
+// 			blockConfigFileDir := filepath.Dir(path)
+// 			log.WithFields(log.Fields{
+// 				"path": blockConfigFileDir,
+// 			}).Debugf("Block detected")
+// 			blockPaths = append(blockPaths, blockConfigFileDir)
+// 		}
+// 	}
+// 	return nil
+// }
 
 // func loadInventory() {
 // 	//loadDefaults()
@@ -488,22 +487,22 @@ func promptGetInput(pc promptContent) string {
 	return result
 }
 
-func getRemoteFileContent(url string) (string, error) {
-	// Get the data
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
+// func getRemoteFileContent(url string) (string, error) {
+// 	// Get the data
+// 	resp, err := http.Get(url)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	defer resp.Body.Close()
 
-	b, err := io.ReadAll(resp.Body)
-	// b, err := ioutil.ReadAll(resp.Body)  Go.1.15 and earlier
-	if err != nil {
-		log.Fatalln(err)
-	}
+// 	b, err := io.ReadAll(resp.Body)
+// 	// b, err := ioutil.ReadAll(resp.Body)  Go.1.15 and earlier
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
 
-	return string(b), err
-}
+// 	return string(b), err
+// }
 
 func promptGetSelect(pc promptContent) string {
 	items := []string{"animal", "food", "person", "object"}
@@ -603,27 +602,27 @@ func HighjackSigint(ctx context.Context) {
 	}()
 }
 
-func discoverWorkspaces() error {
-	workspacesDir := polycrateWorkspaceDir
+// func discoverWorkspaces() error {
+// 	workspacesDir := polycrateWorkspaceDir
 
-	if _, err := os.Stat(workspacesDir); !os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"path": workspacesDir,
-		}).Debugf("Discovering local workspaces")
+// 	if _, err := os.Stat(workspacesDir); !os.IsNotExist(err) {
+// 		log.WithFields(log.Fields{
+// 			"path": workspacesDir,
+// 		}).Debugf("Discovering local workspaces")
 
-		// This function adds all valid Blocks to the list of
-		err := filepath.WalkDir(workspacesDir, walkWorkspacesDir)
-		if err != nil {
-			return err
-		}
-	} else {
-		log.WithFields(log.Fields{
-			"path": workspacesDir,
-		}).Debugf("Skipping workspace discovery. Local workspaces directory not found")
-	}
+// 		// This function adds all valid Blocks to the list of
+// 		err := filepath.WalkDir(workspacesDir, walkWorkspacesDir)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	} else {
+// 		log.WithFields(log.Fields{
+// 			"path": workspacesDir,
+// 		}).Debugf("Skipping workspace discovery. Local workspaces directory not found")
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // func createZipFile(sourcePath string, filename string) (string, error) {
 

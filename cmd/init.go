@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var fileUrl string
+//var fileUrl string
 
 // installCmd represents the install command
 var initCmd = &cobra.Command{

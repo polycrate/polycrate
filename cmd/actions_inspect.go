@@ -52,7 +52,10 @@ var actionsInspectCmd = &cobra.Command{
 		}
 
 		var action *Action
-		ctx, action, err = block.GetActionWithContext(ctx, args[1])
+		_, action, err = block.GetActionWithContext(ctx, args[1])
+		if err != nil {
+			log.Fatal(err)
+		}
 		if action != nil {
 			action.Inspect()
 		} else {
