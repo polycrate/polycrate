@@ -554,7 +554,6 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 				}
 			} else {
 				if pull {
-					log.Debugf("Pulling image: %s", containerImage)
 					err := polycrate.PullImage(ctx, containerImage)
 
 					if err != nil {
@@ -566,7 +565,6 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 			}
 		} else {
 			if pull {
-				log.Debugf("Pulling image: %s", containerImage)
 				err := polycrate.PullImage(ctx, containerImage)
 
 				if err != nil {
@@ -578,7 +576,6 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 		}
 	} else {
 		if pull {
-			log.Debugf("Pulling image: %s", containerImage)
 			err := polycrate.PullImage(ctx, containerImage)
 
 			if err != nil {
