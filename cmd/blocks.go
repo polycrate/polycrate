@@ -19,6 +19,7 @@ import (
 	"context"
 	goErrors "errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,8 +134,8 @@ func (b *Block) SSH(ctx context.Context, hostname string, workspace *Workspace) 
 	txid := polycrate.GetContextTXID(ctx)
 	containerName := slugify([]string{txid.String(), "ssh"})
 	fileName := strings.Join([]string{containerName, "yml"}, ".")
-	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath(workspace))
-	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath())
+	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath(ctx))
+	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath(ctx))
 	workspace.registerCurrentBlock(b)
 
 	// Create temp file to write output to
@@ -486,7 +487,14 @@ func (b *Block) Reload(ctx context.Context, workspace *Workspace) error {
 	return nil
 }
 
-func (c *Block) getInventoryPath(workspace *Workspace) string {
+func (c *Block) getInventoryPath(ctx context.Context) string {
+	log := polycrate.GetContextLogger(ctx)
+
+	workspace, err := polycrate.GetContextWorkspace(ctx)
+	if err != nil {
+		log.Fatalf("Couldn't get workspace from context")
+	}
+
 	if c.Inventory.From != "" {
 		// Take the inventory from another Block
 		log.Debugf("Loading inventory from block %s", c.Inventory.From)
@@ -502,7 +510,14 @@ func (c *Block) getInventoryPath(workspace *Workspace) string {
 	return "/etc/ansible/hosts"
 }
 
-func (c *Block) getKubeconfigPath() string {
+func (c *Block) getKubeconfigPath(ctx context.Context) string {
+	log := polycrate.GetContextLogger(ctx)
+
+	workspace, err := polycrate.GetContextWorkspace(ctx)
+	if err != nil {
+		log.Fatalf("Couldn't get workspace from context")
+	}
+
 	if c.Kubeconfig.From != "" {
 		// Take the kubeconfig from another Block
 		log.Debugf("Loading Kubeconfig from block %s", c.Kubeconfig.From)
@@ -694,8 +709,36 @@ func (c *Block) MergeIn(block *Block) error {
 	return nil
 }
 
-func (c *Block) Inspect() {
-	printObject(c)
+func (b *Block) README() error {
+	readme := filepath.Join(b.Workdir.LocalPath, "README.md")
+	if _, err := os.Stat(readme); os.IsNotExist(err) {
+		return err
+	}
+	file, err := os.Open(readme)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if err = file.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	r, err := ioutil.ReadAll(file)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(r))
+
+	return nil
+}
+
+func (b *Block) Defaults() {
+	printObject(b)
+}
+
+func (b *Block) Inspect() {
+	printObject(b)
 }
 
 func (c *Block) LoadInventory(ctx context.Context, workspace *Workspace) error {

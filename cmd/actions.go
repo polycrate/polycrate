@@ -313,12 +313,12 @@ func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 	log.Debugf("Running action")
 
 	// 3. Determine inventory path
-	inventoryPath := block.getInventoryPath(workspace)
+	inventoryPath := block.getInventoryPath(ctx)
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", inventoryPath)
 	log.Tracef("Updating inventory: %s", inventoryPath)
 
 	// 4. Determine kubeconfig path
-	kubeconfigPath := block.getKubeconfigPath()
+	kubeconfigPath := block.getKubeconfigPath(ctx)
 	workspace.registerEnvVar("KUBECONFIG", kubeconfigPath)
 	log.Tracef("Updating kubeconfig: %s", kubeconfigPath)
 
