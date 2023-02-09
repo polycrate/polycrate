@@ -159,7 +159,6 @@ func UnwrapOCIImage(ctx context.Context, path string, registryUrl string, imageN
 		return err
 	}
 
-	//log.Debugf("Pulling image %s", tag.String())
 	log = log.WithField("image", tag.String())
 	ctx = polycrate.SetContextLogger(ctx, log)
 
@@ -185,6 +184,11 @@ func UnwrapOCIImage(ctx context.Context, path string, registryUrl string, imageN
 
 	//log.Debugf("Unpacking image to %s", path)
 	log = log.WithField("path", path)
+	log.Debugf("Removing existing block")
+	err = os.RemoveAll(path)
+	if err != nil {
+		return err
+	}
 	log.Debugf("Unpacking image")
 	err = Untar(f.Name(), path)
 	if err != nil {
