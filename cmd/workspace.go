@@ -1983,7 +1983,7 @@ func (w *Workspace) bootstrapEnvVars(ctx context.Context) *Workspace {
 	w.registerEnvVar("ANSIBLE_DEPRECATION_WARNINGS", "False")
 	w.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
 	w.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
-	w.registerEnvVar("ANSIBLE_VERBOSITY", strconv.Itoa(logLevel))
+	w.registerEnvVar("ANSIBLE_VERBOSITY", strconv.Itoa(polycrate.Config.Loglevel))
 	w.registerEnvVar("ANSIBLE_SSH_PRIVATE_KEY_FILE", filepath.Join(w.ContainerPath, w.Config.SshPrivateKey))
 	w.registerEnvVar("ANSIBLE_PRIVATE_KEY_FILE", filepath.Join(w.ContainerPath, w.Config.SshPrivateKey))
 	//c.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
