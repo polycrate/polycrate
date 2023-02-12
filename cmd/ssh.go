@@ -65,7 +65,7 @@ var sshCmd = &cobra.Command{
 		if block != nil {
 			err := block.SSH(ctx, hostname, workspace)
 			if err != nil {
-				log.Fatal(err)
+				log.Error(err)
 			}
 		} else {
 			err := fmt.Errorf("block does not exist: %s", _sshBlock)

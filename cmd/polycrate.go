@@ -527,6 +527,7 @@ func (p *Polycrate) StopTransaction(ctx context.Context, cancel func()) error {
 	tx := p.GetTransaction(txid)
 
 	log := p.GetContextLogger(ctx)
+	log.Debug("Stopping transaction")
 	//log = log.WithField("txid", txid)
 
 	// Call cancelFunc
@@ -1003,6 +1004,7 @@ func (p *Polycrate) HighjackSigint(ctx context.Context) {
 	go func() {
 		select {
 		case <-ctx.Done():
+			log.Debugf("Received ctx-done")
 			return
 		case <-HighJackCTX.Done():
 			log.Errorf("Received CTRL-C")
@@ -1020,8 +1022,8 @@ func (p *Polycrate) HighjackSigint(ctx context.Context) {
 				log.Error("After Stop")
 				log.Fatal(err)
 			}
-			stop()
 			log.Debugf("Stopping signal handler")
+			stop()
 		}
 	}()
 
@@ -1271,7 +1273,7 @@ func (p *Polycrate) PruneContainer(ctx context.Context) error {
 		filters,
 	)
 
-	log.WithField("exit_code", exitCode)
+	log = log.WithField("exit_code", exitCode)
 	log.Debugf("Pruned container")
 
 	// Handle pruning error

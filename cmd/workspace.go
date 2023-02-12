@@ -604,10 +604,11 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 
 	// Capture CTRL-C if the container is running and non-interactive
 	var cancelHighjack context.CancelFunc
+	var sigIntCtx context.Context
 	if !interactive {
-		ctx, cancelHighjack = context.WithCancel(ctx)
+		sigIntCtx, cancelHighjack = context.WithCancel(ctx)
 		defer cancelHighjack()
-		polycrate.HighjackSigint(ctx)
+		polycrate.HighjackSigint(sigIntCtx)
 
 	}
 	log.Debugf("Starting container")
@@ -2098,6 +2099,7 @@ func (w *Workspace) registerEnvVar(key string, value string) {
 }
 
 func (c *Workspace) registerMount(host string, container string) {
+	log.Tracef("Registering container mount: %s -> %s", host, container)
 	c.mounts[host] = container
 }
 

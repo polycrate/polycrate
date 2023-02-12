@@ -7,6 +7,8 @@ import utils
 from ansible.module_utils.common.json import json_dump
 from ansible import constants as C
 from benedict import benedict
+import yaml
+from pathlib import Path
 
 app = typer.Typer()
 
@@ -24,12 +26,13 @@ def load():
 def loadSnapshot(snapshot_path):
     try:
         # load yaml file
-        #snapshot = yaml.safe_load(Path(snapshot_path).read_text())
-        snapshot = benedict.from_yaml(snapshot_path)
+        snapshot = yaml.safe_load(Path(snapshot_path).read_text())
+        #snapshot = benedict.from_yaml(snapshot_path, keypath_separator=None)
 
         return snapshot
-    except:
-        raise RuntimeError(f"Snapshot not found: {snapshot_path}")
+    except Exception as e:
+        raise RuntimeError(
+            f"Unable to load snapshot from {snapshot_path}: {e}")
 
 
 @app.command()

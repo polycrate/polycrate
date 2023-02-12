@@ -153,6 +153,7 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 			// empty string very likely, so we use the default fail code, and format err
 			// to string and set to stderr
 			log.Warnf("Could not get exit code for failed program: %v, %v", name, args)
+			log.Trace(err)
 			exitCode = defaultFailedCode
 		}
 	} else {
