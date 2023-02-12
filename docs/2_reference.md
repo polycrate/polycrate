@@ -183,26 +183,33 @@ The `config` stanza of the block configuration is free form and not typed. You c
 actions:
   - name: install
     playbook: install.yml
+    prompt: 
+      message: "Do you really want to run this action?"
 ```
 
 A block can expose an arbitrary amount of actions. Actions are used to implement the actual functionality of a block. Examples would be `install` or `uninstall`, but also `status` or `init`.
 
-To execute a certain playbook, specify its name in the `playbook` stanza of an action. Polycrate will create the respective `ansible-playbook` command and make the [workspace snapshot](#workspace-snapshot) available as extra-vars to the playbook so they can be used even in the `host` stanza of a playbook.
+To execute an Ansible playbook, specify its name in the `playbook` stanza of an action. Polycrate will create the respective `ansible-playbook` command and make the [workspace snapshot](#workspace-snapshot) available as extra-vars to the playbook so they can be used even in the `host` stanza of a playbook.
+
+Actions accept a `prompt` stanza. If configured with a non-empty `message` attribute, Polycrate will prompt the user for confirmation before execution an action. If the user declines confirmation, the action will fail. Please note that you can prompt for confirmation in workflow steps, too. If you prompt on an action and on a step, the user will have to confirm 2 times.
+
+!!! note
+    You can auto-confirm all prompts by using the `--force` flag.
 
 Actions also support a `script` stanza which contains a list of commands that will be merged into a Bash script and executed inside the Polycrate container (or locally if you specifiy `--local`) when you run the action. The `script` stanza is mutually exclusive with the `playbook` stanza.
 
-!!! note
-    You can use [Go Templates](https://learn.hashicorp.com/tutorials/nomad/go-template-syntax) in your action scripts. 
 
-    ```yaml
-    [...]
-    actions:
-      - name: template
-          script:
-            - echo This is Action {{ .Action.Name }} in Block {{ .Block.Name }}
-            - echo Running in Workspace {{ .Workspace.Name }}
-    [...]
-    ```
+```yaml
+[...]
+actions:
+  - name: script-action
+    script:
+      - ls -la
+      - du -hsc
+      - env
+      - echo "Hello World"
+[...]
+```
 
 !!! note
     Action names are limited to certain characters: `^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$`.
@@ -268,30 +275,6 @@ Whenever you run an action with Polycrate, a **workspace snapshot** will be capt
 
 Polycrate exports the workspace snapshot to a yaml file that will be saved locally and mounted into the container. The path of the file will be exported to the `POLYCRATE_WORKSPACE_SNAPSHOT_YAML` environment variable.
 
-### environment vars
-
-Polycrate converts the workspace snapshot to a flattened map and exports it to the environment.
-
-```bash
-[...]
-ACTION_BLOCK: custom-block
-ACTION_NAME: hello
-ACTION_SCRIPT_0: echo Hello
-ACTION_SCRIPT_1: echo World
-BLOCK_ACTIONS_0_BLOCK: custom-block
-BLOCK_ACTIONS_0_NAME: hello
-BLOCK_ACTIONS_0_SCRIPT_0: echo Hello
-BLOCK_ACTIONS_0_SCRIPT_1: echo World
-BLOCK_ARTIFACTS_CONTAINERPATH: /workspace/artifacts/blocks/custom-block
-BLOCK_ARTIFACTS_LOCALPATH: $HOME/.polycrate/workspaces/polycrate-demo/artifacts/blocks/custom-block
-BLOCK_CONFIG_FOO: bar
-BLOCK_NAME: custom-block
-BLOCK_VERSION: ""
-BLOCK_WORKDIR_CONTAINERPATH: /workspace/blocks/custom-block
-BLOCK_WORKDIR_LOCALPATH: $HOME/.polycrate/workspaces/polycrate-demo/blocks/custom-block
-[...]
-```
-
 You can use the `--snapshot` flag when invoking `polycrate run`. This will prevent any action from running and instead dumps the workspace snapshot. Also, `polycrate workspace snapshot` has the same effect, but doesn't contain data about the current action and block.
 
 ## Workflows
@@ -305,6 +288,8 @@ blocks:
   - name: block-1
     actions:
       - name: action-1
+        prompt: 
+          message: "Do you really want to run this action?"
         script:
           - echo "block 1 action 1"
   - name: block-2
@@ -314,6 +299,9 @@ blocks:
           - echo "block 2 action 1"
 workflows:
   - name: workflow-1
+    prompt: 
+          message: "Do you really want to run this workflow?"
+    allow_failure: true
     steps:
       - name: block-1-action-1
         block: block-1
@@ -321,12 +309,16 @@ workflows:
       - name: block-2-action-1
         block: block-2
         action: action-1
-        prompt: "Do you really want to run this action?"
+        prompt: 
+          message: "Do you really want to run this step?"
 ```
 
 You can use `polycrate workflows run workflow-1` (or for short `polycrate run workflow-1`) to execute this workflow.
 
-If a step has the `prompt` stanza an it's not empty, Polycrate will interrupt the workflow and lets the user confirm the execution of the current step.
+If the workflow, one if its steps or an action has the `prompt` stanza with a non-empty `message`, Polycrate will interrupt the workflow and prompts the user for confirmation. The current workflow/step/action will fail if the user declines. If `allow_failure` is set to true for a workflow, execution will continue even if individual steps fail.
+
+!!! note
+    You can auto-confirm all prompts by using the `--force` flag.
 
 ## Loglevel
 
