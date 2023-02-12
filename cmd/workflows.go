@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/manifoldco/promptui"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -71,7 +70,7 @@ type Step struct {
 	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
 	Block       string            `yaml:"block" mapstructure:"block" json:"block" validate:"required"`
 	Action      string            `yaml:"action" mapstructure:"action" json:"action" validate:"required"`
-	Prompt      string            `yaml:"prompt,omitempty" mapstructure:"prompt,omitempty" json:"prompt,omitempty"`
+	Prompt      Prompt            `yaml:"prompt,omitempty" mapstructure:"prompt,omitempty" json:"prompt,omitempty"`
 	Workflow    string            `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
 	address     string
 	//err         error
@@ -79,12 +78,14 @@ type Step struct {
 
 type Workflow struct {
 	//Metadata    Metadata          `mapstructure:"metadata" json:"metadata" validate:"required"`
-	Name        string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
-	Description string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
-	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
-	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
-	Steps       []Step            `yaml:"steps,omitempty" mapstructure:"steps,omitempty" json:"steps,omitempty"`
-	address     string
+	Name         string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description  string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels       map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias        []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Steps        []Step            `yaml:"steps,omitempty" mapstructure:"steps,omitempty" json:"steps,omitempty"`
+	Prompt       Prompt            `yaml:"prompt,omitempty" mapstructure:"prompt,omitempty" json:"prompt,omitempty"`
+	AllowFailure bool              `yaml:"allow_failure,omitempty" mapstructure:"allow_failure,omitempty" json:"allow_failure,omitempty"`
+	address      string
 	//err         error
 }
 
@@ -96,6 +97,14 @@ func (w *Workflow) RunWithContext(ctx context.Context, stepName string) (context
 	log := polycrate.GetContextLogger(ctx)
 
 	log.Infof("Running Workflow")
+
+	// Check if a prompt is configured and execute it
+	if w.Prompt.Message != "" {
+		result := w.Prompt.Validate(ctx)
+		if !result {
+			return ctx, fmt.Errorf("not running workflow. user confirmation declined")
+		}
+	}
 
 	// Check if any steps are configured
 	// Return an error if not
@@ -121,7 +130,11 @@ func (w *Workflow) RunWithContext(ctx context.Context, stepName string) (context
 
 		err = step.Run(ctx)
 		if err != nil {
-			return ctx, err
+			// Check AllowFailure, move on if it's OK
+			if !w.AllowFailure {
+				return ctx, err
+			}
+			log.Warnf("Step exited with an error: '%s'; continuing workflow execution because `allow_failure` is true", err)
 		}
 
 		// reloading workspace to account for new artifacts
@@ -132,6 +145,14 @@ func (w *Workflow) RunWithContext(ctx context.Context, stepName string) (context
 }
 func (w *Workflow) Run(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
+
+	// Check if a prompt is configured and execute it
+	if w.Prompt.Message != "" {
+		result := w.Prompt.Validate(ctx)
+		if !result {
+			return fmt.Errorf("not running workflow. user confirmation declined")
+		}
+	}
 
 	workspace, err := polycrate.GetContextWorkspace(ctx)
 	if err != nil {
@@ -190,22 +211,8 @@ func (s *Step) Run(ctx context.Context) error {
 
 	// Check for prompt
 	var runStep = true
-	if s.Prompt != "" {
-		runStep = false
-		// Ask if sync with git repo is wanted
-		workflowStepPrompt := promptui.Prompt{
-			Label:     s.Prompt,
-			IsConfirm: true,
-		}
-
-		workflowStepPromptResult, _ := workflowStepPrompt.Run()
-
-		// if err != nil {
-		// 	log.Fatalf("Failed to save git repository: %s", err)
-		// }
-		if workflowStepPromptResult == "y" {
-			runStep = true
-		}
+	if s.Prompt.Message != "" {
+		runStep = s.Prompt.Validate(ctx)
 	}
 
 	if runStep {
@@ -214,8 +221,7 @@ func (s *Step) Run(ctx context.Context) error {
 			return err
 		}
 	} else {
-		log.Warn("Not running step, user confirmation declined")
-		return nil
+		return fmt.Errorf("not running step. user confirmation declined")
 	}
 
 	return nil

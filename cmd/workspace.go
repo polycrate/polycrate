@@ -2625,7 +2625,7 @@ func (w *Workspace) PullBlock(ctx context.Context, fullTag string, registryUrl s
 	ctx = polycrate.SetContextLogger(ctx, log)
 
 	if w.IsBlockInstalled(fullTag, registryUrl, blockName, blockVersion) {
-		log.Debugf("Block is already installed")
+		log.Infof("Block is already installed")
 		return nil
 	}
 
@@ -2679,7 +2679,7 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 	log = log.WithField("version", block.Version)
 	log = log.WithField("path", block.Workdir.LocalPath)
 
-	log.Debugf("Pushing block")
+	log.Infof("Pushing block")
 
 	_, registryUrl, blockName, _ := mapDockerTag(block.Name)
 	tagVersion := block.Version

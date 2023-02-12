@@ -82,6 +82,7 @@ type Action struct {
 	Interactive bool              `yaml:"interactive,omitempty" mapstructure:"interactive,omitempty" json:"interactive,omitempty"`
 	Script      []string          `yaml:"script,omitempty" mapstructure:"script,omitempty" json:"script,omitempty" validate:"required_without=Playbook,excluded_with=Playbook"`
 	Playbook    string            `yaml:"playbook,omitempty" mapstructure:"playbook,omitempty" json:"playbook,omitempty" validate:"required_without=Script,excluded_with=Script"`
+	Prompt      Prompt            `yaml:"prompt,omitempty" mapstructure:"prompt,omitempty" json:"prompt,omitempty"`
 	//Ansible             ActionAnsibleConfig    `yaml:"ansible,omitempty" mapstructure:"ansible,omitempty" json:"ansible,omitempty"`
 	//Kubernetes          ActionKubernetesConfig `yaml:"kubernetes,omitempty" mapstructure:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	executionScriptPath string
@@ -299,6 +300,14 @@ func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 	log := polycrate.GetContextLogger(ctx)
 
 	log.Infof("Running action")
+
+	// Check if a prompt is configured and execute it
+	if a.Prompt.Message != "" {
+		result := a.Prompt.Validate(ctx)
+		if !result {
+			return ctx, fmt.Errorf("not running action. user confirmation declined")
+		}
+	}
 
 	workspace, err := polycrate.GetContextWorkspace(ctx)
 	if err != nil {

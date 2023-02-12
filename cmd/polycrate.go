@@ -20,6 +20,7 @@ import (
 
 	"sync"
 
+	"github.com/Songmu/prompter"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	semver "github.com/hashicorp/go-version"
@@ -117,6 +118,15 @@ type Polycrate struct {
 	Config       PolycrateConfig `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	Workspaces   []*Workspace
 	Transactions []PolycrateTransaction
+}
+
+type Prompt struct {
+	Message string `yaml:"message,omitempty" mapstructure:"message,omitempty" json:"message,omitempty"`
+}
+
+func (p *Prompt) Validate(ctx context.Context) bool {
+	return force || prompter.YN(p.Message, false)
+
 }
 
 // func (p *Polycrate) GetTransaction(txid uuid.UUID) (*PolycrateTransaction, error) {
