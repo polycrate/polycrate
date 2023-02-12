@@ -330,24 +330,6 @@ Polycrate supports 3 loglevel:
 
 The loglevel will be mapped to the respective **Ansible verbosity** meaning `--loglevel 3` will result in Ansible executing as if you used `-vvv`.
 
-## Sync
-
-Polycrate can be configured to automatically sync with a git repository whenever it is invoked. Polycrate then writes a history log to `history.log` in the workspace directory and commits and pushes before and after invoking an action, saving the command that has been issued as well as the exit code the command resulted in.
-
-Sync must be enabled in the workspace configuration:
-
-```yaml
-sync:
-  enabled: true
-  auto: true
-  remote:
-    url: ssh://git@gitlab.ayedo.de:10022/devops/workspaces/starkiller.git
-```
-
-If `sync.auto` is false, you need to manually push to the connected git repository. 
-
-With `polycrate log $MESSAGE` you can write and sync arbitrary history logs.
-
 ## Registry
 
 Polycrate blocks can be pushed and pulled to and from a OCI-compatible registry. Polycrate uses `cargo.ayedo.cloud` as the default registry to obtain blocks from or push them to.
