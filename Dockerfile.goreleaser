@@ -36,7 +36,7 @@ RUN apt-get update &&\
   git=1:2.30.2-1 \
   jq=1.6-2.1 \
   gettext=0.21-4 \
-  libssl-dev=1.1.1n-0+deb11u3 \
+  libssl-dev=1.1.1n-0+deb11u4 \
   libffi-dev=3.3-6 \
   python3-dev=3.9.2-3 \
   rsync=3.2.3-4+deb11u1 \
