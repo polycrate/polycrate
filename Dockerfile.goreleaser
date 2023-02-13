@@ -52,12 +52,10 @@ RUN apt-get update &&\
 
 # Switch to /tmp to download/install all the reuirements
 # That allows us to clean up easily
-WORKDIR /tmp
+WORKDIR /tmp/polycrate
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-COPY python-requirements.txt python-requirements.txt
-COPY ansible-requirements.yml ansible-requirements.yml
 #COPY package.json package.json
 #COPY package-lock.json package-lock.json
 
@@ -97,39 +95,40 @@ RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernet
   dpkg -i goreleaser_${GORELEASER_VERSION}_${TARGETARCH}.deb && \
   wget -q "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/yq && \
   chmod +x /usr/local/bin/yq && \
-  #wget -q "https://dl.min.io/client/mc/release/${TARGETOS}-${TARGETARCH}/mc" -O /usr/local/bin/mc && \
   wget  -q "https://dl.min.io/client/mc/release/${TARGETOS}-${TARGETARCH}/archive/mc.${MINIO_CLI_VERSION}" -O /usr/local/bin/mc && \
   chmod +x /usr/local/bin/mc  && \
   wget -q "https://github.com/cli/cli/releases/download/v${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb" && \
   dpkg -i gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb && \
   wget -q "https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/aws-iam-authenticator && \
-  chmod +x /usr/local/bin/aws-iam-authenticator && \
-  wget -q "https://go.dev/dl/go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz" && \
-  rm -rf /usr/local/go && \
-  tar -C /usr/local -xzf go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz && \
-  wget -q "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -O "awscliv2.zip" && \
-  unzip awscliv2.zip && \
-  ./aws/install
+  chmod +x /usr/local/bin/aws-iam-authenticator
+  # wget -q "https://go.dev/dl/go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz" && \
+  # rm -rf /usr/local/go && \
+  # tar -C /usr/local -xzf go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz && \
+  # wget -q "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -O "awscliv2.zip" && \
+  # unzip awscliv2.zip && \
+  # ./aws/install
 
-RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace /polycrate /usr/share/ansible/plugins/vars
+COPY python-requirements.txt python-requirements.txt
+COPY ansible-requirements.yml ansible-requirements.yml
 
-RUN pip install --no-cache-dir -r python-requirements.txt && \
-  pip install --no-cache-dir packaging requests[security] xmltodict azure-cli-core==2.34.0 azure-common==1.1.11 azure-identity==1.7.0 azure-mgmt-apimanagement==0.2.0 azure-mgmt-authorization==0.51.1 azure-mgmt-batch==5.0.1 azure-mgmt-cdn==3.0.0 azure-mgmt-compute==26.1.0 azure-mgmt-containerinstance==1.4.0 azure-mgmt-containerregistry==2.0.0 azure-mgmt-containerservice==9.1.0 azure-mgmt-datalake-store==0.5.0 azure-mgmt-datafactory==2.0.0 azure-mgmt-dns==2.1.0 azure-mgmt-keyvault==1.1.0 azure-mgmt-marketplaceordering==0.1.0 azure-mgmt-monitor==3.0.0 azure-mgmt-managedservices==1.0.0 azure-mgmt-managementgroups==0.2.0 azure-mgmt-network==19.1.0 azure-mgmt-nspkg==2.0.0 azure-mgmt-privatedns==0.1.0 azure-mgmt-redis==13.0.0 azure-mgmt-resource==10.2.0 azure-mgmt-rdbms==1.9.0 azure-mgmt-search==3.0.0 azure-mgmt-servicebus==0.5.3 azure-mgmt-sql==3.0.1 azure-mgmt-storage==19.0.0 azure-mgmt-trafficmanager==0.50.0 azure-mgmt-web==0.41.0 azure-nspkg==2.0.0 azure-storage==0.35.1 msrest==0.6.21 msrestazure==0.6.4 azure-keyvault==1.0.0a1 azure-graphrbac==0.61.1 azure-mgmt-cosmosdb==0.15.0 azure-mgmt-hdinsight==0.1.0 azure-mgmt-devtestlabs==3.0.0 azure-mgmt-loganalytics==1.0.0 azure-mgmt-automation==1.0.0 azure-mgmt-iothub==0.7.0 azure-mgmt-recoveryservices==0.4.0 azure-mgmt-recoveryservicesbackup==0.6.0 azure-mgmt-notificationhubs==2.0.0 azure-mgmt-eventhub==2.0.0
+RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace /polycrate /usr/share/ansible/plugins/vars && \
+    pip install --no-cache-dir -r python-requirements.txt
+  # pip install --no-cache-dir packaging requests[security] xmltodict azure-cli-core==2.34.0 azure-common==1.1.11 azure-identity==1.7.0 azure-mgmt-apimanagement==0.2.0 azure-mgmt-authorization==0.51.1 azure-mgmt-batch==5.0.1 azure-mgmt-cdn==3.0.0 azure-mgmt-compute==26.1.0 azure-mgmt-containerinstance==1.4.0 azure-mgmt-containerregistry==2.0.0 azure-mgmt-containerservice==9.1.0 azure-mgmt-datalake-store==0.5.0 azure-mgmt-datafactory==2.0.0 azure-mgmt-dns==2.1.0 azure-mgmt-keyvault==1.1.0 azure-mgmt-marketplaceordering==0.1.0 azure-mgmt-monitor==3.0.0 azure-mgmt-managedservices==1.0.0 azure-mgmt-managementgroups==0.2.0 azure-mgmt-network==19.1.0 azure-mgmt-nspkg==2.0.0 azure-mgmt-privatedns==0.1.0 azure-mgmt-redis==13.0.0 azure-mgmt-resource==10.2.0 azure-mgmt-rdbms==1.9.0 azure-mgmt-search==3.0.0 azure-mgmt-servicebus==0.5.3 azure-mgmt-sql==3.0.1 azure-mgmt-storage==19.0.0 azure-mgmt-trafficmanager==0.50.0 azure-mgmt-web==0.41.0 azure-nspkg==2.0.0 azure-storage==0.35.1 msrest==0.6.21 msrestazure==0.6.4 azure-keyvault==1.0.0a1 azure-graphrbac==0.61.1 azure-mgmt-cosmosdb==0.15.0 azure-mgmt-hdinsight==0.1.0 azure-mgmt-devtestlabs==3.0.0 azure-mgmt-loganalytics==1.0.0 azure-mgmt-automation==1.0.0 azure-mgmt-iothub==0.7.0 azure-mgmt-recoveryservices==0.4.0 azure-mgmt-recoveryservicesbackup==0.6.0 azure-mgmt-notificationhubs==2.0.0 azure-mgmt-eventhub==2.0.0
   # Azure Python Toolchain
   # https://github.com/ansible-collections/azure/blob/v1.13.0/requirements-azure.txt
   
 
 RUN ansible-galaxy collection install --collections-path /etc/ansible/collections community.general && \
-  ansible-galaxy collection install --collections-path /etc/ansible/collections azure.azcollection:1.13.0 && \
+  #ansible-galaxy collection install --collections-path /etc/ansible/collections azure.azcollection:1.13.0 && \
   ansible-galaxy install --roles-path /etc/ansible/roles -r ansible-requirements.yml
-
 
 COPY hack/ansible/plugins/vars/polycrate_vars.py /usr/share/ansible/plugins/vars/polycrate_vars.py
 COPY hack/ansible/inventory /etc/ansible/hosts
 COPY hack/poly-utils /opt/poly-utils
 
 RUN chmod +x /opt/poly-utils/poly-utils && \
-    ln -s "/opt/poly-utils/poly-utils" "/usr/local/bin/poly-utils"
+    ln -s "/opt/poly-utils/poly-utils" "/usr/local/bin/poly-utils" && \
+    rm -rf /tmp/polycrate
 
 WORKDIR /workspace
 
