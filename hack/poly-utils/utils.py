@@ -3,6 +3,7 @@ import yaml
 from ansible import constants as C
 from ansible.config.manager import ConfigManager, Setting
 import typer
+import json
 
 
 def yaml_dump(data, default_flow_style=False, default_style=None):
@@ -10,6 +11,11 @@ def yaml_dump(data, default_flow_style=False, default_style=None):
                      Dumper=AnsibleDumper,
                      default_flow_style=default_flow_style,
                      default_style=default_style)
+
+
+def json_file(data, file):
+    json_object = json.dumps(data, indent=4)
+    file.write(json_object)
 
 
 def yaml_file(data, file, default_flow_style=False, default_style=None):

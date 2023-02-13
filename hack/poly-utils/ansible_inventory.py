@@ -65,7 +65,7 @@ def hosts(
                     'ansible_user']
         if output_file != "":
             with open(output_file, 'w') as file:
-                utils.yaml_file(hosts, file)
+                utils.json_file(hosts, file)
         else:
             print(utils.yaml_dump(hosts))
     except:
