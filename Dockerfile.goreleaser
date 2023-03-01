@@ -100,13 +100,13 @@ RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernet
   wget -q "https://github.com/cli/cli/releases/download/v${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb" && \
   dpkg -i gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb && \
   wget -q "https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/aws-iam-authenticator && \
-  chmod +x /usr/local/bin/aws-iam-authenticator
+  chmod +x /usr/local/bin/aws-iam-authenticator && \
+  wget -q "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -O "awscliv2.zip" && \
+  unzip awscliv2.zip && \
+  ./aws/install
   # wget -q "https://go.dev/dl/go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz" && \
   # rm -rf /usr/local/go && \
   # tar -C /usr/local -xzf go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz && \
-  # wget -q "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -O "awscliv2.zip" && \
-  # unzip awscliv2.zip && \
-  # ./aws/install
 
 COPY python-requirements.txt python-requirements.txt
 COPY ansible-requirements.yml ansible-requirements.yml
