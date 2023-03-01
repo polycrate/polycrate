@@ -107,7 +107,6 @@ RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernet
   # wget -q "https://go.dev/dl/go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz" && \
   # rm -rf /usr/local/go && \
   # tar -C /usr/local -xzf go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz && \
-
 COPY python-requirements.txt python-requirements.txt
 COPY ansible-requirements.yml ansible-requirements.yml
 
