@@ -39,7 +39,7 @@ var blocksPullCmd = &cobra.Command{
 
 		log := polycrate.GetContextLogger(ctx)
 
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		ctx, workspace, err := polycrate.PreloadWorkspaceWithContext(ctx, _w, false)
 		if err != nil {
 			log.Fatal(err)
 		}
