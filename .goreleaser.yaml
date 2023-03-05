@@ -157,7 +157,6 @@ release:
   header: |
     ## Polycrate v{{ .Version }} ({{ .Date }})
 
-    Here are the most relevant changes:
   footer: |
     ## Docker Images
 
@@ -165,10 +164,6 @@ release:
     - `cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}`
     - `cargo.ayedo.cloud/library/polycrate:v{{ .Major }}`
     - `cargo.ayedo.cloud/library/polycrate:latest`
-    - `ghcr.io/polycrate/polycrate:v{{ .Version }}`
-    - `ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}`
-    - `ghcr.io/polycrate/polycrate:v{{ .Major }}`
-    - `ghcr.io/polycrate/polycrate:latest`
 
     ## Get support
 
