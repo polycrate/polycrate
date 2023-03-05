@@ -76,6 +76,45 @@ blocks:
 
     This constraint applies to **ALL** `name` stanzas in Polycrate.
 
+## Events
+
+By default, Polycrate keeps a log of events in the workspace inside the logs root (defaults to `.logs`) of the workspace. An event will be saved as yaml inside a sub-folder of the logs root with the file name being the transaction id: `.logs/2023/3/5/long-uuid.yml`.
+
+The event handler can be changed to a webhook endpoint in the workspace configuration:
+
+```yaml
+# workspace.poly
+name: polycrate-demo
+events:
+  handler: webhook # defaults to 'workspace'
+  endpoint: https://example.com/xyz
+```
+
+The resulting event will look like this:
+
+```json
+{
+    "action": "install",
+    "block": "custom-block",
+    "command": "polycrate run custom-block install --loglevel=3 --workspace=/home/user/.polycrate/workspaces/polycrate-demo/",
+    "config": {
+        "endpoint": "https://example.com/xyz",
+        "handler": "webhook"
+    },
+    "date": "2023-03-05T23:37:33Z",
+    "labels": {
+        "monk.event.class": "polycrate",
+        "monk.event.level": "Info"
+    },
+    "transaction": "2952ded2-382e-4c90-8f08-82e71060148a",
+    "user_email": "you@example.com", # taken from git config, if configured
+    "user_name": "Your Name", # taken from git config, if configured
+    "version": "latest",
+    "workspace": "polycrate-demo"
+}
+```
+
+
 ## Blocks
 
 A Polycrate workspace is a modular system built out of so called **blocks**. Blocks are dedicated pieces of code/functionality that can be configured using the `config` stanza in the block configuration (default: `block.poly`) or the workspace configuration (default: `workspace.poly`). Blocks expose actions that can be executed using `polycrate run $BLOCK_NAME $ACTION_NAME`. 
@@ -226,13 +265,13 @@ actions:
 
 Artifacts can be stored in the **artifacts root** inside your workspace (which is configurable using `--artifacts-root` and defaults to `artifacts`).
 
-By default, Polycrate looks for [Ansible Inventories](#ansible-inventory) and [Kubeconfigs](#kubeconfig) in the Artifacts Directory of a Block.
+By default, Polycrate looks for [Ansible Inventories](#ansible-inventory) and [Kubeconfigs](#kubeconfig) in the artifacts directory of a Block.
 
-For each block in the workspace a directory will automatically be created underneath the artifacts root (e.g. `artifacts/block/`).
+For each block in the workspace a directory will automatically be created underneath the artifacts root (e.g. `artifacts/blocks/$BLOCK_NAME`).
 
 ## Ansible Inventory
 
-Polycrate can consume yaml-formated [Ansible inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html) files inside the artifacts directory of a block. Polycrate looks for a file named `inventory.yml` by default - this can be overridden using the `inventory.filename` stanza in the block configuration.
+Polycrate can consume yaml-formated [Ansible inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html) files inside the [artifacts directory](#artifacts) of a block. Polycrate looks for a file named `inventory.yml` by default - this can be overridden using the `inventory.filename` stanza in the block configuration.
 
 An inventory file can be created automatically by a block or provided manually (useful for existing infrastructure).
 
@@ -244,10 +283,38 @@ blocks:
   - namename: block-a
     inventory:
       from: block-b
-      filename: inventory.yml
+      filename: inventory.yml # defaults to inventory.yml
 ```
 
 This will add an environment variable (`ANSIBLE_INVENTORY=path/to/inventory/of/block-b`) to the container that points Ansible to the right inventory to work with.
+
+
+The inventory of `block-b` could look like this:
+
+```yaml
+all:
+  hosts:
+    host-1:
+      ansible_host: 1.2.3.4
+      ansible_ssh_port: 22
+      ansible_python_interpreter: "/usr/bin/python3"
+      ansible_user: root
+  children:
+    master:
+      hosts:
+        host-1
+```
+
+## SSH
+
+Polycrate can provide a shortcut to ssh into one of the nodes managed by a workspace if a valid [Ansible Inventory](#ansible-inventory) exists.
+
+To interpret the inventory, Polycrate starts an intermediate container which submits the necessary config for a successful ssh connection to Polycrate on exit.
+
+Running `polycrate ssh --block block-b host-1` will initiate an SSH session with `host-1` from the inventory file of `block-b`. 
+
+!!! note
+    If you have a block called `inventory` that has an artifact called `inventory.yml`, you can omit the `--block inventory` part of the command as Polycrate assumes these filenames and block names as defaults: `polycrate ssh host-1`
 
 ## Kubeconfig
 
