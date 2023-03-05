@@ -32,7 +32,7 @@ var workspaceUpdateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx, cancel, err := polycrate.NewTransaction(context.Background(), cmd)
+		ctx, _, cancel, err := polycrate.NewTransaction(context.Background(), cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
 			log.Fatal(err)

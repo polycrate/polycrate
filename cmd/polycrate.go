@@ -85,21 +85,22 @@ type PolycrateConfig struct {
 }
 
 type PolycrateEvent struct {
-	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
-	Data        interface{}       `yaml:"data,omitempty" mapstructure:"data,omitempty" json:"data,omitempty"`
-	Workspace   string            `yaml:"workspace,omitempty" mapstructure:"workspace,omitempty" json:"workspace,omitempty"`
-	Workflow    string            `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
-	Step        string            `yaml:"step,omitempty" mapstructure:"step,omitempty" json:"step,omitempty"`
-	Block       string            `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
-	Action      string            `yaml:"action,omitempty" mapstructure:"action,omitempty" json:"action,omitempty"`
-	Command     string            `yaml:"command,omitempty" mapstructure:"command,omitempty" json:"command,omitempty"`
-	ExitCode    int               `yaml:"exit_code,omitempty" mapstructure:"exit_code,omitempty" json:"exit_code,omitempty"`
-	UserEmail   string            `yaml:"user_email,omitempty" mapstructure:"user_email,omitempty" json:"user_email,omitempty"`
-	UserName    string            `yaml:"user_name,omitempty" mapstructure:"user_name,omitempty" json:"user_name,omitempty"`
-	Date        string            `yaml:"date,omitempty" mapstructure:"date,omitempty" json:"date,omitempty"`
-	Transaction uuid.UUID         `yaml:"transaction,omitempty" mapstructure:"transaction,omitempty" json:"transaction,omitempty"`
-	Version     string            `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
-	Output      string            `yaml:"output,omitempty" mapstructure:"output,omitempty" json:"output,omitempty"`
+	Labels      map[string]string    `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Data        interface{}          `yaml:"data,omitempty" mapstructure:"data,omitempty" json:"data,omitempty"`
+	Workspace   string               `yaml:"workspace,omitempty" mapstructure:"workspace,omitempty" json:"workspace,omitempty"`
+	Workflow    string               `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
+	Step        string               `yaml:"step,omitempty" mapstructure:"step,omitempty" json:"step,omitempty"`
+	Block       string               `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
+	Action      string               `yaml:"action,omitempty" mapstructure:"action,omitempty" json:"action,omitempty"`
+	Command     string               `yaml:"command,omitempty" mapstructure:"command,omitempty" json:"command,omitempty"`
+	ExitCode    int                  `yaml:"exit_code,omitempty" mapstructure:"exit_code,omitempty" json:"exit_code,omitempty"`
+	UserEmail   string               `yaml:"user_email,omitempty" mapstructure:"user_email,omitempty" json:"user_email,omitempty"`
+	UserName    string               `yaml:"user_name,omitempty" mapstructure:"user_name,omitempty" json:"user_name,omitempty"`
+	Date        string               `yaml:"date,omitempty" mapstructure:"date,omitempty" json:"date,omitempty"`
+	Transaction uuid.UUID            `yaml:"transaction,omitempty" mapstructure:"transaction,omitempty" json:"transaction,omitempty"`
+	Version     string               `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
+	Output      string               `yaml:"output,omitempty" mapstructure:"output,omitempty" json:"output,omitempty"`
+	Config      WorkspaceEventConfig `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 }
 
 type Webhook struct {
@@ -117,7 +118,7 @@ type Polycrate struct {
 	lock         sync.Mutex
 	Config       PolycrateConfig `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	Workspaces   []*Workspace
-	Transactions []PolycrateTransaction
+	Transactions []*PolycrateTransaction
 }
 
 type Prompt struct {
@@ -209,31 +210,94 @@ func (e *PolycrateEvent) MergeInLabels(labels map[string]string) error {
 	return nil
 }
 
-func (e *PolycrateEvent) Submit(ctx context.Context, webhook Webhook) error {
+func (e *PolycrateEvent) Save(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
-	log.WithField("endpoint", webhook.Endpoint)
-	log.Debugf("Submitting event to webhook endpoint")
+	log.Debugf("Saving event to disk")
 
-	eventData, err := e.ToJSON()
+	txid := polycrate.GetContextTXID(ctx)
+
+	workspace, err := polycrate.GetContextWorkspace(ctx)
+	if err != nil {
+		log.Fatalf("Couldn't get workspace from context")
+	}
+
+	year, month, day := time.Now().Date()
+	logDir := filepath.Join(workspace.LocalPath, workspace.Config.LogsRoot, fmt.Sprint(year), fmt.Sprint(int(month)), fmt.Sprint(day))
+
+	log = log.WithField("path", logDir)
+	log.Debugf("Preparing log directory")
+
+	err = os.MkdirAll(logDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
-	request, err := http.NewRequest("POST", webhook.Endpoint, bytes.NewBuffer(eventData))
+
+	logFile := strings.Join([]string{txid.String(), "yml"}, ".")
+	log = log.WithField("file", logFile)
+	log.Debugf("Saving log file")
+
+	f, err := os.OpenFile(filepath.Join(logDir, logFile), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	defer f.Close()
 
-	client := &http.Client{}
-	response, err := client.Do(request)
+	// Export revision to yaml
+	yaml, err := yaml.Marshal(e)
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
 
-	body, _ := ioutil.ReadAll(response.Body)
-	log.Tracef("Webhook returned status '%s'", response.Status)
-	log.Tracef(string(body))
+	// Write yaml export to file
+	_, err = f.Write(yaml)
+	if err != nil {
+		return err
+	}
+
+	// Check if git repo; if yes, commit
+	if GitIsRepo(ctx, workspace.LocalPath) {
+		_, err = GitCommitAll(ctx, workspace.LocalPath, fmt.Sprintf("chore: saved event %s", txid.String()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *PolycrateEvent) Submit(ctx context.Context) error {
+	log := polycrate.GetContextLogger(ctx)
+
+	if e.Config.Handler == "workspace" {
+		log.Debugf("Saving event to workspace logs")
+		e.Save(ctx)
+	} else if e.Config.Handler == "webhook" {
+
+		log.WithField("endpoint", e.Config.Endpoint)
+		log.Debugf("Submitting event to webhook endpoint")
+
+		eventData, err := e.ToJSON()
+		if err != nil {
+			return err
+		}
+		request, err := http.NewRequest("POST", e.Config.Endpoint, bytes.NewBuffer(eventData))
+		if err != nil {
+			return err
+		}
+		request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+		client := &http.Client{}
+		response, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+
+		body, _ := ioutil.ReadAll(response.Body)
+		log.Tracef("Webhook returned status '%s'", response.Status)
+		log.Tracef(string(body))
+	} else {
+		log.Debugf("No valid event handler found.")
+	}
 	return nil
 }
 
@@ -241,7 +305,7 @@ type PolycrateTransactionFn func(context.Context, string) error
 
 func (p *Polycrate) WithTransaction(fn PolycrateTransactionFn, s string) error {
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	ctx, err := p.StartTransaction(ctx, cancelFunc)
+	ctx, _, err := p.StartTransaction(ctx, cancelFunc)
 	if err != nil {
 		return err
 	}
@@ -274,15 +338,18 @@ func (p *Polycrate) EventHandler(ctx context.Context) error {
 	eg := new(errgroup.Group)
 
 	eg.Go(func() error {
-		for _, webhook := range p.Config.Webhooks {
-			if err := event.MergeInLabels(webhook.Labels); err != nil {
-				return err
-			}
-
-			if err := event.Submit(ctx, webhook); err != nil {
-				return err
-			}
+		if err := event.Submit(ctx); err != nil {
+			return err
 		}
+		// for _, webhook := range p.Config.Webhooks {
+		// 	if err := event.MergeInLabels(webhook.Labels); err != nil {
+		// 		return err
+		// 	}
+
+		// 	if err := event.Submit(ctx, webhook); err != nil {
+		// 		return err
+		// 	}
+		// }
 		return nil
 	})
 	if err := eg.Wait(); err != nil {
@@ -309,7 +376,7 @@ func (p *Polycrate) PublishEvent(ctx context.Context, data *WorkspaceRevision, w
 	event := PolycrateEvent{}
 	event.Data = data
 
-	if err := event.Submit(ctx, webhook); err != nil {
+	if err := event.Submit(ctx); err != nil {
 		return err
 	}
 
@@ -378,7 +445,7 @@ func (p *Polycrate) Load(ctx context.Context) error {
 func (p *Polycrate) GetTransaction(TXID uuid.UUID) *PolycrateTransaction {
 	for _, t := range polycrate.Transactions {
 		if t.TXID == TXID {
-			return &t
+			return t
 		}
 	}
 	return nil
@@ -418,7 +485,32 @@ func (p *Polycrate) RegisterWorkspace(workspace *Workspace) error {
 	return nil
 }
 
-func (p *Polycrate) RegisterTransaction(transaction PolycrateTransaction) error {
+func (p *Polycrate) UpdateTransaction(txid uuid.UUID, ctx context.Context) error {
+	// Lock
+	p.lock.Lock()
+
+	if txid == uuid.Nil {
+		return fmt.Errorf("no TXID found")
+	}
+
+	// Check if transaction exists
+	t := p.GetTransaction(txid)
+	if t == nil {
+		return fmt.Errorf("transaction not registered: %s", txid)
+	}
+
+	err := t.Update(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Unlock
+	p.lock.Unlock()
+
+	return nil
+}
+
+func (p *Polycrate) RegisterTransaction(transaction *PolycrateTransaction) error {
 	// Lock
 	p.lock.Lock()
 
@@ -455,11 +547,11 @@ func (p *Polycrate) UnregisterTransaction(transaction *PolycrateTransaction) err
 	return nil
 }
 
-func (p *Polycrate) NewTransaction(ctx context.Context, cmd *cobra.Command) (context.Context, context.CancelFunc, error) {
+func (p *Polycrate) NewTransaction(ctx context.Context, cmd *cobra.Command) (context.Context, *PolycrateTransaction, context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	ctx, err := p.StartTransaction(ctx, cancel)
+	ctx, tx, err := p.StartTransaction(ctx, cancel)
 	if err != nil {
-		return ctx, nil, err
+		return ctx, nil, nil, err
 	}
 
 	revision := &WorkspaceRevision{}
@@ -484,10 +576,15 @@ func (p *Polycrate) NewTransaction(ctx context.Context, cmd *cobra.Command) (con
 	eventKey := ContextKey("event")
 	ctx = context.WithValue(ctx, eventKey, NewEvent(ctx))
 
-	return ctx, cancel, err
+	return ctx, tx, cancel, err
 }
 
-func (p *Polycrate) StartTransaction(ctx context.Context, cancelFunc func()) (context.Context, error) {
+func (t *PolycrateTransaction) Update(ctx context.Context) error {
+	t.Context = ctx
+	return nil
+}
+
+func (p *Polycrate) StartTransaction(ctx context.Context, cancelFunc func()) (context.Context, *PolycrateTransaction, error) {
 	TXIDKey := ContextKey("TXID")
 	txid := uuid.New()
 	versionKey := ContextKey("version")
@@ -501,30 +598,33 @@ func (p *Polycrate) StartTransaction(ctx context.Context, cancelFunc func()) (co
 		CancelFunc: cancelFunc,
 	}
 
+	err := p.RegisterTransaction(&transaction)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// Register transaction aware logger
 	log := log.WithField("txid", txid)
 	ctx = p.SetContextLogger(ctx, log)
 
-	err := p.RegisterTransaction(transaction)
-	if err != nil {
-		return nil, err
-	}
-
 	txRuntimeDir := filepath.Join([]string{polycrateRuntimeDir, txid.String()}...)
 	err = os.MkdirAll(txRuntimeDir, os.ModePerm)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	log.Debug("Started transaction")
 
-	return ctx, nil
+	return ctx, &transaction, nil
 }
 
 func (p *Polycrate) StopTransaction(ctx context.Context, cancel func()) error {
 	txid := p.GetContextTXID(ctx)
 
 	tx := p.GetTransaction(txid)
+
+	// Update with latest context
+	ctx = tx.Context
 
 	log := p.GetContextLogger(ctx)
 	log.Debug("Stopping transaction")
@@ -646,12 +746,19 @@ func (p *Polycrate) GetContextRevision(ctx context.Context) (*WorkspaceRevision,
 func (p *Polycrate) SetContextOutput(ctx context.Context, output string) context.Context {
 	outputKey := ContextKey("output")
 	ctx = context.WithValue(ctx, outputKey, output)
+
+	txid := p.GetContextTXID(ctx)
+	tx := p.GetTransaction(txid)
+	tx.Update(ctx)
 	return ctx
 }
 
 func (p *Polycrate) SetContextExitCode(ctx context.Context, exitCode int) context.Context {
 	exitCodeKey := ContextKey("exit_code")
 	ctx = context.WithValue(ctx, exitCodeKey, exitCode)
+	txid := p.GetContextTXID(ctx)
+	tx := p.GetTransaction(txid)
+	tx.Update(ctx)
 	return ctx
 }
 
@@ -683,6 +790,9 @@ func (p *Polycrate) SetContextEvent(ctx context.Context, event *PolycrateEvent) 
 
 	eventKey := ContextKey("event")
 	ctx = context.WithValue(ctx, eventKey, event)
+	txid := p.GetContextTXID(ctx)
+	tx := p.GetTransaction(txid)
+	tx.Update(ctx)
 	return ctx
 }
 
@@ -718,6 +828,9 @@ func (p *Polycrate) GetContextCancel(ctx context.Context) context.CancelFunc {
 func (p *Polycrate) SetContextLogger(ctx context.Context, log *log.Entry) context.Context {
 	LoggerKey := ContextKey("Logger")
 	ctx = context.WithValue(ctx, LoggerKey, log)
+	txid := p.GetContextTXID(ctx)
+	tx := p.GetTransaction(txid)
+	tx.Update(ctx)
 	return ctx
 }
 

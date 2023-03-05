@@ -29,7 +29,7 @@ var listActionsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 		ctx := context.Background()
-		ctx, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
 		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
 			log.Fatal(err)

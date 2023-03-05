@@ -94,6 +94,7 @@ type WorkspaceRevision struct {
 type WorkspaceConfig struct {
 	Image      ImageConfig `yaml:"image" mapstructure:"image" json:"image" validate:"required"`
 	BlocksRoot string      `yaml:"blocksroot" mapstructure:"blocksroot" json:"blocksroot" validate:"required"`
+	LogsRoot   string      `yaml:"logsroot" mapstructure:"logsroot" json:"logsroot" validate:"required"`
 	// The block configuration file (default: block.poly)
 	BlocksConfig    string                 `yaml:"blocksconfig" mapstructure:"blocksconfig" json:"blocksconfig" validate:"required"`
 	WorkspaceConfig string                 `yaml:"workspaceconfig" mapstructure:"workspaceconfig" json:"workspaceconfig" validate:"required"`
@@ -106,13 +107,17 @@ type WorkspaceConfig struct {
 	Dockerfile      string                 `yaml:"dockerfile" mapstructure:"dockerfile,omitempty" json:"dockerfile,omitempty"`
 	Globals         map[string]interface{} `yaml:"globals" mapstructure:"globals" json:"globals"`
 }
+type WorkspaceEventConfig struct {
+	Handler  string `yaml:"handler" mapstructure:"handler" json:"handler" validate:"required"`
+	Endpoint string `yaml:"endpoint,omitempty" mapstructure:"endpoint,omitempty" json:"endpoint,omitempty"`
+}
 
 type Workspace struct {
-	Name        string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
-	Description string            `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
-	Labels      map[string]string `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
-	Alias       []string          `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
-	// Format: block:version
+	Name            string                 `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
+	Description     string                 `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels          map[string]string      `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias           []string               `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Events          WorkspaceEventConfig   `yaml:"events,omitempty" mapstructure:"events,omitempty" json:"events,omitempty"`
 	Dependencies    []string               `yaml:"dependencies,omitempty" mapstructure:"dependencies,omitempty" json:"dependencies,omitempty"`
 	Config          WorkspaceConfig        `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	Blocks          []*Block               `yaml:"blocks,omitempty" mapstructure:"blocks,omitempty" json:"blocks,omitempty" validate:"dive,required"`
@@ -330,6 +335,9 @@ func (w *Workspace) RunActionWithContext(ctx context.Context, _block string, _ac
 	event, err := polycrate.GetContextEvent(ctx)
 	if err == nil {
 		event.Labels["monk.event.level"] = "Info"
+
+		// Set event handler, etc
+		event.Config = w.Events
 
 		ctx = polycrate.SetContextEvent(ctx, event)
 	}

@@ -45,6 +45,9 @@ const WorkspaceConfigSshPrivateKey string = "id_rsa"
 // default workspace config file
 const WorkspaceConfigFile string = "workspace.poly"
 
+// default workspace logs path
+const WorkspaceConfigLogsRoot string = ".logs"
+
 // default block config file
 const BlocksConfigFile string = "block.poly"
 
@@ -77,6 +80,8 @@ const GitDefaultRemote string = "origin"
 
 const ValidateMetaDataNameRegex string = "^[a-zA-Z]+([-/_]?[a-zA-Z0-9_]+)+$"
 const ValidateBlockNameRegex string = `([^\/]+\.[^\/.]+)?\/?([^:]+):?(.+)?`
+
+const WorkspaceEventHandler string = "workspace"
 
 // Variable to decide if polycrate is run during block development
 var dev bool
