@@ -34,15 +34,9 @@ builds:
     goos:
       - linux
       - darwin
-      #
-    # hooks:
-    #   post:
-    #     - upx --brute "{{ .Path }}"
     mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -s -w -X polycrate/cmd.version={{.Version}} -X polycrate/cmd.commit={{.Commit}} -X polycrate/cmd.date={{.CommitDate}} -X polycrate/cmd.builtBy=ayedo
-    # flags:
-    #   - -trimpath=true
 checksum:
   name_template: "checksums.txt"
 snapshot:
@@ -66,10 +60,6 @@ changelog:
       order: 999
 dockers:
   - image_templates:
-      # - "ghcr.io/polycrate/polycrate:{{ .Version }}-amd64"
-      # - "ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64"
-      # - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64"
-      # - "ghcr.io/polycrate/polycrate:latest-amd64"
       - "cargo.ayedo.cloud/library/polycrate:{{ .Version }}-amd64"
       - "cargo.ayedo.cloud/library/polycrate:v{{ .Major }}-amd64"
       - "cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}-amd64"
@@ -90,10 +80,6 @@ dockers:
       - hack/ansible/inventory
       - hack/poly-utils
   - image_templates:
-      # - "ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8"
-      # - "ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8"
-      # - "ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8"
-      # - "ghcr.io/polycrate/polycrate:latest-arm64v8"
       - "cargo.ayedo.cloud/library/polycrate:{{ .Version }}-arm64v8"
       - "cargo.ayedo.cloud/library/polycrate:v{{ .Major }}-arm64v8"
       - "cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8"
@@ -115,22 +101,6 @@ dockers:
       - hack/ansible/inventory
       - hack/poly-utils
 docker_manifests:
-  # - name_template: ghcr.io/polycrate/polycrate:{{ .Version }}
-  #   image_templates:
-  #     - ghcr.io/polycrate/polycrate:{{ .Version }}-amd64
-  #     - ghcr.io/polycrate/polycrate:{{ .Version }}-arm64v8
-  # - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}
-  #   image_templates:
-  #     - ghcr.io/polycrate/polycrate:v{{ .Major }}-amd64
-  #     - ghcr.io/polycrate/polycrate:v{{ .Major }}-arm64v8
-  # - name_template: ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}
-  #   image_templates:
-  #     - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-amd64
-  #     - ghcr.io/polycrate/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8
-  # - name_template: ghcr.io/polycrate/polycrate:latest
-  #   image_templates:
-  #     - ghcr.io/polycrate/polycrate:latest-amd64
-  #     - ghcr.io/polycrate/polycrate:latest-arm64v8
   - name_template: cargo.ayedo.cloud/library/polycrate:{{ .Version }}
     image_templates:
       - cargo.ayedo.cloud/library/polycrate:{{ .Version }}-amd64
@@ -167,57 +137,3 @@ release:
 
     - [Discord](https://discord.gg/8cQZfXWeXP)
     - [GitHub Issues](https://github.com/polycrate/polycrate/issues)
-
-# brews:
-#   - # GitHub/GitLab repository to push the formula to
-#     tap:
-#       owner: polycrate
-#       name: homebrew-polycrate
-
-#     # Git author used to commit to the repository.
-#     # Defaults are shown.
-#     commit_author:
-#       name: derfabianpeter
-#       email: fp@ayedo.de
-
-#     # The project name and current git tag are used in the format string.
-#     commit_msg_template: "chore: Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-
-#     # Your app's homepage.
-#     # Default is empty.
-#     homepage: "https://www.ayedo.de/"
-
-#     # Template of your app's description.
-#     # Default is empty.
-#     description: "Polycrate is a framework to build platforms."
-
-#     # SPDX identifier of your app's license.
-#     # Default is empty.
-#     license: "Apache 2"
-
-#     # Packages your package depends on.
-#     dependencies:
-#       - name: docker
-#         type: optional
-# announce:
-#   discord:
-#     # Whether its enabled or not.
-#     # Defaults to false.
-#     enabled: true
-
-#     # Message template to use while publishing.
-#     # Defaults to `{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}`
-#     message_template: "Polycrate version {{.Tag}} is out!"
-
-#     # Set author of the embed.
-#     # Defaults to `GoReleaser`
-#     author: "derfabianpeter"
-
-#     # Color code of the embed. You have to use decimal numeral system, not hexadecimal.
-#     # Defaults to `3888754` - the grey-ish from goreleaser
-#     color: ""
-
-#     # URL to an image to use as the icon for the embed.
-#     # Defaults to `https://goreleaser.com/static/avatar.png`
-#     icon_url: ""
-
