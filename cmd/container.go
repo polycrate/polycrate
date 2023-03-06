@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/moby/term"
@@ -47,6 +48,27 @@ func buildContainerImage(ctx context.Context, path string, dockerfilePath string
 	}
 
 	return tags[0], nil
+}
+
+func PullImageGo(ctx context.Context, image string) error {
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		panic(err)
+	}
+	reader, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
+	if err != nil {
+		panic(err)
+	}
+	defer reader.Close()
+	termFd, isTerm := term.GetFdInfo(os.Stderr)
+	jsonmessage.DisplayJSONMessagesStream(reader, os.Stderr, termFd, isTerm, nil)
+	// bar := progressbar.DefaultBytes(
+	// 	-1,
+	// 	"pulling image",
+	// )
+	//io.Copy(io.MultiWriter(os.Stdout, bar), reader)
+
+	return nil
 }
 
 func PullImage(ctx context.Context, image string) (int, string, error) {

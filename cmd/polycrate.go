@@ -1273,10 +1273,16 @@ func (p *Polycrate) getTempFile(ctx context.Context, filename string) (*os.File,
 
 func (p *Polycrate) PullImage(ctx context.Context, image string) error {
 	log.Infof("Pulling image: %s", image)
-	_, _, err := PullImage(ctx, image)
+
+	err := PullImageGo(ctx, image)
 	if err != nil {
 		return err
 	}
+
+	// _, _, err = PullImage(ctx, image)
+	// if err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
