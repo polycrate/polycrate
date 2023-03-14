@@ -115,6 +115,7 @@ func init() {
 	fs.BoolVar(&defaultWorkspace.SyncOptions.Auto, "sync-auto", false, "Sync automatically")
 	fs.StringVar(&defaultWorkspace.Events.Handler, "event-handler", WorkspaceEventHandler, "Default event handler")
 	fs.StringVar(&defaultWorkspace.Events.Endpoint, "event-endpoint", "", "Default event endpoint")
+	fs.BoolVar(&defaultWorkspace.Events.Commit, "event-commit", false, "Auto-commit each event")
 	fs.StringSliceVarP(&defaultWorkspace.ExtraEnv, "env", "e", []string{}, "Additional environment variables for the workspace in the format 'KEY=value'")
 	fs.StringSliceVarP(&defaultWorkspace.ExtraMounts, "mount", "m", []string{}, "Additional mounts for the workspace container in the format '/host:/container'. This will be ignored when used with --local")
 	fs.StringVar(&defaultWorkspace.Config.WorkspaceConfig, "workspace-config", WorkspaceConfigFile, "The name of the config file that holds the workspace config.")

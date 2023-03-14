@@ -256,9 +256,12 @@ func (e *PolycrateEvent) Save(ctx context.Context) error {
 
 	// Check if git repo; if yes, commit
 	if GitIsRepo(ctx, workspace.LocalPath) {
-		_, err = GitCommitAll(ctx, workspace.LocalPath, fmt.Sprintf("chore: saved event %s", txid.String()))
-		if err != nil {
-			return err
+		// Check if committing is enabled in workspace config
+		if workspace.Events.Commit {
+			_, err = GitCommitAll(ctx, workspace.LocalPath, fmt.Sprintf("chore: saved event %s", txid.String()))
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

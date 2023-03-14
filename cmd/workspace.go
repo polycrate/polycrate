@@ -110,6 +110,7 @@ type WorkspaceConfig struct {
 type WorkspaceEventConfig struct {
 	Handler  string `yaml:"handler" mapstructure:"handler" json:"handler" validate:"required"`
 	Endpoint string `yaml:"endpoint,omitempty" mapstructure:"endpoint,omitempty" json:"endpoint,omitempty"`
+	Commit   bool   `yaml:"commit,omitempty" mapstructure:"commit,omitempty" json:"commit,omitempty"`
 }
 
 type Workspace struct {
