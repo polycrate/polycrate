@@ -772,27 +772,28 @@ func (w *Workspace) RunWorkflowWithContext(ctx context.Context, name string, ste
 	}
 	return ctx, nil
 }
-func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
 
-	// Find workflow in index
-	workflow := w.LookupWorkflow(name)
+// func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
 
-	if workflow != nil {
-		w.registerCurrentWorkflow(workflow)
+// 	// Find workflow in index
+// 	workflow := w.LookupWorkflow(name)
 
-		if snapshot {
-			w.Snapshot(ctx)
-		} else {
-			err := workflow.Run(ctx)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		return goErrors.New("cannot find Workflow: " + name)
-	}
-	return nil
-}
+// 	if workflow != nil {
+// 		w.registerCurrentWorkflow(workflow)
+
+// 		if snapshot {
+// 			w.Snapshot(ctx)
+// 		} else {
+// 			err := workflow.Run(ctx)
+// 			if err != nil {
+// 				return err
+// 			}
+// 		}
+// 	} else {
+// 		return goErrors.New("cannot find Workflow: " + name)
+// 	}
+// 	return nil
+// }
 
 func (w *Workspace) RunStep(ctx context.Context, workflow string, name string) error {
 	log := polycrate.GetContextLogger(ctx)

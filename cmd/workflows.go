@@ -143,45 +143,46 @@ func (w *Workflow) RunWithContext(ctx context.Context, stepName string) (context
 
 	return ctx, nil
 }
-func (w *Workflow) Run(ctx context.Context) error {
-	log := polycrate.GetContextLogger(ctx)
 
-	// Check if a prompt is configured and execute it
-	if w.Prompt.Message != "" {
-		result := w.Prompt.Validate(ctx)
-		if !result {
-			return fmt.Errorf("not running workflow. user confirmation declined")
-		}
-	}
+// func (w *Workflow) Run(ctx context.Context) error {
+// 	log := polycrate.GetContextLogger(ctx)
 
-	workspace, err := polycrate.GetContextWorkspace(ctx)
-	if err != nil {
-		return err
-	}
+// 	// Check if a prompt is configured and execute it
+// 	if w.Prompt.Message != "" {
+// 		result := w.Prompt.Validate(ctx)
+// 		if !result {
+// 			return fmt.Errorf("not running workflow. user confirmation declined")
+// 		}
+// 	}
 
-	log.Infof("Running Workflow")
+// 	workspace, err := polycrate.GetContextWorkspace(ctx)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Check if any steps are configured
-	// Return an error if not
-	if len(w.Steps) == 0 {
-		return goErrors.New("no steps defined for workflow " + w.Name)
-	}
+// 	log.Infof("Running Workflow")
 
-	for _, step := range w.Steps {
-		log = log.WithField("step", step.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
+// 	// Check if any steps are configured
+// 	// Return an error if not
+// 	if len(w.Steps) == 0 {
+// 		return goErrors.New("no steps defined for workflow " + w.Name)
+// 	}
 
-		err := step.Run(ctx)
-		if err != nil {
-			return err
-		}
+// 	for _, step := range w.Steps {
+// 		log = log.WithField("step", step.Name)
+// 		ctx = polycrate.SetContextLogger(ctx, log)
 
-		// reloading workspace to account for new artifacts
-		workspace.Reload(ctx, true)
-	}
+// 		err := step.Run(ctx)
+// 		if err != nil {
+// 			return err
+// 		}
 
-	return nil
-}
+// 		// reloading workspace to account for new artifacts
+// 		workspace.Reload(ctx, true)
+// 	}
+
+// 	return nil
+// }
 
 func (s *Step) Run(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
