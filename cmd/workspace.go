@@ -2675,9 +2675,12 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 	// Check if release with new version exists in registry
 	// Get the latest version from the registry
 	// Check if new version > current version
-	//
 
-	block := c.GetBlockFromIndex(blockName)
+	block, err := c.GetBlock(blockName)
+	if err != nil {
+		return err
+	}
+
 	if block != nil {
 		// The block exists
 		// Check it has a version
@@ -2690,6 +2693,8 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 	log = log.WithField("block", block.Name)
 	log = log.WithField("version", block.Version)
 	log = log.WithField("path", block.Workdir.LocalPath)
+
+	ctx = polycrate.SetContextLogger(ctx, log)
 
 	log.Infof("Pushing block")
 
@@ -2709,7 +2714,7 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 		}
 		block.Labels["polycrate.flags.dev"] = "true"
 	}
-	err := WrapOCIImage(ctx, block.Workdir.LocalPath, registryUrl, blockName, tagVersion, block.Labels)
+	err = WrapOCIImage(ctx, block.Workdir.LocalPath, registryUrl, blockName, tagVersion, block.Labels)
 	if err != nil {
 		return err
 	}
