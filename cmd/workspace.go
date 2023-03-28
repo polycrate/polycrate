@@ -113,6 +113,22 @@ type WorkspaceEventConfig struct {
 	Commit   bool   `yaml:"commit,omitempty" mapstructure:"commit,omitempty" json:"commit,omitempty"`
 }
 
+type WorkspaceKubeconfig struct {
+	Path          string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
+	Filename      string `yaml:"filename,omitempty" mapstructure:"filename,omitempty" json:"filename,omitempty"`
+	exists        bool
+	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
+}
+
+type WorkspaceInventory struct {
+	Path          string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
+	Filename      string `yaml:"filename,omitempty" mapstructure:"filename,omitempty" json:"filename,omitempty"`
+	exists        bool
+	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
+	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
+}
+
 type Workspace struct {
 	Name            string                 `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
 	Description     string                 `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
@@ -132,6 +148,8 @@ type Workspace struct {
 	Identifier      string                 `yaml:"identifier,omitempty" mapstructure:"identifier,omitempty" json:"identifier,omitempty"`
 	Meta            map[string]interface{} `yaml:"meta,omitempty" mapstructure:"meta,omitempty" json:"meta,omitempty"`
 	SyncOptions     SyncOptions            `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
+	Inventory       WorkspaceInventory     `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
+	Kubeconfig      BlockKubeconfig        `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
 	loaded          bool
 	currentBlock    *Block
 	currentAction   *Action
@@ -527,6 +545,80 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 
 		block.resolved = true
 	}
+	return nil
+}
+
+func (w *Workspace) LoadKubeconfig(ctx context.Context) error {
+	// Locate "kubeconfig.yml" in blockArtifactsDir
+	log := polycrate.GetContextLogger(ctx)
+
+	var workspaceKubeconfigFile string
+	if w.Kubeconfig.Filename != "" {
+		workspaceKubeconfigFile = filepath.Join(w.LocalPath, w.Kubeconfig.Filename)
+	} else {
+		workspaceKubeconfigFile = filepath.Join(w.LocalPath, "kubeconfig.yml")
+	}
+
+	w.Kubeconfig.LocalPath = workspaceKubeconfigFile
+
+	if w.Kubeconfig.Filename != "" {
+		w.Kubeconfig.ContainerPath = filepath.Join(w.ContainerPath, w.Kubeconfig.Filename)
+	} else {
+		w.Kubeconfig.ContainerPath = filepath.Join(w.ContainerPath, "kubeconfig.yml")
+	}
+
+	if local {
+		w.Kubeconfig.Path = w.Kubeconfig.LocalPath
+	} else {
+		w.Kubeconfig.Path = w.Kubeconfig.ContainerPath
+	}
+
+	if _, err := os.Stat(workspaceKubeconfigFile); !os.IsNotExist(err) {
+		// File exists
+		w.Kubeconfig.exists = true
+	} else {
+		w.Kubeconfig.exists = false
+	}
+	log = log.WithField("path", w.Kubeconfig.Path)
+	log = log.WithField("exists", w.Kubeconfig.exists)
+	log.Debugf("Workspace kubeconfig loaded")
+	return nil
+}
+
+func (w *Workspace) LoadInventory(ctx context.Context) error {
+	// Locate "inventory.yml" in blockArtifactsDir
+	log := polycrate.GetContextLogger(ctx)
+
+	var workspaceInventoryFile string
+	if w.Inventory.Filename != "" {
+		workspaceInventoryFile = filepath.Join(w.LocalPath, w.Inventory.Filename)
+	} else {
+		workspaceInventoryFile = filepath.Join(w.LocalPath, "inventory.yml")
+	}
+
+	w.Inventory.LocalPath = workspaceInventoryFile
+
+	if w.Inventory.Filename != "" {
+		w.Inventory.ContainerPath = filepath.Join(w.ContainerPath, w.Inventory.Filename)
+	} else {
+		w.Inventory.ContainerPath = filepath.Join(w.ContainerPath, "inventory.yml")
+	}
+
+	if local {
+		w.Inventory.Path = w.Inventory.LocalPath
+	} else {
+		w.Inventory.Path = w.Inventory.ContainerPath
+	}
+
+	if _, err := os.Stat(workspaceInventoryFile); !os.IsNotExist(err) {
+		// File exists
+		w.Inventory.exists = true
+	} else {
+		w.Inventory.exists = false
+	}
+	log = log.WithField("path", workspaceInventoryFile)
+	log = log.WithField("exists", w.Inventory.exists)
+	log.Debugf("Workspace inventory loaded")
 	return nil
 }
 
@@ -1242,6 +1334,18 @@ func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Work
 
 	w, err = w.Preload(ctx, path, validate)
 	if err != nil {
+		return nil, err
+	}
+
+	// Load Workspace inventory
+	log.Debugf("Loading workspace inventory")
+	if err := w.LoadInventory(ctx); err != nil {
+		return nil, err
+	}
+
+	// Load Workspace kubeconfig
+	log.Debugf("Loading workspace kubeconfig")
+	if err := w.LoadKubeconfig(ctx); err != nil {
 		return nil, err
 	}
 

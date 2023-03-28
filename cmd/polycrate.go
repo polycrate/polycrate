@@ -71,16 +71,21 @@ type SyncOptions struct {
 	Auto    bool              `yaml:"auto,omitempty" mapstructure:"auto,omitempty" json:"auto,omitempty"`
 }
 
+type ExperimentalConfig struct {
+	MergeV2 bool `yaml:"merge_v2,omitempty" mapstructure:"merge_v2,omitempty" json:"merge_v2,omitempty"`
+}
+
 type PolycrateConfig struct {
 	//Sync      PolycrateSyncConfig     `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	//Providers []PolycrateProvider     `yaml:"providers,omitempty" mapstructure:"providers,omitempty" json:"providers,omitempty"`
 	//Gitlab   PolycrateGitlabProvider `yaml:"gitlab,omitempty" mapstructure:"gitlab,omitempty" json:"gitlab,omitempty"`
-	Registry     Registry    `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty"`
-	Sync         SyncOptions `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
-	Loglevel     int         `yaml:"loglevel,omitempty" mapstructure:"loglevel,omitempty" json:"loglevel,omitempty"`
-	Logformat    string      `yaml:"logformat,omitempty" mapstructure:"logformat,omitempty" json:"logformat,omitempty"`
-	Webhooks     []Webhook   `yaml:"webhooks,omitempty" mapstructure:"webhooks,omitempty" json:"webhooks,omitempty"`
-	CheckUpdates bool        `yaml:"check_updates,omitempty" mapstructure:"check_updates,omitempty" json:"check_updates,omitempty"`
+	Registry     Registry           `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty"`
+	Sync         SyncOptions        `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
+	Loglevel     int                `yaml:"loglevel,omitempty" mapstructure:"loglevel,omitempty" json:"loglevel,omitempty"`
+	Logformat    string             `yaml:"logformat,omitempty" mapstructure:"logformat,omitempty" json:"logformat,omitempty"`
+	Webhooks     []Webhook          `yaml:"webhooks,omitempty" mapstructure:"webhooks,omitempty" json:"webhooks,omitempty"`
+	CheckUpdates bool               `yaml:"check_updates,omitempty" mapstructure:"check_updates,omitempty" json:"check_updates,omitempty"`
+	Experimental ExperimentalConfig `yaml:"experimental,omitempty" mapstructure:"experimental,omitempty" json:"experimental,omitempty"`
 	//Workspace PolycrateWorkspaceDefaults `yaml:"workspace,omitempty" mapstructure:"workspace,omitempty" json:"workspace,omitempty"`
 }
 

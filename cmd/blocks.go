@@ -498,7 +498,11 @@ func (c *Block) getInventoryPath(ctx context.Context) string {
 	if c.Inventory.From != "" {
 		// Take the inventory from another Block
 		log.Debugf("Loading inventory from block %s", c.Inventory.From)
-		inventorySourceBlock := workspace.getBlockByName(c.Inventory.From)
+		inventorySourceBlock, err := workspace.GetBlock(c.Inventory.From)
+		if err != nil {
+			log.Errorf("Block %s not found", c.Inventory.From)
+		}
+
 		if inventorySourceBlock != nil {
 			return inventorySourceBlock.Inventory.Path
 		} else {
@@ -658,8 +662,16 @@ func (c *Block) MergeIn(block *Block) error {
 
 	// Config
 	if block.Config != nil {
-		if err := mergo.Merge(&c.Config, block.Config); err != nil {
-			return err
+		// feature flag: merge-v2
+		if polycrate.Config.Experimental.MergeV2 {
+			if err := mergo.Merge(&c.Config, block.Config, mergo.WithTransformers(boolTransformer{})); err != nil {
+				return err
+			}
+
+		} else {
+			if err := mergo.Merge(&c.Config, block.Config); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -745,19 +757,30 @@ func (c *Block) LoadInventory(ctx context.Context, workspace *Workspace) error {
 	// Locate "inventory.yml" in blockArtifactsDir
 	log := polycrate.GetContextLogger(ctx)
 
-	var blockInventoryFile string
+	var localInventoryFile string
+	var containerInventoryFile string
 	if c.Inventory.Filename != "" {
-		blockInventoryFile = filepath.Join(c.Artifacts.LocalPath, c.Inventory.Filename)
+		localInventoryFile = filepath.Join(c.Artifacts.LocalPath, c.Inventory.Filename)
+		containerInventoryFile = filepath.Join(c.Artifacts.ContainerPath, c.Inventory.Filename)
 	} else {
-		blockInventoryFile = filepath.Join(c.Artifacts.LocalPath, "inventory.yml")
+		localInventoryFile = filepath.Join(c.Artifacts.LocalPath, "inventory.yml")
+		containerInventoryFile = filepath.Join(c.Artifacts.ContainerPath, "inventory.yml")
 	}
 
-	c.Inventory.LocalPath = blockInventoryFile
-
-	if c.Inventory.Filename != "" {
-		c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, c.Inventory.Filename)
+	if _, err := os.Stat(localInventoryFile); !os.IsNotExist(err) {
+		// File exists
+		c.Inventory.exists = true
+		c.Inventory.LocalPath = localInventoryFile
+		c.Inventory.ContainerPath = containerInventoryFile
 	} else {
-		c.Inventory.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "inventory.yml")
+		// Check if workspace inventory exists
+		if workspace.Inventory.exists {
+			c.Inventory.exists = true
+			c.Inventory.LocalPath = workspace.Inventory.LocalPath
+			c.Inventory.ContainerPath = workspace.Inventory.ContainerPath
+		} else {
+			c.Inventory.exists = false
+		}
 	}
 
 	if local {
@@ -766,13 +789,7 @@ func (c *Block) LoadInventory(ctx context.Context, workspace *Workspace) error {
 		c.Inventory.Path = c.Inventory.ContainerPath
 	}
 
-	if _, err := os.Stat(blockInventoryFile); !os.IsNotExist(err) {
-		// File exists
-		c.Inventory.exists = true
-	} else {
-		c.Inventory.exists = false
-	}
-	log = log.WithField("path", blockInventoryFile)
+	log = log.WithField("path", c.Inventory.Path)
 	log = log.WithField("exists", c.Inventory.exists)
 	log.Debugf("Inventory loaded")
 	return nil
@@ -782,33 +799,37 @@ func (c *Block) LoadKubeconfig(ctx context.Context, workspace *Workspace) error 
 	// Locate "kubeconfig.yml" in blockArtifactsDir
 	log := polycrate.GetContextLogger(ctx)
 
-	var blockKubeconfigFile string
+	var localKubeconfigFile string
+	var containerKubeconfigFile string
 	if c.Kubeconfig.Filename != "" {
-		blockKubeconfigFile = filepath.Join(c.Artifacts.LocalPath, c.Kubeconfig.Filename)
+		localKubeconfigFile = filepath.Join(c.Artifacts.LocalPath, c.Kubeconfig.Filename)
+		containerKubeconfigFile = filepath.Join(c.Artifacts.ContainerPath, c.Kubeconfig.Filename)
 	} else {
-		blockKubeconfigFile = filepath.Join(c.Artifacts.LocalPath, "kubeconfig.yml")
+		localKubeconfigFile = filepath.Join(c.Artifacts.LocalPath, "kubeconfig.yml")
+		containerKubeconfigFile = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
 	}
 
-	c.Kubeconfig.LocalPath = blockKubeconfigFile
-
-	if c.Kubeconfig.Filename != "" {
-		c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, c.Kubeconfig.Filename)
+	if _, err := os.Stat(localKubeconfigFile); !os.IsNotExist(err) {
+		// File exists
+		c.Kubeconfig.exists = true
+		c.Kubeconfig.LocalPath = localKubeconfigFile
+		c.Kubeconfig.ContainerPath = containerKubeconfigFile
 	} else {
-		c.Kubeconfig.ContainerPath = filepath.Join(c.Artifacts.ContainerPath, "kubeconfig.yml")
+		// Check if workspace inventory exists
+		if workspace.Kubeconfig.exists {
+			c.Kubeconfig.exists = true
+			c.Kubeconfig.LocalPath = workspace.Kubeconfig.LocalPath
+			c.Kubeconfig.ContainerPath = workspace.Kubeconfig.ContainerPath
+		} else {
+			c.Kubeconfig.exists = false
+		}
 	}
-
 	if local {
 		c.Kubeconfig.Path = c.Kubeconfig.LocalPath
 	} else {
 		c.Kubeconfig.Path = c.Kubeconfig.ContainerPath
 	}
 
-	if _, err := os.Stat(blockKubeconfigFile); !os.IsNotExist(err) {
-		// File exists
-		c.Kubeconfig.exists = true
-	} else {
-		c.Kubeconfig.exists = false
-	}
 	log = log.WithField("path", c.Kubeconfig.Path)
 	log = log.WithField("exists", c.Kubeconfig.exists)
 	log.Debugf("Kubeconfig loaded")
