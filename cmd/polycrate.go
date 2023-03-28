@@ -1333,8 +1333,6 @@ func (p *Polycrate) CopyFromImage(ctx context.Context, image string, src string,
 }
 
 func (p *Polycrate) GetStableVersion(ctx context.Context) (string, error) {
-	log := p.GetContextLogger(ctx)
-
 	log.Debugf("Getting stable version from %s", polycrate.Config.Registry.Url)
 
 	url := fmt.Sprintf("https://%s/api/v2.0/projects/library/repositories/polycrate/artifacts?q=%s&page=1&page_size=100", p.Config.Registry.Url, url.QueryEscape("tags=latest"))
