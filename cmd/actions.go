@@ -344,7 +344,7 @@ func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 		workspace.Snapshot(ctx)
 	} else {
 		// Save snapshot before running the action
-		if snapshotContainerPath, err := workspace.SaveSnapshot(ctx); err != nil {
+		if snapshotPath, err := workspace.SaveSnapshot(ctx); err != nil {
 			return ctx, err
 		} else {
 			// Save execution script
@@ -354,7 +354,7 @@ func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 				// We use the vars plugin in "script" mode
 				workspace.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
 			} else if a.Playbook != "" {
-				err = a.saveAnsibleScript(ctx, snapshotContainerPath)
+				err = a.saveAnsibleScript(ctx, snapshotPath)
 			} else {
 				err = fmt.Errorf("neither 'script' nor 'playbook' have been defined")
 			}
@@ -384,8 +384,22 @@ func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 					return ctx, err
 				}
 			} else {
-				err := fmt.Errorf("'local' mode not yet implemented")
-				return ctx, err
+				args := []string{"-c"}
+				if a.executionScriptPath != "" {
+					log.Debugf("Running script: %s", a.executionScriptPath)
+
+					args = append(args, a.executionScriptPath)
+				} else {
+					return ctx, goErrors.New("no execution script path given. Nothing to do")
+				}
+				_, output, err := RunCommand(ctx, workspace.DumpEnv(), "/bin/bash", args...)
+				if err != nil {
+					fmt.Println(output)
+					return ctx, err
+				}
+
+				//err := fmt.Errorf("'local' mode not yet implemented")
+				//return ctx, err
 			}
 		}
 	}
