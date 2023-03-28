@@ -105,6 +105,7 @@ func init() {
 	fs.BoolVar(&polycrate.Config.CheckUpdates, "check-updates", false, "Check for Polycrate updates on program start")
 	fs.BoolVar(&polycrate.Config.Experimental.MergeV2, "merge-v2", false, "Feature flag: use merge v2")
 	fs.StringVar(&polycrate.Config.Logformat, "logformat", "default", "Log format (JSON/YAML)")
+	fs.StringVar(&polycrate.Config.Kubeconfig, "kubeconfig", KubeconfigPath, "Log format (JSON/YAML)")
 	fs.StringVar(&polycrate.Config.Registry.Url, "registry-url", RegistryUrl, "The URL of the OCI registry")
 	fs.StringVar(&polycrate.Config.Registry.BaseImage, "registry-base-image", RegistryBaseImage, "The base image to package blocks in OCI format")
 

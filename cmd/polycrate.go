@@ -83,6 +83,7 @@ type PolycrateConfig struct {
 	Sync         SyncOptions        `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	Loglevel     int                `yaml:"loglevel,omitempty" mapstructure:"loglevel,omitempty" json:"loglevel,omitempty"`
 	Logformat    string             `yaml:"logformat,omitempty" mapstructure:"logformat,omitempty" json:"logformat,omitempty"`
+	Kubeconfig   string             `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
 	Webhooks     []Webhook          `yaml:"webhooks,omitempty" mapstructure:"webhooks,omitempty" json:"webhooks,omitempty"`
 	CheckUpdates bool               `yaml:"check_updates,omitempty" mapstructure:"check_updates,omitempty" json:"check_updates,omitempty"`
 	Experimental ExperimentalConfig `yaml:"experimental,omitempty" mapstructure:"experimental,omitempty" json:"experimental,omitempty"`
@@ -861,6 +862,7 @@ func (p *Polycrate) LoadConfigFromFile(ctx context.Context, path string) error {
 	// Match CLI Flags with Config options
 	// CLI Flags have precedence
 	c.BindPFlag("loglevel", rootCmd.Flags().Lookup("loglevel"))
+	c.BindPFlag("kubeconfig", rootCmd.Flags().Lookup("kubeconfig"))
 	c.BindPFlag("registry.url", rootCmd.Flags().Lookup("registry-url"))
 	c.BindPFlag("registry.base_image", rootCmd.Flags().Lookup("registry-base-image"))
 	c.BindPFlag("workspace.config.image.version", rootCmd.Flags().Lookup("image-version"))

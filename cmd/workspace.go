@@ -553,18 +553,32 @@ func (w *Workspace) LoadKubeconfig(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
 
 	var workspaceKubeconfigFile string
+	var localKubeconfigFile string
+	var containerKubeconfigFile string
 	if w.Kubeconfig.Filename != "" {
-		workspaceKubeconfigFile = filepath.Join(w.LocalPath, w.Kubeconfig.Filename)
+		localKubeconfigFile = filepath.Join(w.LocalPath, w.Kubeconfig.Filename)
+		containerKubeconfigFile = filepath.Join(w.ContainerPath, w.Kubeconfig.Filename)
 	} else {
-		workspaceKubeconfigFile = filepath.Join(w.LocalPath, "kubeconfig.yml")
+		localKubeconfigFile = filepath.Join(w.LocalPath, "kubeconfig.yml")
+		containerKubeconfigFile = filepath.Join(w.ContainerPath, "kubeconfig.yml")
 	}
 
-	w.Kubeconfig.LocalPath = workspaceKubeconfigFile
-
-	if w.Kubeconfig.Filename != "" {
-		w.Kubeconfig.ContainerPath = filepath.Join(w.ContainerPath, w.Kubeconfig.Filename)
+	if _, err := os.Stat(workspaceKubeconfigFile); !os.IsNotExist(err) {
+		// File exists
+		w.Kubeconfig.exists = true
+		w.Kubeconfig.LocalPath = localKubeconfigFile
+		w.Kubeconfig.ContainerPath = containerKubeconfigFile
 	} else {
-		w.Kubeconfig.ContainerPath = filepath.Join(w.ContainerPath, "kubeconfig.yml")
+		// Check if global kubeconfig exists
+		if _, err := os.Stat(polycrate.Config.Kubeconfig); !os.IsNotExist(err) {
+			log.Warnf("Loading local kubeconfig from %s", polycrate.Config.Kubeconfig)
+
+			w.Kubeconfig.exists = true
+			w.Kubeconfig.LocalPath = polycrate.Config.Kubeconfig
+			w.Kubeconfig.ContainerPath = polycrate.Config.Kubeconfig
+		} else {
+			w.Kubeconfig.exists = false
+		}
 	}
 
 	if local {
@@ -573,12 +587,6 @@ func (w *Workspace) LoadKubeconfig(ctx context.Context) error {
 		w.Kubeconfig.Path = w.Kubeconfig.ContainerPath
 	}
 
-	if _, err := os.Stat(workspaceKubeconfigFile); !os.IsNotExist(err) {
-		// File exists
-		w.Kubeconfig.exists = true
-	} else {
-		w.Kubeconfig.exists = false
-	}
 	log = log.WithField("path", w.Kubeconfig.Path)
 	log = log.WithField("exists", w.Kubeconfig.exists)
 	log.Debugf("Workspace kubeconfig loaded")

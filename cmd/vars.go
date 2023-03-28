@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var home, _ = os.UserHomeDir()
+
 // Constants
 // These are mainly used for setting defaults to the CLI flags
 // As such they can be overriden by the user
@@ -171,12 +173,13 @@ var localWorkspaceIndex map[string]string = make(map[string]string)
 // var inventory string
 // var inventoryConfigObject = viper.New()
 
-var home, _ = os.UserHomeDir()
 var polycrate Polycrate
 var polycrateConfigDir = filepath.Join(home, ".polycrate")
 var polycrateWorkspaceDir = filepath.Join(polycrateConfigDir, "workspaces")
 var polycrateRuntimeDir = filepath.Join(polycrateConfigDir, "run")
 var polycrateConfigFilePath = filepath.Join(polycrateConfigDir, "polycrate.yml")
+
+var KubeconfigPath string = filepath.Join(home, ".kube", "config")
 
 // Errors
 var ErrDependencyNotResolved = errors.New("block dependency not resolved")
