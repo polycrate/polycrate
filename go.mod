@@ -93,3 +93,4 @@ require (
 )
 
 //replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.0
+//replace github.com/imdario/mergo => ../src/github.com/imdario/mergo

@@ -22,10 +22,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"polycrate/cmd/mergo"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/imdario/mergo"
+	//"github.com/imdario/mergo"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -105,7 +107,7 @@ type Block struct {
 	Description string                 `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
 	Labels      map[string]string      `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
 	Alias       []string               `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
-	Actions     []Action               `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
+	Actions     []*Action              `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
 	Config      map[string]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	From        string                 `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
 	Template    bool                   `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`
@@ -118,6 +120,7 @@ type Block struct {
 	address     string
 	err         error
 	schema      string
+	workspace   *Workspace
 }
 
 func (b *Block) Flush() *Block {
@@ -490,10 +493,11 @@ func (b *Block) Reload(ctx context.Context, workspace *Workspace) error {
 func (c *Block) getInventoryPath(ctx context.Context) string {
 	log := polycrate.GetContextLogger(ctx)
 
-	workspace, err := polycrate.GetContextWorkspace(ctx)
-	if err != nil {
-		log.Fatalf("Couldn't get workspace from context")
-	}
+	// workspace, err := polycrate.GetContextWorkspace(ctx)
+	// if err != nil {
+	// 	log.Fatalf("Couldn't get workspace from context")
+	// }
+	workspace := c.workspace
 
 	if c.Inventory.From != "" {
 		// Take the inventory from another Block
@@ -517,10 +521,11 @@ func (c *Block) getInventoryPath(ctx context.Context) string {
 func (c *Block) getKubeconfigPath(ctx context.Context) string {
 	log := polycrate.GetContextLogger(ctx)
 
-	workspace, err := polycrate.GetContextWorkspace(ctx)
-	if err != nil {
-		log.Fatalf("Couldn't get workspace from context")
-	}
+	// workspace, err := polycrate.GetContextWorkspace(ctx)
+	// if err != nil {
+	// 	log.Fatalf("Couldn't get workspace from context")
+	// }
+	workspace := c.workspace
 
 	if c.Kubeconfig.From != "" {
 		// Take the kubeconfig from another Block
@@ -555,7 +560,7 @@ func (b *Block) GetActionWithContext(ctx context.Context, name string) (context.
 
 func (b *Block) GetAction(name string) (*Action, error) {
 	for i := 0; i < len(b.Actions); i++ {
-		action := &b.Actions[i]
+		action := b.Actions[i]
 		if action.Name == name {
 			return action, nil
 		}
@@ -567,7 +572,7 @@ func (c *Block) getActionByName(actionName string) *Action {
 
 	//for _, block := range c.Blocks {
 	for i := 0; i < len(c.Actions); i++ {
-		action := &c.Actions[i]
+		action := c.Actions[i]
 		if action.Name == actionName {
 			return action
 		}
@@ -652,9 +657,11 @@ func (c *Block) MergeIn(block *Block) error {
 
 				destinationAction.address = strings.Join([]string{c.Name, sourceAction.Name}, ".")
 				destinationAction.Block = c.Name
+				destinationAction.block = c
 			} else {
 				sourceAction.address = strings.Join([]string{c.Name, sourceAction.Name}, ".")
 				sourceAction.Block = c.Name
+				sourceAction.block = c
 				c.Actions = append(c.Actions, sourceAction)
 			}
 		}
@@ -664,9 +671,11 @@ func (c *Block) MergeIn(block *Block) error {
 	if block.Config != nil {
 		// feature flag: merge-v2
 		if polycrate.Config.Experimental.MergeV2 {
-			if err := mergo.Merge(&c.Config, block.Config, mergo.WithTransformers(boolTransformer{})); err != nil {
+			intermediate := block.Config
+			if err := mergo.Merge(&intermediate, c.Config); err != nil {
 				return err
 			}
+			c.Config = intermediate
 
 		} else {
 			if err := mergo.Merge(&c.Config, block.Config); err != nil {

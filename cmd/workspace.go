@@ -450,7 +450,10 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 			log.WithField("dependency", block.From).Tracef("Dependency detected")
 
 			// Try to load the referenced Block
-			dependency := w.getBlockByName(block.From)
+			dependency, err := w.GetBlock(block.From)
+			if err != nil {
+				return err
+			}
 
 			if dependency == nil {
 				//log.WithField("dependency", block.From).Errorf("Dependency not found")
@@ -478,7 +481,7 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 			// We do NOT OVERWRITE existing values in the loaded Block because we must assume
 			// That this is configuration that has been explicitly set by the user
 			// The merge works like "loading defaults" for the loaded Block
-			err := block.MergeIn(dep)
+			err = block.MergeIn(dep)
 			if err != nil {
 				return err
 			}
@@ -521,7 +524,10 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 		if len(block.Actions) > 0 {
 
 			for _, action := range block.Actions {
-				existingAction := block.getActionByName(action.Name)
+				existingAction := action
+				if err != nil {
+					return err
+				}
 				log = log.WithField("action", existingAction.Name)
 
 				actionAddress := strings.Join([]string{block.Name, existingAction.Name}, ".")
@@ -533,10 +539,13 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 					existingAction.Block = block.Name
 				}
 
-				err := existingAction.validate()
+				err = existingAction.validate()
 				if err != nil {
 					return err
 				}
+
+				existingAction.workspace = w
+				existingAction.block = block
 
 				// Register the Action to the Index
 				w.registerAction(existingAction)
@@ -1316,7 +1325,7 @@ func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (*W
 		return nil, err
 	}
 
-	// Load all discovered blocks in the workspace
+	// Load all installed blocks in the workspace
 	log.Debugf("Loading installed blocks")
 	if err := w.LoadInstalledBlocks(ctx); err != nil {
 		return nil, err
@@ -2023,8 +2032,8 @@ func (c *Workspace) templateActionScripts() *Workspace {
 			Block:     block,
 		}
 
-		for index := range block.Actions {
-			action := &block.Actions[index]
+		for _, action := range block.Actions {
+			//action := block.Actions[index]
 			// Loop over script of action
 			var newScript = []string{}
 			//printObject(snapshot)
@@ -2315,13 +2324,14 @@ func (c *Workspace) GetBlockFromIndex(name string) *Block {
 }
 
 func (c *Workspace) getBlockByName(blockName string) *Block {
-	for i := 0; i < len(c.Blocks); i++ {
-		block := c.Blocks[i]
-		if block.Name == blockName {
-			return block
-		}
-	}
-	return nil
+	panic("DEPRECATED")
+	// for i := 0; i < len(c.Blocks); i++ {
+	// 	block := c.Blocks[i]
+	// 	if block.Name == blockName {
+	// 		return block
+	// 	}
+	// }
+	//return nil
 }
 func (c *Workspace) GetBlock(name string) (*Block, error) {
 	for i := 0; i < len(c.Blocks); i++ {
@@ -2939,11 +2949,6 @@ func (w *Workspace) LoadBlock(ctx context.Context, path string) (*Block, error) 
 	blockConfigObject.SetConfigType("yaml")
 	blockConfigObject.SetConfigFile(blockConfigFilePath)
 
-	// log.WithFields(log.Fields{
-	// 	"workspace": w.Name,
-	// 	"path":      b.Workdir.LocalPath,
-	// }).Debugf("Loading installed block")
-
 	if err := blockConfigObject.MergeInConfig(); err != nil {
 		return nil, err
 	}
@@ -2974,6 +2979,9 @@ func (w *Workspace) LoadBlock(ctx context.Context, path string) (*Block, error) 
 	} else {
 		block.Workdir.Path = block.Workdir.ContainerPath
 	}
+
+	// Set workspace
+	block.workspace = w
 
 	return block, nil
 }

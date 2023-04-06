@@ -89,6 +89,8 @@ type Action struct {
 	address             string
 	Block               string                 `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
 	Config              map[string]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
+	workspace           *Workspace
+	block               *Block
 }
 
 func (c *Action) MergeIn(action Action) error {
