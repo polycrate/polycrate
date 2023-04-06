@@ -353,6 +353,9 @@ func downloadPolycrateCLI(packageVersion string) error {
 		cmd.Run()
 		cmd = exec.Command("/bin/sh", "-c", "sudo chmod +x "+executable)
 		cmd.Run()
+		executableSymlink := "/usr/local/bin/poly"
+		cmd = exec.Command("/bin/sh", "-c", "sudo ln -s "+executable+" "+executableSymlink)
+		cmd.Run()
 
 		log.Info("Downloaded Polycrate version " + packageVersion + " to " + executable)
 		// err = os.Rename(packageDownload.Name(), executable)
