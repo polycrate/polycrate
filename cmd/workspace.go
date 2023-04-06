@@ -2836,6 +2836,9 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 		}
 		block.Labels["polycrate.flags.dev"] = "true"
 	}
+
+	block.Labels["polycrate.block.version"] = block.Version
+
 	err = WrapOCIImage(ctx, block.Workdir.LocalPath, registryUrl, blockName, tagVersion, block.Labels)
 	if err != nil {
 		return err
