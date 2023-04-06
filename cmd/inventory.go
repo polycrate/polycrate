@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
@@ -30,7 +31,20 @@ var inventoryCmd = &cobra.Command{
 	Short:  "Inventory",
 	Long:   `Inventory`,
 	Run: func(cmd *cobra.Command, args []string) {
-		showInventory()
+		_w := cmd.Flags().Lookup("workspace").Value.String()
+
+		ctx := context.Background()
+		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
+		defer polycrate.StopTransaction(ctx, cancel)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		if err != nil {
+			log.Fatal(err)
+		}
+		showInventory(workspace)
 	},
 }
 
@@ -39,37 +53,86 @@ func init() {
 	//initCmd.Flags().StringVar(&fileUrl, "template", "https://gitlab.com/ayedocloudsolutions/cloudstack/cloudstack/-/raw/main/examples/hcloud-single-node/Stackfile", "Stackfile to init from")
 }
 
-func showInventory() {
-	inv := Inventory{
-		All: Group{
+func showInventory(workspace *Workspace) {
+	inv := AnsibleInventory{
+		All: AnsibleGroup{
 			Vars: map[string]interface{}{},
 		},
 	}
 
-	var inv2 Inventory
-	mainInventory := viper.New()
-	mainInventory.SetConfigType("yaml")
-	mainInventory.SetConfigFile(filepath.Join(workspace.LocalPath, "inventory.yml"))
-	if err := mainInventory.MergeInConfig(); err != nil {
-		log.Error(err)
-	}
-
-	if err := mainInventory.UnmarshalExact(&inv2); err != nil {
-		log.Error(err)
+	var inv2 AnsibleInventory
+	err := inv2.Load(filepath.Join(workspace.LocalPath, "inventory.yml"))
+	if err != nil {
+		log.Fatal(err)
 	}
 	printObject(inv)
 	printObject(inv2)
+	printObject(inv2.All.Hosts)
 }
 
-// Group represents ansible group
-type Group struct {
-	Vars     map[string]interface{} `mapstructure:"vars" json:"vars"`
-	Hosts    map[string]interface{} `mapstructure:"hosts" json:"hosts"`
-	Children map[string]*Group      `mapstructure:"children" json:"children"`
+type AnsibleHost struct {
+	AnsibleHost    string `mapstructure:"ansible_host" json:"ansible_host" yaml:"ansible_host"`
+	AnsibleSshPort string `mapstructure:"ansible_ssh_port" json:"ansible_ssh_port" yaml:"ansible_ssh_port"`
+	AnsibleUser    string `mapstructure:"ansible_user" json:"ansible_user" yaml:"ansible_user"`
 }
 
-// Host represents ansible host
+type AnsibleGroup struct {
+	Vars     map[string]interface{}   `mapstructure:"vars" json:"vars" yaml:"vars"`
+	Hosts    map[string]*AnsibleHost  `mapstructure:"hosts" json:"hosts" yaml:"hosts"`
+	Children map[string]*AnsibleGroup `mapstructure:"children" json:"children" yaml:"children"`
+}
 
-type Inventory struct {
-	All Group `mapstructure:"all" json:"all" validate:"required"`
+type AnsibleInventory struct {
+	All AnsibleGroup `mapstructure:"all" json:"all" yaml:"all" validate:"required"`
+}
+
+type PolycrateInventory struct {
+	Hosts  map[string]*PolycrateInventoryHost
+	Groups map[string][]*PolycrateInventoryHost
+}
+
+type PolycrateInventoryHost struct {
+	Name string
+	Host string
+	Port string
+	User string
+}
+
+func (i *AnsibleInventory) Load(path string) error {
+	inventory := viper.New()
+	inventory.SetConfigType("yaml")
+	inventory.SetConfigFile(path)
+	if err := inventory.MergeInConfig(); err != nil {
+		log.Error(err)
+	}
+
+	if err := inventory.Unmarshal(i); err != nil {
+		log.Error(err)
+	}
+	return nil
+}
+
+func (ag *AnsibleGroup) GetHosts() []*PolycrateInventoryHost {
+	hosts := []*PolycrateInventoryHost{}
+	for key, host := range ag.Hosts {
+		ph := PolycrateInventoryHost{
+			Name: key,
+			Host: host.AnsibleHost,
+			Port: host.AnsibleSshPort,
+			User: host.AnsibleUser,
+		}
+		hosts = append(hosts, &ph)
+	}
+
+	for _, group := range ag.Children {
+		hosts = append(hosts, group.GetHosts()...)
+	}
+	return hosts
+}
+
+func (pi *PolycrateInventory) Load(ai *AnsibleInventory) error {
+	for _, host := range ai.All.GetHosts() {
+		pi.Hosts[host.Name] = host
+	}
+	return nil
 }
