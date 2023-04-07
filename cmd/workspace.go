@@ -1280,7 +1280,7 @@ func (w *Workspace) HighjackSigint(ctx context.Context) {
 	}()
 }
 
-func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (*Workspace, error) {
+func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (context.Context, *Workspace, error) {
 	var err error
 
 	// Reset blocks
@@ -1292,7 +1292,7 @@ func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (*W
 	// Load Workspace config (e.g. workspace.poly)
 	err = w.LoadConfigFromFile(ctx, path, validate)
 	if err != nil {
-		return nil, err
+		return ctx, nil, err
 	}
 
 	// Setup Logger
@@ -1318,17 +1318,19 @@ func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (*W
 		w.index.Steps = make(map[string]*Step)
 	}
 
+	// Import installed blocks
+
 	// Find all blocks in the workspace
 	log.Debugf("Searching for installed blocks")
 	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
 	if err := w.FindInstalledBlocks(ctx, blocksDir); err != nil {
-		return nil, err
+		return ctx, nil, err
 	}
 
 	// Load all installed blocks in the workspace
 	log.Debugf("Loading installed blocks")
 	if err := w.LoadInstalledBlocks(ctx); err != nil {
-		return nil, err
+		return ctx, nil, err
 	}
 
 	// Bootstrap revision data
@@ -1343,13 +1345,13 @@ func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (*W
 	w.revision.UserEmail = userInfo["email"]
 	w.revision.UserName = userInfo["name"]
 
-	return w, nil
+	return ctx, w, nil
 }
 
 func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Workspace, error) {
 	var err error
 
-	w, err = w.Preload(ctx, path, validate)
+	ctx, w, err = w.Preload(ctx, path, validate)
 	if err != nil {
 		return nil, err
 	}
@@ -1791,7 +1793,7 @@ func (w *Workspace) ResolveBlockDependencies(ctx context.Context) error {
 		for i := 0; i < len(w.Blocks); i++ {
 			loadedBlock := w.Blocks[i]
 
-			log.Tracef("Resolving block %s - resolved? %s", loadedBlock.Name, loadedBlock.resolved)
+			log.Tracef("Resolving block '%s' - resolved? %t", loadedBlock.Name, loadedBlock.resolved)
 
 			if !loadedBlock.resolved {
 				err := w.ResolveBlock(ctx, loadedBlock, w.LocalPath, w.ContainerPath)
@@ -2878,38 +2880,39 @@ func (c *Workspace) Print() {
 	printObject(c)
 }
 
-func (w *Workspace) ImportInstalledBlocks(ctx context.Context) *Workspace {
-	log := polycrate.GetContextLogger(ctx)
-	log.Debugf("Importing installed blocks")
+// func (w *Workspace) ImportInstalledBlocks(ctx context.Context) *Workspace {
+// 	log := polycrate.GetContextLogger(ctx)
+// 	log.Debugf("Importing installed blocks")
 
-	for _, installedBlock := range w.installedBlocks {
-		log = log.WithField("installed_block", installedBlock.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
+// 	for _, installedBlock := range w.installedBlocks {
+// 		log = log.WithField("installed_block", installedBlock.Name)
+// 		ctx = polycrate.SetContextLogger(ctx, log)
 
-		// Check if Block exists
-		existingBlock := w.getBlockByName(installedBlock.Name)
+// 		// Check if Block exists
+// 		existingBlock := w.getBlockByName(installedBlock.Name)
 
-		if existingBlock != nil {
-			log = log.WithField("existing_block", installedBlock.Name)
-			ctx = polycrate.SetContextLogger(ctx, log)
+// 		if existingBlock != nil {
+// 			log = log.WithField("existing_block", installedBlock.Name)
+// 			ctx = polycrate.SetContextLogger(ctx, log)
 
-			// Block exists
-			log.Tracef("Found existing block. Merging.")
+// 			// Block exists
+// 			log.Tracef("Found existing block. Merging.")
 
-			err := existingBlock.MergeIn(installedBlock)
-			if err != nil {
-				w.err = err
-				return w
-			}
-		} else {
-			w.Blocks = append(w.Blocks, installedBlock)
-		}
-	}
-	return w
+// 			err := existingBlock.MergeIn(installedBlock)
+// 			if err != nil {
+// 				w.err = err
+// 				return w
+// 			}
+// 		} else {
+// 			w.Blocks = append(w.Blocks, installedBlock)
+// 		}
+// 	}
+// 	return w
 
-}
+// }
 func (w *Workspace) LoadInstalledBlocks(ctx context.Context) error {
 	log := polycrate.GetContextLogger(ctx)
+
 	for _, installedBlock := range w.installedBlocks {
 		log = log.WithField("block", installedBlock.Name)
 		ctx = polycrate.SetContextLogger(ctx, log)
@@ -2919,6 +2922,7 @@ func (w *Workspace) LoadInstalledBlocks(ctx context.Context) error {
 
 		if err != nil {
 			// Block is not in the index yet
+			log.Tracef("No existing block with the same name. Adding to installed blocks.")
 			w.Blocks = append(w.Blocks, installedBlock)
 		} else {
 
@@ -2931,10 +2935,29 @@ func (w *Workspace) LoadInstalledBlocks(ctx context.Context) error {
 			log.Tracef("Marking block as unresolved")
 			existingBlock.resolved = false
 
-			err := existingBlock.MergeIn(installedBlock)
-			if err != nil {
-				return err
+			if polycrate.Config.Experimental.MergeV2 {
+				log.Warn("Loading installed blocks using experimental merge method")
+				// Marshal struct to yaml so we can unmarshal it back into the installed block
+				existingBlockConfig, err := yaml.Marshal(&existingBlock)
+				if err != nil {
+					return err
+				}
+
+				// Unmarshal into installed block
+				err = yaml.Unmarshal(existingBlockConfig, installedBlock)
+				if err != nil {
+					return err
+				}
+
+				existingBlock = installedBlock
+			} else {
+				log.Debugf("Merging installed block with existing block")
+				err := existingBlock.MergeIn(installedBlock)
+				if err != nil {
+					return err
+				}
 			}
+
 		}
 	}
 	return nil
@@ -2959,6 +2982,9 @@ func (w *Workspace) LoadBlock(ctx context.Context, path string) (*Block, error) 
 	if err := blockConfigObject.UnmarshalExact(&block); err != nil {
 		return nil, err
 	}
+
+	// Save block config (*viper.Viper) for later use
+	block.blockConfig = *blockConfigObject
 
 	// Load schema
 	schemaFilePath := filepath.Join(block.Workdir.LocalPath, "schema.json")
@@ -3048,31 +3074,33 @@ func (w *Workspace) LoadBlock(ctx context.Context, path string) (*Block, error) 
 
 // }
 
-func (w *Workspace) DiscoverInstalledBlocks() *Workspace {
-	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
+// func (w *Workspace) DiscoverInstalledBlocks() *Workspace {
+// 	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
 
-	if _, err := os.Stat(blocksDir); !os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"workspace": w.Name,
-			"path":      blocksDir,
-		}).Debugf("Discovering blocks")
+// 	if _, err := os.Stat(blocksDir); !os.IsNotExist(err) {
+// 		log.WithFields(log.Fields{
+// 			"workspace": w.Name,
+// 			"path":      blocksDir,
+// 		}).Debugf("Discovering blocks")
 
-		// This function adds all valid Blocks to the list of
-		err := filepath.WalkDir(blocksDir, w.WalkBlocksDir)
-		if err != nil {
-			w.err = err
-		}
-	} else {
-		log.WithFields(log.Fields{
-			"workspace": w.Name,
-			"path":      blocksDir,
-		}).Debugf("Skipping block discovery. Blocks directory not found")
-	}
+// 		// This function adds all valid Blocks to the list of
+// 		err := filepath.WalkDir(blocksDir, w.WalkBlocksDir)
+// 		if err != nil {
+// 			w.err = err
+// 		}
+// 	} else {
+// 		log.WithFields(log.Fields{
+// 			"workspace": w.Name,
+// 			"path":      blocksDir,
+// 		}).Debugf("Skipping block discovery. Blocks directory not found")
+// 	}
 
-	return w
-}
+// 	return w
+// }
+
 func (w *Workspace) FindInstalledBlocks(ctx context.Context, path string) error {
 	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
+	log := polycrate.GetContextLogger(ctx)
 
 	// reset installedBlocks
 	// when running a workflow, without reseting the count of installed blocks just continuously increases
@@ -3117,34 +3145,34 @@ func (w *Workspace) FindInstalledBlocks(ctx context.Context, path string) error 
 	return nil
 }
 
-func (w *Workspace) WalkBlocksDir(path string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-	log.Warn("WalkBlocksDir is deprecated")
+// func (w *Workspace) WalkBlocksDir(path string, d fs.DirEntry, err error) error {
+// 	if err != nil {
+// 		return err
+// 	}
+// 	log.Warn("WalkBlocksDir is deprecated")
 
-	if !d.IsDir() {
-		fileinfo, _ := d.Info()
+// 	if !d.IsDir() {
+// 		fileinfo, _ := d.Info()
 
-		if fileinfo.Name() == w.Config.BlocksConfig {
-			blockConfigFileDir := filepath.Dir(path)
+// 		if fileinfo.Name() == w.Config.BlocksConfig {
+// 			blockConfigFileDir := filepath.Dir(path)
 
-			// var block Block
-			// block.Workdir.LocalPath = blockConfigFileDir
+// 			// var block Block
+// 			// block.Workdir.LocalPath = blockConfigFileDir
 
-			ctx := context.Background()
-			block, err := w.LoadBlock(ctx, blockConfigFileDir)
-			if err != nil {
-				return err
-			}
+// 			ctx := context.Background()
+// 			block, err := w.LoadBlock(ctx, blockConfigFileDir)
+// 			if err != nil {
+// 				return err
+// 			}
 
-			// Add block to installedBlocks
-			w.installedBlocks = append(w.installedBlocks, block)
-		}
-	}
-	return nil
+// 			// Add block to installedBlocks
+// 			w.installedBlocks = append(w.installedBlocks, block)
+// 		}
+// 	}
+// 	return nil
 
-}
+// }
 
 func (c *Workspace) PullDependencies() *Workspace {
 	// Loop through dependencies

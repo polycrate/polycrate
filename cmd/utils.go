@@ -34,7 +34,7 @@ import (
 	validator "github.com/go-playground/validator/v10"
 	"github.com/manifoldco/promptui"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type promptContent struct {
@@ -916,4 +916,74 @@ func (t boolTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Val
 		}
 	}
 	return nil
+}
+
+func mergeMaps(a, b map[interface{}]interface{}) map[interface{}]interface{} {
+	out := make(map[interface{}]interface{}, len(a))
+	for k, v := range a {
+		out[k] = v
+	}
+	printObject(out)
+	for k, v := range b {
+		// If you use map[string]interface{}, ok is always false here.
+		// Because yaml.Unmarshal will give you map[interface{}]interface{}.
+
+		if v, ok := v.(map[interface{}]interface{}); ok {
+			if bv, ok := out[k]; ok {
+				if bv, ok := bv.(map[interface{}]interface{}); ok {
+					out[k] = mergeMaps(bv, v)
+					continue
+				}
+
+				if bv, ok := bv.(map[string]interface{}); ok {
+					fmt.Printf("Merge Maps: type is map str int\n")
+					_bv := map[interface{}]interface{}{}
+
+					inter, err := yaml.Marshal(bv)
+					if err != nil {
+						panic(err)
+					}
+					printObject(bv)
+
+					err = yaml.Unmarshal(inter, _bv)
+					if err != nil {
+						panic(err)
+					}
+					printObject(_bv)
+
+					out[k] = mergeMaps(_bv, v)
+
+					continue
+				}
+
+			}
+		}
+		if v, ok := v.(map[string]interface{}); ok {
+			mapZ := map[interface{}]interface{}{}
+
+			inter, err := yaml.Marshal(v)
+			if err != nil {
+				panic(err)
+			}
+
+			err = yaml.Unmarshal(inter, mapZ)
+			if err != nil {
+				panic(err)
+			}
+
+			if bv, ok := out[k]; ok {
+
+				if bv, ok := bv.(map[interface{}]interface{}); ok {
+					fmt.Printf("Merge Maps: Recursing\n")
+					out[k] = mergeMaps(bv, mapZ)
+					continue
+				}
+			}
+			continue
+
+		}
+		fmt.Printf("Merge Maps: Setting %s to %s\n", k, v)
+		out[k] = v
+	}
+	return out
 }

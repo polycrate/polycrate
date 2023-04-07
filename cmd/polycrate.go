@@ -1060,7 +1060,7 @@ func (p *Polycrate) PreloadWorkspace(ctx context.Context, path string, validate 
 	*workspace = defaultWorkspace
 
 	// Set the path to the given path
-	workspace, err = workspace.Preload(ctx, path, validate)
+	ctx, workspace, err = workspace.Preload(ctx, path, validate)
 	if err != nil {
 		return nil, err
 	}

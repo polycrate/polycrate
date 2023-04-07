@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+
 	//"github.com/imdario/mergo"
 
 	log "github.com/sirupsen/logrus"
@@ -103,15 +104,15 @@ type BlockArtifacts struct {
 }
 
 type Block struct {
-	Name        string                 `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,block_name"`
-	Description string                 `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
-	Labels      map[string]string      `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
-	Alias       []string               `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
-	Actions     []*Action              `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
-	Config      map[string]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
-	From        string                 `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
-	Template    bool                   `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`
-	Version     string                 `yaml:"version,omitempty" mapstructure:"version" json:"version"`
+	Name        string                      `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,block_name"`
+	Description string                      `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
+	Labels      map[string]string           `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
+	Alias       []string                    `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
+	Actions     []*Action                   `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
+	Config      map[interface{}]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
+	From        string                      `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
+	Template    bool                        `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`
+	Version     string                      `yaml:"version,omitempty" mapstructure:"version" json:"version"`
 	resolved    bool
 	Workdir     BlockWorkdir    `yaml:"workdir,omitempty" mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
 	Inventory   BlockInventory  `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
@@ -121,6 +122,7 @@ type Block struct {
 	err         error
 	schema      string
 	workspace   *Workspace
+	blockConfig viper.Viper
 }
 
 func (b *Block) Flush() *Block {
@@ -669,19 +671,38 @@ func (c *Block) MergeIn(block *Block) error {
 
 	// Config
 	if block.Config != nil {
-		// feature flag: merge-v2
 		if polycrate.Config.Experimental.MergeV2 {
-			intermediate := block.Config
-			if err := mergo.Merge(&intermediate, c.Config); err != nil {
-				return err
-			}
-			c.Config = intermediate
+			log.Warn("Merging block config using experimental merge method")
+
+			// Unmarshal into installed block
+			fmt.Println(c.blockConfig.AllKeys())
+			fmt.Println(block.blockConfig.AllKeys())
+
+			// Marshal existing config to bytes
+			// ec, err := yaml.Marshal(c.Config)
+			// if err != nil {
+			// 	return err
+			// }
+
+			// Unmarshal that into the existing block config
+
+			c.Config = mergeMaps(block.Config, c.Config)
+			//err = yaml.Unmarshal(ec, incomfingBlockConfig)
+			// if err != nil {
+			// 	return err
+			// }
+			// err := block.blockConfig.UnmarshalKey("config", &c.Config)
+			// if err != nil {
+			// 	return err
+			// }
 
 		} else {
+
 			if err := mergo.Merge(&c.Config, block.Config); err != nil {
 				return err
 			}
 		}
+		// feature flag: merge-v2
 	}
 
 	// From

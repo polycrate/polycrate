@@ -90,6 +90,7 @@ require (
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
 	gopkg.in/ini.v1 v1.63.2 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 //replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.0
