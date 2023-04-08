@@ -847,58 +847,6 @@ func FormatCommand(cmd *cobra.Command) string {
 	return command
 }
 
-func copyMap(m map[string]interface{}) map[string]interface{} {
-	n := map[string]interface{}{}
-	for k, v := range m {
-		n[k] = v
-	}
-	return n
-}
-
-func mergeValues(d map[string]interface{}, o map[string]interface{}) map[string]interface{} {
-	def := copyMap(d)
-	over := copyMap(o)
-	for k, v := range over {
-		// If the key doesn't exist already, then just set the key to that value
-		if _, exists := def[k]; !exists {
-			def[k] = v
-			continue
-		}
-		nextMap, ok := v.(map[string]interface{})
-		// If it isn't another map, overwrite the value
-		if !ok {
-			def[k] = v
-			continue
-		}
-		// Edge case: If the key exists in the default, but isn't a map
-		defMap, isMap := def[k].(map[string]interface{})
-		// If the override map has a map for this key, prefer it
-		if !isMap {
-			def[k] = v
-			continue
-		}
-		// If we got to this point, it is a map in both, so merge them
-		def[k] = mergeValues(defMap, nextMap)
-	}
-	return def
-}
-
-type boolTransformer struct {
-}
-
-func (t boolTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
-	fmt.Printf("Type: %s\n", typ)
-	if typ == reflect.TypeOf(false) {
-		return func(dst, src reflect.Value) error {
-			if dst.CanSet() && dst.IsNil() {
-				dst.Set(src)
-			}
-			return nil
-		}
-	}
-	return nil
-}
-
 func mergeMaps(a, b map[interface{}]interface{}) map[interface{}]interface{} {
 	out := make(map[interface{}]interface{}, len(a))
 	for k, v := range a {

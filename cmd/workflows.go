@@ -273,17 +273,6 @@ func (c *Step) validate() error {
 	return nil
 }
 
-func (c *Workflow) getStepByName(stepName string) *Step {
-
-	//for _, block := range c.Blocks {
-	for i := 0; i < len(c.Steps); i++ {
-		step := &c.Steps[i]
-		if step.Name == stepName {
-			return step
-		}
-	}
-	return nil
-}
 func (w *Workflow) GetStepWithContext(ctx context.Context, name string) (context.Context, *Step, error) {
 	step, err := w.GetStep(name)
 	if err != nil {

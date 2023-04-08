@@ -92,10 +92,6 @@ var dev bool
 // Can be overriden with the --local flag
 var local bool
 
-// Global variable to set the loglevel
-// Can be overriden with the --loglevel flag
-var logLevel int
-
 // Global variable to decide if the container image should be pulled before running the container
 // Can be overriden with the --pull flag
 var pull bool

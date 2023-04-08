@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	goErrors "errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -304,7 +303,7 @@ func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action s
 	}
 
 	if block.Template {
-		err = goErrors.New("this is a template block. not running action")
+		err = errors.New("this is a template block. not running action")
 		return err
 	}
 
@@ -1748,38 +1747,38 @@ func (c *Workspace) Validate(tx *PolycrateTransaction) ([]string, error) {
 	return errors, nil
 }
 
-func (c *Workspace) validate() error {
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-	}).Debugf("Validating workspace")
-	err := validate.Struct(c)
+// func (c *Workspace) validate() error {
+// 	log.WithFields(log.Fields{
+// 		"workspace": c.Name,
+// 	}).Debugf("Validating workspace")
+// 	err := validate.Struct(c)
 
-	if err != nil {
-		log.WithFields(log.Fields{
-			"workspace": c.Name,
-		}).Errorf("Error validating workspace")
+// 	if err != nil {
+// 		log.WithFields(log.Fields{
+// 			"workspace": c.Name,
+// 		}).Errorf("Error validating workspace")
 
-		// this check is only needed when your code could produce
-		// an invalid value for validation such as interface with nil
-		// value most including myself do not usually have code like this.
-		if _, ok := err.(*validator.InvalidValidationError); ok {
-			log.Error(err)
-			return nil
-		}
+// 		// this check is only needed when your code could produce
+// 		// an invalid value for validation such as interface with nil
+// 		// value most including myself do not usually have code like this.
+// 		if _, ok := err.(*validator.InvalidValidationError); ok {
+// 			log.Error(err)
+// 			return nil
+// 		}
 
-		for _, err := range err.(validator.ValidationErrors) {
-			log.WithFields(log.Fields{
-				"workspace": c.Name,
-				"option":    strings.ToLower(err.Namespace()),
-				"error":     err.Tag(),
-			}).Errorf("Validation error")
-		}
+// 		for _, err := range err.(validator.ValidationErrors) {
+// 			log.WithFields(log.Fields{
+// 				"workspace": c.Name,
+// 				"option":    strings.ToLower(err.Namespace()),
+// 				"error":     err.Tag(),
+// 			}).Errorf("Validation error")
+// 		}
 
-		// from here you can create your own error messages in whatever language you wish
-		return goErrors.New("error validating Workspace")
-	}
-	return nil
-}
+// 		// from here you can create your own error messages in whatever language you wish
+// 		return goErrors.New("error validating Workspace")
+// 	}
+// 	return nil
+// }
 
 func (c *Workspace) ListBlocks() *Workspace {
 	fmt.Println("Blocks")
@@ -1841,7 +1840,7 @@ func (c *Workspace) bootstrapMounts() error {
 		if len(p) == 2 {
 			c.registerMount(p[0], p[1])
 		} else {
-			return goErrors.New("Illegal value for mount found: " + extraMount)
+			return errors.New("Illegal value for mount found: " + extraMount)
 		}
 	}
 	return nil
@@ -1972,7 +1971,7 @@ func (w *Workspace) bootstrapEnvVars() error {
 		if len(p) == 2 {
 			w.registerEnvVar(p[0], p[1])
 		} else {
-			return goErrors.New("Illegal value for env var found: " + envVar)
+			return errors.New("Illegal value for env var found: " + envVar)
 		}
 	}
 
@@ -2499,9 +2498,6 @@ func (w *Workspace) UpdateBlocks(tx *PolycrateTransaction, args []string) error 
 		eg.Go(func() error {
 			fullTag, registryUrl, blockName, blockVersion := mapDockerTag(arg)
 
-			log := tx.Log.log.WithField("version", blockVersion)
-			log = log.WithField("block", blockName)
-
 			// Download blocks from registry
 			err := w.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
 			if err != nil {
@@ -2965,11 +2961,11 @@ func (c *Workspace) PullDependencies() *Workspace {
 	return c
 }
 
-func (c *Workspace) getTempFile(ctx context.Context, filename string) (*os.File, error) {
-	fp := filepath.Join(workspace.runtimeDir, filename)
-	f, err := os.Create(fp)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
-}
+// func (c *Workspace) getTempFile(ctx context.Context, filename string) (*os.File, error) {
+// 	fp := filepath.Join(workspace.runtimeDir, filename)
+// 	f, err := os.Create(fp)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return f, nil
+// }
