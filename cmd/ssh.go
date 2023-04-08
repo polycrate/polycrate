@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -34,21 +33,15 @@ var sshCmd = &cobra.Command{
 	Args:   cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
-
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		log := polycrate.GetContextLogger(ctx)
-
 		hostname := args[0]
 
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		tx := polycrate.Transaction()
+		tx.SetCommand(cmd)
+		defer tx.Stop()
+
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		if _sshBlock == "" {
@@ -57,13 +50,13 @@ var sshCmd = &cobra.Command{
 		}
 
 		var block *Block
-		ctx, block, err = workspace.GetBlockWithContext(ctx, _sshBlock)
+		block, err = workspace.GetBlock(_sshBlock)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		if block != nil {
-			err := block.SSH(ctx, hostname, workspace)
+			err := block.SSH(tx, hostname, workspace)
 			if err != nil {
 				log.Error(err)
 			}
@@ -80,13 +73,12 @@ func init() {
 	sshCmd.PersistentFlags().StringVar(&_sshBlock, "block", "inventory", "Block to load inventory from")
 }
 
-func ConnectWithSSH(ctx context.Context, username string, hostname string, port string, privateKey string) error {
-	log := polycrate.GetContextLogger(ctx)
+func ConnectWithSSH(tx *PolycrateTransaction, username string, hostname string, port string, privateKey string) error {
+	log := tx.Log.log
 	log = log.WithField("user", username)
 	log = log.WithField("port", port)
 	log = log.WithField("host", hostname)
 	log = log.WithField("privateKey", privateKey)
-	ctx = polycrate.SetContextLogger(ctx, log)
 
 	log.Debugf("Starting ssh session")
 
@@ -104,7 +96,7 @@ func ConnectWithSSH(ctx context.Context, username string, hostname string, port 
 		hostname,
 	}
 
-	_, _, err := RunCommand(ctx, nil, "ssh", args...)
+	_, _, err := RunCommand(tx.Context, nil, "ssh", args...)
 	if err != nil {
 		return err
 	}

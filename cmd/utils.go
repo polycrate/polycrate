@@ -29,7 +29,6 @@ import (
 
 	"os"
 	"os/exec"
-	"os/signal"
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/manifoldco/promptui"
@@ -165,13 +164,12 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 }
 
 func RunCommandWithOutput(ctx context.Context, env []string, name string, args ...string) (exitCode int, output string, err error) {
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("command", name)
-	log = log.WithField("args", strings.Join(args, " "))
-	ctx = polycrate.SetContextLogger(ctx, log)
+	// log := tx.Log.log
+	// log = log.WithField("command", name)
+	// log = log.WithField("args", strings.Join(args, " "))
 
-	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))
-	log.Trace("Running shell command")
+	// //log.Debug("Running command: ", name, " ", strings.Join(args, " "))
+	// log.Trace("Running shell command")
 
 	var outb, errb bytes.Buffer
 
@@ -587,22 +585,6 @@ func validateBlockName(fl validator.FieldLevel) bool {
 	return ValidateBlockName(name)
 }
 
-func HighjackSigint(ctx context.Context) {
-	signals := make(chan os.Signal, 1)
-
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signals
-
-		//signalHandler(s)
-		workspace.PruneContainer(ctx)
-		//workspace.Sync().Flush()
-
-		log.Fatalf("ctrl-c received")
-
-	}()
-}
-
 // func discoverWorkspaces() error {
 // 	workspacesDir := polycrateWorkspaceDir
 
@@ -923,7 +905,7 @@ func mergeMaps(a, b map[interface{}]interface{}) map[interface{}]interface{} {
 	for k, v := range a {
 		out[k] = v
 	}
-	printObject(out)
+
 	for k, v := range b {
 		// If you use map[string]interface{}, ok is always false here.
 		// Because yaml.Unmarshal will give you map[interface{}]interface{}.
@@ -936,20 +918,18 @@ func mergeMaps(a, b map[interface{}]interface{}) map[interface{}]interface{} {
 				}
 
 				if bv, ok := bv.(map[string]interface{}); ok {
-					fmt.Printf("Merge Maps: type is map str int\n")
+
 					_bv := map[interface{}]interface{}{}
 
 					inter, err := yaml.Marshal(bv)
 					if err != nil {
 						panic(err)
 					}
-					printObject(bv)
 
 					err = yaml.Unmarshal(inter, _bv)
 					if err != nil {
 						panic(err)
 					}
-					printObject(_bv)
 
 					out[k] = mergeMaps(_bv, v)
 
@@ -974,7 +954,7 @@ func mergeMaps(a, b map[interface{}]interface{}) map[interface{}]interface{} {
 			if bv, ok := out[k]; ok {
 
 				if bv, ok := bv.(map[interface{}]interface{}); ok {
-					fmt.Printf("Merge Maps: Recursing\n")
+
 					out[k] = mergeMaps(bv, mapZ)
 					continue
 				}
@@ -982,7 +962,7 @@ func mergeMaps(a, b map[interface{}]interface{}) map[interface{}]interface{} {
 			continue
 
 		}
-		fmt.Printf("Merge Maps: Setting %s to %s\n", k, v)
+
 		out[k] = v
 	}
 	return out

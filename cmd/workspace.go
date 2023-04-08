@@ -24,11 +24,9 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 
@@ -149,7 +147,7 @@ type Workspace struct {
 	Meta            map[string]interface{} `yaml:"meta,omitempty" mapstructure:"meta,omitempty" json:"meta,omitempty"`
 	SyncOptions     SyncOptions            `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	Inventory       WorkspaceInventory     `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
-	Kubeconfig      BlockKubeconfig        `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
+	Kubeconfig      WorkspaceKubeconfig    `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
 	loaded          bool
 	currentBlock    *Block
 	currentAction   *Action
@@ -284,8 +282,8 @@ func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
 	return c
 }
 
-func (c *Workspace) Snapshot(ctx context.Context) {
-	snapshot := c.GetSnapshot(ctx)
+func (c *Workspace) Snapshot() {
+	snapshot := c.GetSnapshot()
 	printObject(snapshot)
 	//convertToEnv(&snapshot)
 }
@@ -301,7 +299,7 @@ func (w *Workspace) Flush() *Workspace {
 	return w
 }
 
-func (w *Workspace) RunActionWithContext(ctx context.Context, _block string, _action string) (context.Context, error) {
+func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action string) error {
 	//address := strings.Join([]string{block, action}, ":")
 	// err := w.RunAction(ctx, address)
 	// if err != nil {
@@ -311,20 +309,20 @@ func (w *Workspace) RunActionWithContext(ctx context.Context, _block string, _ac
 	var err error
 
 	var block *Block
-	ctx, block, err = w.GetBlockWithContext(ctx, _block)
+	block, err = w.GetBlock(_block)
 	if err != nil {
-		return ctx, err
+		return err
 	}
 
 	var action *Action
-	ctx, action, err = block.GetActionWithContext(ctx, _action)
+	action, err = block.GetAction(_action)
 	if err != nil {
-		return ctx, err
+		return err
 	}
 
 	if block.Template {
 		err = goErrors.New("this is a template block. not running action")
-		return ctx, err
+		return err
 	}
 
 	//log := polycrate.GetContextLogger(ctx)
@@ -334,111 +332,110 @@ func (w *Workspace) RunActionWithContext(ctx context.Context, _block string, _ac
 
 	// If --snapshot is set, print the snapshot and exit
 	if snapshot {
-		w.Snapshot(ctx)
+		w.Snapshot()
 	} else {
-		ctx, err := action.RunWithContext(ctx)
+		err := action.Run(tx)
 		if err != nil {
-			return ctx, err
+			return err
 		}
 	}
 
 	// Reload Block after action execution to update artifacts, inventory and kubeconfig
-	err = block.Reload(ctx, w)
+	err = block.Reload(tx)
 	if err != nil {
-		return ctx, err
+		return err
 	}
 
 	// Run event handler
 	//w.revision.Snapshot = WorkspaceSnapshot{}
 
-	event, err := polycrate.GetContextEvent(ctx)
-	if err == nil {
-		event.Labels["monk.event.level"] = "Info"
+	// event, err := polycrate.GetContextEvent(ctx)
+	// if err == nil {
+	// 	event.Labels["monk.event.level"] = "Info"
 
-		// Set event handler, etc
-		event.Config = w.Events
+	// 	// Set event handler, etc
+	// 	event.Config = w.Events
 
-		ctx = polycrate.SetContextEvent(ctx, event)
-	}
-
-	return ctx, nil
-}
-
-func (w *Workspace) RunAction(ctx context.Context, address string) error {
-	log := polycrate.GetContextLogger(ctx)
-
-	// Find action in index and report
-	action := w.LookupAction(address)
-
-	if action != nil {
-
-		block := w.GetBlockFromIndex(action.Block)
-
-		log = log.WithField("action", action.Name)
-		log = log.WithField("block", block.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
-
-		w.registerCurrentAction(action)
-		w.registerCurrentBlock(block)
-
-		log.Debugf("Registering current block")
-
-		log.Debugf("Registering current action")
-
-		if block.Template {
-			return goErrors.New("this is a template block. Not running action")
-		}
-
-		// Write log here
-		if snapshot {
-			w.Snapshot(ctx)
-		} else {
-			_, err := action.RunWithContext(ctx)
-			if err != nil {
-				return err
-			}
-			//sync.Log(fmt.Sprintf("Action %s of block %s was successful", action.Name, block.Name)).Flush()
-		}
-
-		// Reload Block after action execution to update artifacts, inventory and kubeconfig
-		err := block.Reload(ctx, w)
-		if err != nil {
-			return err
-		}
-
-		// Run event handler
-		//w.revision.Snapshot = WorkspaceSnapshot{}
-		log.Debugf("Running event handler")
-		event := NewEvent(ctx)
-		event.Action = w.revision.Snapshot.Action.Name
-		event.Block = w.revision.Snapshot.Block.Name
-		event.Workspace = w.revision.Snapshot.Workspace.Name
-		event.Command = w.revision.Command
-		event.ExitCode = w.revision.ExitCode
-		event.UserEmail = w.revision.UserEmail
-		event.UserName = w.revision.UserName
-		event.Date = w.revision.Date
-		event.Output = w.revision.Output
-		event.Labels["monk.event.level"] = "Info"
-
-		if err := polycrate.EventHandler(ctx); err != nil {
-			// We're not terminating here to not block further execution
-			log.Warnf("Event handler failed: %s", err)
-		}
-
-	} else {
-		return goErrors.New("cannot find Action with address " + address)
-	}
-
-	// After running an action we want to sync the workspace
-	w.syncNeeded = true
+	// 	ctx = polycrate.SetContextEvent(ctx, event)
+	// }
 
 	return nil
 }
 
-func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLocalPath string, workspaceContainerPath string) error {
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("block", block.Name)
+// func (w *Workspace) RunAction(tx *PolycrateTransaction, address string) error {
+// 	log := polycrate.GetContextLogger(ctx)
+
+// 	// Find action in index and report
+// 	action := w.LookupAction(address)
+
+// 	if action != nil {
+
+// 		block := w.GetBlockFromIndex(action.Block)
+
+// 		log = log.WithField("action", action.Name)
+// 		log = log.WithField("block", block.Name)
+// 		ctx = polycrate.SetContextLogger(ctx, log)
+
+// 		w.registerCurrentAction(action)
+// 		w.registerCurrentBlock(block)
+
+// 		log.Debugf("Registering current block")
+
+// 		log.Debugf("Registering current action")
+
+// 		if block.Template {
+// 			return goErrors.New("this is a template block. Not running action")
+// 		}
+
+// 		// Write log here
+// 		if snapshot {
+// 			w.Snapshot(ctx)
+// 		} else {
+// 			_, err := action.RunWithContext(ctx)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			//sync.Log(fmt.Sprintf("Action %s of block %s was successful", action.Name, block.Name)).Flush()
+// 		}
+
+// 		// Reload Block after action execution to update artifacts, inventory and kubeconfig
+// 		err := block.Reload(ctx, w)
+// 		if err != nil {
+// 			return err
+// 		}
+
+// 		// Run event handler
+// 		//w.revision.Snapshot = WorkspaceSnapshot{}
+// 		log.Debugf("Running event handler")
+// 		event := NewEvent(&PolycrateTransaction{})
+// 		event.Action = w.revision.Snapshot.Action.Name
+// 		event.Block = w.revision.Snapshot.Block.Name
+// 		event.Workspace = w.revision.Snapshot.Workspace.Name
+// 		event.Command = w.revision.Command
+// 		event.ExitCode = w.revision.ExitCode
+// 		event.UserEmail = w.revision.UserEmail
+// 		event.UserName = w.revision.UserName
+// 		event.Date = w.revision.Date
+// 		event.Output = w.revision.Output
+// 		event.Labels["monk.event.level"] = "Info"
+
+// 		if err := polycrate.EventHandler(ctx); err != nil {
+// 			// We're not terminating here to not block further execution
+// 			log.Warnf("Event handler failed: %s", err)
+// 		}
+
+// 	} else {
+// 		return goErrors.New("cannot find Action with address " + address)
+// 	}
+
+// 	// After running an action we want to sync the workspace
+// 	w.syncNeeded = true
+
+// 	return nil
+// }
+
+func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspaceLocalPath string, workspaceContainerPath string) error {
+	log := tx.Log.log.WithField("block", block.Name)
 
 	if !block.resolved {
 		log.Tracef("Resolving block")
@@ -504,18 +501,19 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 
 		// Register the Block to the Index
 		block.address = block.Name
+		block.workspace = w
 		w.registerBlock(block)
 
 		// Update Artifacts, Kubeconfig & Inventory
-		err = block.LoadArtifacts(ctx, w)
+		err = block.LoadArtifacts(tx)
 		if err != nil {
 			return err
 		}
-		err = block.LoadInventory(ctx, w)
+		err = block.LoadInventory(tx)
 		if err != nil {
 			return err
 		}
-		err = block.LoadKubeconfig(ctx, w)
+		err = block.LoadKubeconfig(tx)
 		if err != nil {
 			return err
 		}
@@ -557,9 +555,8 @@ func (w *Workspace) ResolveBlock(ctx context.Context, block *Block, workspaceLoc
 	return nil
 }
 
-func (w *Workspace) LoadKubeconfig(ctx context.Context) error {
+func (w *Workspace) LoadKubeconfig(tx *PolycrateTransaction) error {
 	// Locate "kubeconfig.yml" in blockArtifactsDir
-	log := polycrate.GetContextLogger(ctx)
 
 	var workspaceKubeconfigFile string
 	var localKubeconfigFile string
@@ -580,7 +577,7 @@ func (w *Workspace) LoadKubeconfig(ctx context.Context) error {
 	} else {
 		// Check if global kubeconfig exists
 		if _, err := os.Stat(polycrate.Config.Kubeconfig); !os.IsNotExist(err) {
-			log.Warnf("Loading local kubeconfig from %s", polycrate.Config.Kubeconfig)
+			tx.Log.Warnf("Loading local kubeconfig from %s", polycrate.Config.Kubeconfig)
 
 			w.Kubeconfig.exists = true
 			w.Kubeconfig.LocalPath = polycrate.Config.Kubeconfig
@@ -596,16 +593,11 @@ func (w *Workspace) LoadKubeconfig(ctx context.Context) error {
 		w.Kubeconfig.Path = w.Kubeconfig.ContainerPath
 	}
 
-	log = log.WithField("path", w.Kubeconfig.Path)
-	log = log.WithField("exists", w.Kubeconfig.exists)
-	log.Debugf("Workspace kubeconfig loaded")
+	tx.Log.Debugf("Workspace kubeconfig loaded from %s", w.Kubeconfig.Path)
 	return nil
 }
 
-func (w *Workspace) LoadInventory(ctx context.Context) error {
-	// Locate "inventory.yml" in blockArtifactsDir
-	log := polycrate.GetContextLogger(ctx)
-
+func (w *Workspace) LoadInventory(tx *PolycrateTransaction) error {
 	var workspaceInventoryFile string
 	if w.Inventory.Filename != "" {
 		workspaceInventoryFile = filepath.Join(w.LocalPath, w.Inventory.Filename)
@@ -633,19 +625,16 @@ func (w *Workspace) LoadInventory(ctx context.Context) error {
 	} else {
 		w.Inventory.exists = false
 	}
-	log = log.WithField("path", workspaceInventoryFile)
-	log = log.WithField("exists", w.Inventory.exists)
-	log.Debugf("Workspace inventory loaded")
+
+	tx.Log.Debugf("Workspace inventory loaded from '%s'", w.Inventory.Path)
 	return nil
 }
 
-func (w *Workspace) PruneContainer(ctx context.Context) error {
-	return polycrate.PruneContainer(ctx)
+func (w *Workspace) PruneContainer(tx *PolycrateTransaction) error {
+	return polycrate.PruneContainer(tx)
 }
 
-func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, workdir string, cmd []string) (context.Context, error) {
-	log := polycrate.GetContextLogger(ctx)
-	txid := polycrate.GetContextTXID(ctx)
+func (w *Workspace) RunContainer(tx *PolycrateTransaction, name string, workdir string, cmd []string) error {
 
 	log.Infof("Starting container")
 
@@ -660,22 +649,22 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 		if _, err := os.Stat(dockerfilePath); !os.IsNotExist(err) {
 			if build {
 				// We need to build and tag this
-				log.Debugf("Dockerfile detected: %s", dockerfilePath)
+				tx.Log.Debugf("Dockerfile detected: %s", dockerfilePath)
 
 				tag := w.Name + ":" + version
-				log.Warnf("Building custom image: %s", tag)
+				tx.Log.Warnf("Building custom image: %s", tag)
 
 				tags := []string{tag}
-				containerImage, err = polycrate.BuildContainer(ctx, w.LocalPath, w.Config.Dockerfile, tags)
+				containerImage, err = polycrate.BuildContainer(tx.Context, w.LocalPath, w.Config.Dockerfile, tags)
 				if err != nil {
-					return ctx, err
+					return err
 				}
 			} else {
 				if pull {
-					err := polycrate.PullImage(ctx, containerImage)
+					err := polycrate.PullImage(tx.Context, containerImage)
 
 					if err != nil {
-						return ctx, err
+						return err
 					}
 				} else {
 					log.Debugf("Not pulling/building image")
@@ -683,10 +672,10 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 			}
 		} else {
 			if pull {
-				err := polycrate.PullImage(ctx, containerImage)
+				err := polycrate.PullImage(tx.Context, containerImage)
 
 				if err != nil {
-					return ctx, err
+					return err
 				}
 			} else {
 				log.Debugf("Not pulling/building image")
@@ -694,10 +683,10 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 		}
 	} else {
 		if pull {
-			err := polycrate.PullImage(ctx, containerImage)
+			err := polycrate.PullImage(tx.Context, containerImage)
 
 			if err != nil {
-				return ctx, err
+				return err
 			}
 		} else {
 			log.Debugf("Not pulling/building image")
@@ -715,7 +704,7 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 
 	// Setup labels
 	labels := []string{}
-	labels = append(labels, fmt.Sprintf("polycrate.txid=%s", txid))
+	labels = append(labels, fmt.Sprintf("polycrate.txid=%s", tx.TXID.String()))
 
 	w.containerStatus.Running = true
 	w.containerStatus.Transaction = w.revision.Transaction
@@ -724,9 +713,9 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 	var cancelHighjack context.CancelFunc
 	var sigIntCtx context.Context
 	if !interactive {
-		sigIntCtx, cancelHighjack = context.WithCancel(ctx)
+		sigIntCtx, cancelHighjack = context.WithCancel(tx.Context)
 		defer cancelHighjack()
-		polycrate.HighjackSigint(sigIntCtx)
+		polycrate.HighjackSigint(sigIntCtx, tx)
 
 	}
 	log.Debugf("Starting container")
@@ -735,10 +724,10 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 
 	env := w.DumpEnv()
 
-	containerName := polycrate.GetContextTXID(ctx).String()
+	containerName := tx.TXID.String()
 
 	exitCode, output, err := polycrate.RunContainer(
-		ctx,
+		tx,
 		mounts,
 		env,
 		ports,
@@ -749,37 +738,21 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 		runCommand,
 	)
 
-	ctx = polycrate.SetContextOutput(ctx, output)
-	ctx = polycrate.SetContextExitCode(ctx, exitCode)
+	tx.SetOutput(output)
+	tx.SetExitCode(exitCode)
 
 	if err != nil {
-		return ctx, err
+		return err
 	}
 
-	log.Debugf("Stopped container. Exit code: %d", exitCode)
-
-	// Update revision
-	revision, err := polycrate.GetContextRevision(ctx)
-	if err == nil {
-		revision.Output = output
-		revision.ExitCode = exitCode
-		revision.Snapshot = w.GetSnapshot(ctx)
-
-		revisionKey := ContextKey("revision")
-		ctx = context.WithValue(ctx, revisionKey, revision)
-	}
+	tx.Log.Debugf("Stopped container. Exit code: %d", exitCode)
 
 	w.containerStatus.Running = false
 
-	// Handle container error
-	if err != nil {
-		return ctx, err
-	}
-
 	// Prune container
-	w.PruneContainer(ctx)
+	w.PruneContainer(tx)
 
-	return ctx, nil
+	return nil
 
 	// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 
@@ -859,27 +832,27 @@ func (w *Workspace) RunContainerWithContext(ctx context.Context, name string, wo
 	// return w
 }
 
-func (w *Workspace) RunWorkflowWithContext(ctx context.Context, name string, stepName string) (context.Context, error) {
+func (w *Workspace) RunWorkflow(tx *PolycrateTransaction, name string, stepName string) error {
 
 	var err error
 
 	var workflow *Workflow
-	ctx, workflow, err = w.GetWorkflowWithContext(ctx, name)
+	workflow, err = w.GetWorkflow(name)
 	if err != nil {
-		return ctx, err
+		return err
 	}
 
 	w.registerCurrentWorkflow(workflow)
 
 	if snapshot {
-		w.Snapshot(ctx)
+		w.Snapshot()
 	} else {
-		ctx, err := workflow.RunWithContext(ctx, stepName)
+		err := workflow.Run(tx, stepName)
 		if err != nil {
-			return ctx, err
+			return err
 		}
 	}
-	return ctx, nil
+	return nil
 }
 
 // func (w *Workspace) RunWorkflow(ctx context.Context, name string) error {
@@ -904,19 +877,15 @@ func (w *Workspace) RunWorkflowWithContext(ctx context.Context, name string, ste
 // 	return nil
 // }
 
-func (w *Workspace) RunStep(ctx context.Context, workflow string, name string) error {
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("workspace", workspace.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
-
+func (w *Workspace) RunStep(tx *PolycrateTransaction, workflow string, name string) error {
 	// Find action in index and report
 	step := w.LookupStep(name)
 
 	if step != nil {
 		if snapshot {
-			w.Snapshot(ctx)
+			w.Snapshot()
 		} else {
-			err := step.Run(ctx)
+			err := step.Run(tx)
 			if err != nil {
 				return err
 			}
@@ -1066,10 +1035,9 @@ func (w *Workspace) LoadConfig() *Workspace {
 
 	return w
 }
-func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string, validate bool) error {
+func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, validate bool) error {
 	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
 	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
-	log := polycrate.GetContextLogger(ctx)
 
 	// Match CLI Flags with Config options
 	// CLI Flags have precedence
@@ -1108,13 +1076,13 @@ func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string, validat
 		// Assuming the "path" given is actually the name of a workspace
 		workspaceName := w.LocalPath
 
-		log.Debugf("Workspace config not found. Looking in the local workspace index")
+		tx.Log.Debugf("Workspace config not found. Looking in the local workspace index")
 
 		// Check if workspaceName exists in the local workspace index (see discoverWorkspaces())
 		if localWorkspaceIndex[workspaceName] != "" {
 			// We found a workspace with that name in the index
 			path := localWorkspaceIndex[workspaceName]
-			log.Debugf("Found workspace in the local workspace index")
+			tx.Log.Debugf("Found workspace in the local workspace index")
 
 			// Update the workspace config file path with the local workspace path from the index
 			w.LocalPath = path
@@ -1138,27 +1106,26 @@ func (w *Workspace) LoadConfigFromFile(ctx context.Context, path string, validat
 	}
 
 	if validate {
-		errors, err := w.Validate(ctx)
+		errors, err := w.Validate(tx)
 		if err != nil {
 			for errorString := range errors {
-				log.Error(errorString)
+				tx.Log.Error(errorString)
 			}
 			return err
 		}
 	} else {
-		errors, err := w.Validate(ctx)
+		errors, err := w.Validate(tx)
 		if err != nil {
-			log.Warn("You have validation errors in your workspace")
+			tx.Log.Warn("You have validation errors in your workspace")
 			for _, errorString := range errors {
 				fmt.Printf("%T\n", errorString)
-				log.Warn(errorString)
+				tx.Log.Warn(errorString)
 			}
 		}
 	}
 
 	// set runtime dir
-	txid := polycrate.GetContextTXID(ctx)
-	w.runtimeDir = filepath.Join(polycrateRuntimeDir, txid.String(), w.Name)
+	w.runtimeDir = filepath.Join(polycrateRuntimeDir, tx.TXID.String(), w.Name)
 
 	return nil
 }
@@ -1250,56 +1217,29 @@ func (c *Workspace) updateConfig(path string, value string) *Workspace {
 	return c
 }
 
-func (w *Workspace) Reload(ctx context.Context, validate bool) (*Workspace, error) {
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("workspace", w.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
+func (w *Workspace) Reload(tx *PolycrateTransaction, validate bool) (*Workspace, error) {
+	tx.Log.Debug("Reloading workspace")
 
-	log.Debug("Reloading workspace")
-
-	return w.Load(ctx, w.LocalPath, validate)
+	return w.Load(tx, w.LocalPath, validate)
 }
 
-func (w *Workspace) HighjackSigint(ctx context.Context) {
-	log := polycrate.GetContextLogger(ctx)
-	log.Debugf("Starting signal handler")
-	signals := make(chan os.Signal, 1)
-
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signals
-
-		log.Debugf("Received CTRL-C")
-		w.PruneContainer(ctx)
-
-		//signalHandler(s)
-		//workspace.Sync().Flush()
-
-		log.Fatalf("ctrl-c received")
-
-	}()
-}
-
-func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (context.Context, *Workspace, error) {
+func (w *Workspace) Preload(tx *PolycrateTransaction, path string, validate bool) (*Workspace, error) {
 	var err error
 
 	// Reset blocks
 	w.Blocks = []*Block{}
 
 	// Check if this is a git repo
-	w.isGitRepo = GitIsRepo(ctx, path)
+	w.isGitRepo = GitIsRepo(tx, path)
 
 	// Load Workspace config (e.g. workspace.poly)
-	err = w.LoadConfigFromFile(ctx, path, validate)
+	err = w.LoadConfigFromFile(tx, path, validate)
 	if err != nil {
-		return ctx, nil, err
+		return nil, err
 	}
 
 	// Setup Logger
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("workspace", w.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
-	txid := polycrate.GetContextTXID(ctx)
+	tx.Log.SetField("workspace", w.Name)
 
 	// Set workspace.Path depending on --local
 	w.ContainerPath = filepath.Join([]string{w.Config.ContainerRoot}...)
@@ -1321,16 +1261,17 @@ func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (co
 	// Import installed blocks
 
 	// Find all blocks in the workspace
-	log.Debugf("Searching for installed blocks")
+	tx.Log.Debug("Searching for installed blocks")
+
 	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
-	if err := w.FindInstalledBlocks(ctx, blocksDir); err != nil {
-		return ctx, nil, err
+	if err := w.FindInstalledBlocks(tx, blocksDir); err != nil {
+		return nil, err
 	}
 
 	// Load all installed blocks in the workspace
-	log.Debugf("Loading installed blocks")
-	if err := w.LoadInstalledBlocks(ctx); err != nil {
-		return ctx, nil, err
+	tx.Log.Debug("Loading installed blocks")
+	if err := w.LoadInstalledBlocks(tx); err != nil {
+		return nil, err
 	}
 
 	// Bootstrap revision data
@@ -1338,50 +1279,52 @@ func (w *Workspace) Preload(ctx context.Context, path string, validate bool) (co
 	w.revision = &WorkspaceRevision{}
 	w.revision.Date = time.Now().Format(time.RFC3339)
 	w.revision.Command = w.FormatCommand(globalCmd)
-	w.revision.Transaction = txid
+	w.revision.Transaction = tx.TXID
 	w.revision.Version = w.Version
 
-	userInfo := polycrate.GetUserInfo(ctx)
+	userInfo := polycrate.GetUserInfo()
 	w.revision.UserEmail = userInfo["email"]
 	w.revision.UserName = userInfo["name"]
 
-	return ctx, w, nil
+	return w, nil
 }
 
-func (w *Workspace) Load(ctx context.Context, path string, validate bool) (*Workspace, error) {
+func (w *Workspace) Load(tx *PolycrateTransaction, path string, validate bool) (*Workspace, error) {
 	var err error
 
-	ctx, w, err = w.Preload(ctx, path, validate)
+	w, err = w.Preload(tx, path, validate)
 	if err != nil {
 		return nil, err
 	}
 
 	// Load Workspace inventory
-	log.Debugf("Loading workspace inventory")
-	if err := w.LoadInventory(ctx); err != nil {
+	tx.Log.Debug("Loading workspace inventory")
+	if err := w.LoadInventory(tx); err != nil {
 		return nil, err
 	}
 
 	// Load Workspace kubeconfig
-	log.Debugf("Loading workspace kubeconfig")
-	if err := w.LoadKubeconfig(ctx); err != nil {
+	tx.Log.Debug("Loading workspace kubeconfig")
+	if err := w.LoadKubeconfig(tx); err != nil {
 		return nil, err
 	}
 
 	// Resolve block dependencies
-	log.Debugf("Resolving block dependencies")
-	if err := w.ResolveBlockDependencies(ctx); err != nil {
+	tx.Log.Debug("Resolving block dependencies")
+	if err := w.ResolveBlockDependencies(tx); err != nil {
 		return nil, err
 	}
 
 	// Update workflow and step addresses
-	log.Debugf("Resolving workflows")
-	if err := w.ResolveWorkflows(ctx); err != nil {
+	tx.Log.Debug("Resolving workflows")
+	if err := w.ResolveWorkflows(tx); err != nil {
 		return nil, err
 	}
 
 	// Bootstrap env vars
-	w.bootstrapEnvVars(ctx).Flush()
+	if err := w.bootstrapEnvVars(); err != nil {
+		return nil, err
+	}
 
 	// Bootstrap container mounts
 	if err := w.bootstrapMounts(); err != nil {
@@ -1781,22 +1724,21 @@ func (c *Workspace) Uninstall() error {
 }
 
 // Resolves the 'from:' stanza of all blocks
-func (w *Workspace) ResolveBlockDependencies(ctx context.Context) error {
-	log := polycrate.GetContextLogger(ctx)
+func (w *Workspace) ResolveBlockDependencies(tx *PolycrateTransaction) error {
 
 	missing := len(w.Blocks)
 
 	// Iterate over all Blocks in the Workspace
 	// Until nothing is "missing" anymore
 	for missing > 0 {
-		log.Debugf("Unresolved blocks: %d", missing)
+		tx.Log.Debugf("Unresolved blocks: %d", missing)
 		for i := 0; i < len(w.Blocks); i++ {
 			loadedBlock := w.Blocks[i]
 
 			log.Tracef("Resolving block '%s' - resolved? %t", loadedBlock.Name, loadedBlock.resolved)
 
 			if !loadedBlock.resolved {
-				err := w.ResolveBlock(ctx, loadedBlock, w.LocalPath, w.ContainerPath)
+				err := w.ResolveBlock(tx, loadedBlock, w.LocalPath, w.ContainerPath)
 
 				if err != nil {
 					switch {
@@ -1865,17 +1807,22 @@ func (w *Workspace) resolveWorkflows() *Workspace {
 	}
 	return w
 }
-func (w *Workspace) ResolveWorkflows(ctx context.Context) error {
+func (w *Workspace) ResolveWorkflows(tx *PolycrateTransaction) error {
 	for i := 0; i < len(w.Workflows); i++ {
 		loadedWorkflow := w.Workflows[i]
 
 		loadedWorkflow.address = loadedWorkflow.Name
+		loadedWorkflow.workspace = w
+
 		// Register the workflow to the Index
 		w.registerWorkflow(loadedWorkflow)
 
 		// Loop over the steps
 		for _, step := range loadedWorkflow.Steps {
-			loadedStep := loadedWorkflow.getStepByName(step.Name)
+			loadedStep, err := loadedWorkflow.GetStep(step.Name)
+			if err != nil {
+				return err
+			}
 
 			// Set step address
 			loadedStep.address = strings.Join([]string{loadedWorkflow.Name, loadedStep.Name}, ".")
@@ -1884,6 +1831,8 @@ func (w *Workspace) ResolveWorkflows(ctx context.Context) error {
 			if err := loadedStep.validate(); err != nil {
 				return err
 			}
+
+			loadedStep.workflow = loadedWorkflow
 			w.registerStep(loadedStep)
 		}
 
@@ -1895,7 +1844,7 @@ func (w *Workspace) ResolveWorkflows(ctx context.Context) error {
 	return nil
 }
 
-func (c *Workspace) Validate(ctx context.Context) ([]string, error) {
+func (c *Workspace) Validate(tx *PolycrateTransaction) ([]string, error) {
 	err := validate.Struct(c)
 	errors := []string{}
 
@@ -1904,8 +1853,8 @@ func (c *Workspace) Validate(ctx context.Context) ([]string, error) {
 		// an invalid value for validation such as interface with nil
 		// value most including myself do not usually have code like this.
 		if _, ok := err.(*validator.InvalidValidationError); ok {
-			log.Error("Encountered problematic validation error")
-			log.Error(err)
+			tx.Log.Error("Encountered problematic validation error")
+			tx.Log.Error(err)
 			return errors, nil
 		}
 
@@ -2092,7 +2041,7 @@ func (w *Workspace) DumpMounts() []string {
 	return mounts
 }
 
-func (w *Workspace) bootstrapEnvVars(ctx context.Context) *Workspace {
+func (w *Workspace) bootstrapEnvVars() error {
 	// Prepare env map
 	w.env = map[string]string{}
 
@@ -2149,18 +2098,14 @@ func (w *Workspace) bootstrapEnvVars(ctx context.Context) *Workspace {
 		if len(p) == 2 {
 			w.registerEnvVar(p[0], p[1])
 		} else {
-			w.err = goErrors.New("Illegal value for env var found: " + envVar)
-			return w
+			return goErrors.New("Illegal value for env var found: " + envVar)
 		}
 	}
 
-	return w
+	return nil
 }
 
-func (c *Workspace) GetSnapshot(ctx context.Context) WorkspaceSnapshot {
-	log := polycrate.GetContextLogger(ctx)
-	log.Debug("Generating snapshot")
-
+func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
 	snapshot := WorkspaceSnapshot{
 		Workspace: c,
 		Action:    c.currentAction,
@@ -2175,9 +2120,8 @@ func (c *Workspace) GetSnapshot(ctx context.Context) WorkspaceSnapshot {
 	return snapshot
 }
 
-func (w *Workspace) SaveSnapshot(ctx context.Context) (string, error) {
-	log := polycrate.GetContextLogger(ctx)
-	snapshot := w.GetSnapshot(ctx)
+func (w *Workspace) SaveSnapshot(tx *PolycrateTransaction) (string, error) {
+	snapshot := w.GetSnapshot()
 
 	//c.RegisterSnapshotEnv(snapshot).Flush()
 
@@ -2188,11 +2132,10 @@ func (w *Workspace) SaveSnapshot(ctx context.Context) (string, error) {
 	}
 
 	if data != nil {
-		txid := polycrate.GetContextTXID(ctx)
-		snapshotSlug := slugify([]string{txid.String(), "workspace", "snapshot"})
+		snapshotSlug := slugify([]string{tx.TXID.String(), "workspace", "snapshot"})
 		snapshotFilename := strings.Join([]string{snapshotSlug, "yml"}, ".")
 
-		f, err := polycrate.getTempFile(ctx, snapshotFilename)
+		f, err := polycrate.getTempFile(tx.Context, snapshotFilename)
 		if err != nil {
 			return "", err
 		}
@@ -2205,9 +2148,6 @@ func (w *Workspace) SaveSnapshot(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-
-		log = log.WithField("path", f.Name())
-		log.Debugf("Saved snapshot")
 
 		// Closing file descriptor
 		// Getting fatal errors on windows WSL2 when accessing
@@ -2286,21 +2226,21 @@ func (c *Workspace) GetActionFromIndex(name string) *Action {
 // 	return nil
 // }
 
-func (w *Workspace) GetBlockWithContext(ctx context.Context, name string) (context.Context, *Block, error) {
-	block, err := w.GetBlock(name)
-	if err != nil {
-		return ctx, nil, err
-	}
+// func (w *Workspace) GetBlockWithContext(tx *PolycrateTransaction, name string) (*Block, error) {
+// 	block, err := w.GetBlock(name)
+// 	if err != nil {
+// 		return tx.Context, nil, err
+// 	}
 
-	blockKey := ContextKey("block")
-	ctx = context.WithValue(ctx, blockKey, block)
+// 	blockKey := ContextKey("block")
+// 	ctx = context.WithValue(ctx, blockKey, block)
 
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("block", block.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
+// 	log := polycrate.GetContextLogger(ctx)
+// 	log = log.WithField("block", block.Name)
+// 	ctx = polycrate.SetContextLogger(ctx, log)
 
-	return ctx, block, nil
-}
+// 	return ctx, block, nil
+// }
 
 func (w *Workspace) GetWorkflowWithContext(ctx context.Context, name string) (context.Context, *Workflow, error) {
 	workflow, err := w.GetWorkflow(name)
@@ -2411,16 +2351,14 @@ func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {
 // 	return c
 // }
 
-func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
-	log := polycrate.GetContextLogger(ctx)
-
+func (w *Workspace) UpdateSyncStatus(tx *PolycrateTransaction) error {
 	if polycrate.Config.Sync.Enabled {
-		if GitHasRemote(ctx, w.LocalPath) {
+		if GitHasRemote(tx, w.LocalPath) {
 			log.Tracef("Getting remote repository status")
 
 			// https://stackoverflow.com/posts/68187853/revisions
 			// Get remote reference
-			_, err := GitFetch(ctx, w.LocalPath)
+			_, err := GitFetch(tx, w.LocalPath)
 			if err != nil {
 				return err
 			}
@@ -2445,13 +2383,13 @@ func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 			// }
 
 			log.Tracef("Checking if behind remote")
-			behindBy, err := GitBehindBy(ctx, w.LocalPath)
+			behindBy, err := GitBehindBy(tx, w.LocalPath)
 			if err != nil {
 				return err
 			}
 
 			log.Tracef("Checking if ahead of remote")
-			aheadBy, err := GitAheadBy(ctx, w.LocalPath)
+			aheadBy, err := GitAheadBy(tx, w.LocalPath)
 			if err != nil {
 				return err
 			}
@@ -2479,11 +2417,11 @@ func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 			log.Tracef("Checking for uncommited changes")
 
 			// Has uncommited changes?
-			if GitHasChanges(ctx, w.LocalPath) {
+			if GitHasChanges(tx, w.LocalPath) {
 				w.syncStatus = "changed"
 			}
 
-			log = log.WithField("status", w.syncStatus).WithField("ahead", aheadBy).WithField("behind", behindBy)
+			log := log.WithField("status", w.syncStatus).WithField("ahead", aheadBy).WithField("behind", behindBy)
 			log.Debugf("Reporting sync status")
 		} else {
 			err := fmt.Errorf("no remote configured")
@@ -2491,7 +2429,7 @@ func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 		}
 
 	} else {
-		log = log.WithField("status", "disabled")
+		log := log.WithField("status", "disabled")
 		log.Debugf("Reporting sync status")
 	}
 	return nil
@@ -2520,15 +2458,14 @@ func (w *Workspace) UpdateSyncStatus(ctx context.Context) error {
 // 	}
 // 	return this
 // }
-func (w *Workspace) Commit(ctx context.Context, message string) error {
-	log := polycrate.GetContextLogger(ctx)
+func (w *Workspace) Commit(tx *PolycrateTransaction, message string) error {
 
-	hash, err := GitCommitAll(ctx, w.LocalPath, message)
+	hash, err := GitCommitAll(tx, w.LocalPath, message)
 	if err != nil {
 		return err
 	}
 
-	log = log.WithField("message", message)
+	log := log.WithField("message", message)
 	log = log.WithField("hash", hash)
 	log.Tracef("Added commit")
 
@@ -2544,9 +2481,9 @@ func (w *Workspace) Commit(ctx context.Context, message string) error {
 // 	return this
 // }
 
-func (w *Workspace) Pull(ctx context.Context) error {
+func (w *Workspace) Pull(tx *PolycrateTransaction) error {
 
-	_, err := GitPull(ctx, w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
+	_, err := GitPull(tx, w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
 	if err != nil {
 		return err
 	}
@@ -2563,9 +2500,9 @@ func (w *Workspace) Pull(ctx context.Context) error {
 // 	return this
 // }
 
-func (w *Workspace) Push(ctx context.Context) error {
+func (w *Workspace) Push(tx *PolycrateTransaction) error {
 
-	_, err := GitPush(ctx, w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
+	_, err := GitPush(tx, w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
 	if err != nil {
 		return err
 	}
@@ -2573,8 +2510,7 @@ func (w *Workspace) Push(ctx context.Context) error {
 	return nil
 }
 
-func (w *Workspace) RunSync(ctx context.Context) error {
-	log := polycrate.GetContextLogger(ctx)
+func (w *Workspace) RunSync(tx *PolycrateTransaction) error {
 
 	// if !w.syncLoaded {
 	// 	err := fmt.Errorf("sync not loaded")
@@ -2582,7 +2518,7 @@ func (w *Workspace) RunSync(ctx context.Context) error {
 	// }
 
 	if w.SyncOptions.Enabled {
-		if err := w.UpdateSyncStatus(ctx); err != nil {
+		if err := w.UpdateSyncStatus(tx); err != nil {
 			return err
 		}
 
@@ -2590,11 +2526,11 @@ func (w *Workspace) RunSync(ctx context.Context) error {
 		case "changed":
 			log.Debugf("Sync status: changes found - committing")
 
-			if err := w.Commit(ctx, "Sync auto-commit"); err != nil {
+			if err := w.Commit(tx, "Sync auto-commit"); err != nil {
 				return err
 			}
 
-			if err := w.RunSync(ctx); err != nil {
+			if err := w.RunSync(tx); err != nil {
 				return err
 			}
 		case "synced":
@@ -2609,21 +2545,21 @@ func (w *Workspace) RunSync(ctx context.Context) error {
 		case "ahead":
 			log.Debugf("Sync status: ahead of remote - pushing")
 
-			if err := w.Push(ctx); err != nil {
+			if err := w.Push(tx); err != nil {
 				return err
 			}
 
-			if err := w.RunSync(ctx); err != nil {
+			if err := w.RunSync(tx); err != nil {
 				return err
 			}
 		case "behind":
 			log.Debugf("Sync status: behind remote - pulling")
 
-			if err := w.Pull(ctx); err != nil {
+			if err := w.Pull(tx); err != nil {
 				return err
 			}
 
-			if err := w.RunSync(ctx); err != nil {
+			if err := w.RunSync(tx); err != nil {
 				return err
 			}
 		}
@@ -2635,7 +2571,7 @@ func (w *Workspace) RunSync(ctx context.Context) error {
 	return nil
 }
 
-func (w *Workspace) Sync(ctx context.Context) error {
+func (w *Workspace) Sync(tx *PolycrateTransaction) error {
 	if w.isGitRepo {
 		if !w.synced {
 			if w.syncNeeded {
@@ -2647,7 +2583,7 @@ func (w *Workspace) Sync(ctx context.Context) error {
 					// }
 
 					// sync workspace
-					if err := w.RunSync(ctx); err != nil {
+					if err := w.RunSync(tx); err != nil {
 						return err
 					}
 
@@ -2703,10 +2639,9 @@ func (w *Workspace) IsBlockInstalled(fullTag string, registryUrl string, blockNa
 	return false
 }
 
-func (w *Workspace) UpdateBlocks(ctx context.Context, args []string) error {
-	log := polycrate.GetContextLogger(ctx)
+func (w *Workspace) UpdateBlocks(tx *PolycrateTransaction, args []string) error {
 
-	log.Infof("%d blocks to update", len(args))
+	tx.Log.Infof("%d blocks to update", len(args))
 
 	eg := new(errgroup.Group)
 	for _, arg := range args {
@@ -2714,14 +2649,11 @@ func (w *Workspace) UpdateBlocks(ctx context.Context, args []string) error {
 		eg.Go(func() error {
 			fullTag, registryUrl, blockName, blockVersion := mapDockerTag(arg)
 
-			log = log.WithField("version", blockVersion)
+			log := tx.Log.log.WithField("version", blockVersion)
 			log = log.WithField("block", blockName)
-			ctx = polycrate.SetContextLogger(ctx, log)
-
-			//log.Debugf("Updating dependency")
 
 			// Download blocks from registry
-			err := w.PullBlock(ctx, fullTag, registryUrl, blockName, blockVersion)
+			err := w.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
 			if err != nil {
 				return err
 			}
@@ -2752,13 +2684,11 @@ func (w *Workspace) UpdateBlocks(ctx context.Context, args []string) error {
 // 			return err
 // 		}
 
-func (w *Workspace) PullBlock(ctx context.Context, fullTag string, registryUrl string, blockName string, blockVersion string) error {
-	log := polycrate.GetContextLogger(ctx)
-
+func (w *Workspace) PullBlock(tx *PolycrateTransaction, fullTag string, registryUrl string, blockName string, blockVersion string) error {
+	log := tx.Log.log
 	log = log.WithField("block", blockName)
 	log = log.WithField("version", blockVersion)
 	log = log.WithField("registry", registryUrl)
-	ctx = polycrate.SetContextLogger(ctx, log)
 
 	if w.IsBlockInstalled(fullTag, registryUrl, blockName, blockVersion) {
 		log.Infof("Block is already installed")
@@ -2769,11 +2699,10 @@ func (w *Workspace) PullBlock(ctx context.Context, fullTag string, registryUrl s
 
 	//log.Debugf("Pulling block %s:%s", blockName, blockVersion)
 	log = log.WithField("path", targetDir)
-	ctx = polycrate.SetContextLogger(ctx, log)
 
 	log.Infof("Pulling block")
 
-	err := UnwrapOCIImage(ctx, targetDir, registryUrl, blockName, blockVersion)
+	err := UnwrapOCIImage(tx.Context, targetDir, registryUrl, blockName, blockVersion)
 	if err != nil {
 		return err
 	}
@@ -2781,7 +2710,7 @@ func (w *Workspace) PullBlock(ctx context.Context, fullTag string, registryUrl s
 	// Load Block
 	//var block Block
 	//block.Workdir.LocalPath = targetDir
-	block, err := w.LoadBlock(ctx, targetDir)
+	block, err := w.LoadBlock(tx, targetDir)
 	if err != nil {
 		return err
 	}
@@ -2792,8 +2721,7 @@ func (w *Workspace) PullBlock(ctx context.Context, fullTag string, registryUrl s
 	return nil
 }
 
-func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
-	log := polycrate.GetContextLogger(ctx)
+func (c *Workspace) PushBlock(tx *PolycrateTransaction, blockName string) error {
 	// Get the block
 	// Check that it has a version
 	// Check if release with new version exists in registry
@@ -2814,11 +2742,9 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 	} else {
 		return fmt.Errorf("block not found in workspace: %s", blockName)
 	}
-	log = log.WithField("block", block.Name)
+	log := tx.Log.log.WithField("block", block.Name)
 	log = log.WithField("version", block.Version)
 	log = log.WithField("path", block.Workdir.LocalPath)
-
-	ctx = polycrate.SetContextLogger(ctx, log)
 
 	log.Infof("Pushing block")
 
@@ -2829,9 +2755,9 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 	// append "dev" and the first 98 chars of the transaction ID to the tag (still sem-ver compatible)
 	if dev {
 		// Append "-dev" to tag
-		txid := polycrate.GetContextTXID(ctx)
+		txid := tx.TXID.String()
 		_tagVersion := strings.Join([]string{tagVersion, "dev"}, "-")
-		tagVersion = strings.Join([]string{_tagVersion, txid.String()[:8]}, ".")
+		tagVersion = strings.Join([]string{_tagVersion, txid[:8]}, ".")
 
 		if block.Labels == nil {
 			block.Labels = map[string]string{}
@@ -2841,7 +2767,7 @@ func (c *Workspace) PushBlock(ctx context.Context, blockName string) error {
 
 	block.Labels["polycrate.block.version"] = block.Version
 
-	err = WrapOCIImage(ctx, block.Workdir.LocalPath, registryUrl, blockName, tagVersion, block.Labels)
+	err = WrapOCIImage(tx.Context, block.Workdir.LocalPath, registryUrl, blockName, tagVersion, block.Labels)
 	if err != nil {
 		return err
 	}
@@ -2910,12 +2836,9 @@ func (c *Workspace) Print() {
 // 	return w
 
 // }
-func (w *Workspace) LoadInstalledBlocks(ctx context.Context) error {
-	log := polycrate.GetContextLogger(ctx)
-
+func (w *Workspace) LoadInstalledBlocks(tx *PolycrateTransaction) error {
 	for _, installedBlock := range w.installedBlocks {
-		log = log.WithField("block", installedBlock.Name)
-		ctx = polycrate.SetContextLogger(ctx, log)
+		log := tx.Log.log.WithField("block", installedBlock.Name)
 
 		// Check if Block exists
 		existingBlock, err := w.GetBlock(installedBlock.Name)
@@ -2963,7 +2886,7 @@ func (w *Workspace) LoadInstalledBlocks(ctx context.Context) error {
 	return nil
 }
 
-func (w *Workspace) LoadBlock(ctx context.Context, path string) (*Block, error) {
+func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, error) {
 	block := new(Block)
 	blockConfigFilePath := filepath.Join(path, w.Config.BlocksConfig)
 	block.Workdir.LocalPath = path
@@ -3098,9 +3021,8 @@ func (w *Workspace) LoadBlock(ctx context.Context, path string) (*Block, error) 
 // 	return w
 // }
 
-func (w *Workspace) FindInstalledBlocks(ctx context.Context, path string) error {
+func (w *Workspace) FindInstalledBlocks(tx *PolycrateTransaction, path string) error {
 	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
-	log := polycrate.GetContextLogger(ctx)
 
 	// reset installedBlocks
 	// when running a workflow, without reseting the count of installed blocks just continuously increases
@@ -3122,7 +3044,7 @@ func (w *Workspace) FindInstalledBlocks(ctx context.Context, path string) error 
 					//var block Block
 					//block.Workdir.LocalPath = blockConfigFileDir
 
-					block, err := w.LoadBlock(ctx, blockConfigFileDir)
+					block, err := w.LoadBlock(tx, blockConfigFileDir)
 					if err != nil {
 						return err
 					}
@@ -3137,10 +3059,10 @@ func (w *Workspace) FindInstalledBlocks(ctx context.Context, path string) error 
 			return err
 		}
 	} else {
-		log := polycrate.GetContextLogger(ctx)
-		log.WithField("path", blocksDir).Debugf("Skipping block discovery. Blocks directory not found")
+		log := tx.Log.log.WithField("path", blocksDir)
+		log.Debugf("Skipping block discovery. Blocks directory not found")
 	}
-	log.Debugf("Installed blocks: %d", len(w.installedBlocks))
+	tx.Log.Debugf("Installed blocks: %d", len(w.installedBlocks))
 
 	return nil
 }

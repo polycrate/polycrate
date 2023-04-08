@@ -298,40 +298,32 @@ func (c *Action) MergeIn(action Action) error {
 // 	return err
 // }
 
-func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
-	log := polycrate.GetContextLogger(ctx)
+func (a *Action) Run(tx *PolycrateTransaction) error {
 
-	log.Infof("Running action")
+	tx.Log.Infof("Running action")
 
 	// Check if a prompt is configured and execute it
 	if a.Prompt.Message != "" {
-		result := a.Prompt.Validate(ctx)
+		result := a.Prompt.Validate()
 		if !result {
-			return ctx, fmt.Errorf("not running action. user confirmation declined")
+			return fmt.Errorf("not running action. user confirmation declined")
 		}
 	}
 
-	workspace, err := polycrate.GetContextWorkspace(ctx)
-	if err != nil {
-		return ctx, err
-	}
+	block := a.block
+	workspace := block.workspace
 
-	block, err := polycrate.GetContextBlock(ctx)
-	if err != nil {
-		return ctx, err
-	}
-
-	log.Debugf("Running action")
+	tx.Log.Debugf("Running action")
 
 	// 3. Determine inventory path
-	inventoryPath := block.getInventoryPath(ctx)
+	inventoryPath := block.getInventoryPath(tx)
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", inventoryPath)
-	log.Tracef("Updating inventory: %s", inventoryPath)
+	tx.Log.Tracef("Updating inventory: %s", inventoryPath)
 
 	// 4. Determine kubeconfig path
-	kubeconfigPath := block.getKubeconfigPath(ctx)
+	kubeconfigPath := block.getKubeconfigPath(tx)
 	workspace.registerEnvVar("KUBECONFIG", kubeconfigPath)
-	log.Tracef("Updating kubeconfig: %s", kubeconfigPath)
+	tx.Log.Tracef("Updating kubeconfig: %s", kubeconfigPath)
 
 	// register environment variables
 	workspace.registerEnvVar("POLYCRATE_RUNTIME_SCRIPT_PATH", a.executionScriptPath)
@@ -343,34 +335,33 @@ func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 	}
 
 	if snapshot {
-		workspace.Snapshot(ctx)
+		workspace.Snapshot()
 	} else {
 		// Save snapshot before running the action
-		if snapshotPath, err := workspace.SaveSnapshot(ctx); err != nil {
-			return ctx, err
+		if snapshotPath, err := workspace.SaveSnapshot(tx); err != nil {
+			return err
 		} else {
 			// Save execution script
 			var err error
 			if len(a.Script) > 0 {
-				err = a.SaveExecutionScript(ctx)
+				err = a.SaveExecutionScript(tx)
 				// We use the vars plugin in "script" mode
 				workspace.registerEnvVar("ANSIBLE_VARS_ENABLED", "polycrate_vars")
 			} else if a.Playbook != "" {
-				err = a.saveAnsibleScript(ctx, snapshotPath)
+				err = a.saveAnsibleScript(tx, snapshotPath)
 			} else {
 				err = fmt.Errorf("neither 'script' nor 'playbook' have been defined")
 			}
 
 			if err != nil {
-				return ctx, err
+				return err
 			}
 
 			// register mounts
 			workspace.registerMount(a.executionScriptPath, a.executionScriptPath)
 
 			if !local {
-				txid := polycrate.GetContextTXID(ctx)
-				containerName := txid.String()
+				containerName := tx.TXID.String()
 
 				runCommand := []string{}
 				if a.executionScriptPath != "" {
@@ -378,12 +369,12 @@ func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 
 					runCommand = append(runCommand, a.executionScriptPath)
 				} else {
-					return ctx, goErrors.New("no execution script path given. Nothing to do")
+					return goErrors.New("no execution script path given. Nothing to do")
 				}
 
-				ctx, err = workspace.RunContainerWithContext(ctx, containerName, block.Workdir.Path, runCommand)
+				err = workspace.RunContainer(tx, containerName, block.Workdir.Path, runCommand)
 				if err != nil {
-					return ctx, err
+					return err
 				}
 			} else {
 				args := []string{"-c"}
@@ -392,38 +383,37 @@ func (a *Action) RunWithContext(ctx context.Context) (context.Context, error) {
 
 					args = append(args, a.executionScriptPath)
 				} else {
-					return ctx, goErrors.New("no execution script path given. Nothing to do")
+					return goErrors.New("no execution script path given. Nothing to do")
 				}
-				_, output, err := RunCommand(ctx, workspace.DumpEnv(), "/bin/bash", args...)
+				exitCode, output, err := RunCommand(tx.Context, workspace.DumpEnv(), "/bin/bash", args...)
 				if err != nil {
 					fmt.Println(output)
-					return ctx, err
+					return err
 				}
+
+				tx.SetExitCode(exitCode)
+				tx.SetOutput(output)
 
 				//err := fmt.Errorf("'local' mode not yet implemented")
 				//return ctx, err
 			}
 		}
 	}
-	return ctx, nil
+	return nil
 }
 
-func (c *Action) SaveExecutionScript(ctx context.Context) error {
-	txid := polycrate.GetContextTXID(ctx)
-	workspace, err := polycrate.GetContextWorkspace(ctx)
-	if err != nil {
-		return err
-	}
-	log := polycrate.GetContextLogger(ctx)
+func (c *Action) SaveExecutionScript(tx *PolycrateTransaction) error {
 
-	script := c.GetExecutionScript(ctx)
-	snapshot := workspace.GetSnapshot(ctx)
+	workspace := c.block.workspace
 
-	scriptSlug := slugify([]string{txid.String(), "execution", "script"})
+	script := c.GetExecutionScript()
+	snapshot := workspace.GetSnapshot()
+
+	scriptSlug := slugify([]string{tx.TXID.String(), "execution", "script"})
 	scriptFilename := strings.Join([]string{scriptSlug, "sh"}, ".")
 
 	if script != nil {
-		f, err := polycrate.getTempFile(ctx, scriptFilename)
+		f, err := polycrate.getTempFile(tx.Context, scriptFilename)
 		if err != nil {
 			return err
 		}
@@ -449,7 +439,7 @@ func (c *Action) SaveExecutionScript(ctx context.Context) error {
 		}
 
 		datawriter.Flush()
-		log = log.WithField("path", f.Name())
+		log := tx.Log.log.WithField("path", f.Name())
 		log.Debug("Saved temporary execution script")
 
 		// Make executable
@@ -475,9 +465,7 @@ func (c *Action) SaveExecutionScript(ctx context.Context) error {
 
 }
 
-func (a *Action) saveAnsibleScript(ctx context.Context, snapshotContainerPath string) error {
-	log := polycrate.GetContextLogger(ctx)
-
+func (a *Action) saveAnsibleScript(tx *PolycrateTransaction, snapshotContainerPath string) error {
 	// Prepare script
 	scriptSlice := []string{
 		"#!/bin/bash",
@@ -486,14 +474,13 @@ func (a *Action) saveAnsibleScript(ctx context.Context, snapshotContainerPath st
 
 	scriptString := fmt.Sprintf("ansible-playbook -e '@%s' %s", snapshotContainerPath, a.Playbook)
 	script := append(scriptSlice, scriptString)
-	snapshot := workspace.GetSnapshot(ctx)
+	snapshot := workspace.GetSnapshot()
 
-	txid := polycrate.GetContextTXID(ctx)
-	scriptSlug := slugify([]string{txid.String(), "execution", "script"})
+	scriptSlug := slugify([]string{tx.TXID.String(), "execution", "script"})
 	scriptFilename := strings.Join([]string{scriptSlug, "sh"}, ".")
 
 	if script != nil {
-		f, err := polycrate.getTempFile(ctx, scriptFilename)
+		f, err := polycrate.getTempFile(tx.Context, scriptFilename)
 		if err != nil {
 			return err
 		}
@@ -519,8 +506,6 @@ func (a *Action) saveAnsibleScript(ctx context.Context, snapshotContainerPath st
 		}
 
 		datawriter.Flush()
-		log = log.WithField("path", f.Name())
-		log.Debug("Saved temporary execution script")
 
 		// Make executable
 		err = os.Chmod(f.Name(), 0755)
@@ -545,9 +530,7 @@ func (a *Action) saveAnsibleScript(ctx context.Context, snapshotContainerPath st
 
 }
 
-func (c *Action) GetExecutionScript(ctx context.Context) []string {
-	log := polycrate.GetContextLogger(ctx)
-
+func (c *Action) GetExecutionScript() []string {
 	// Prepare script
 	scriptSlice := []string{
 		"#!/bin/bash",
@@ -560,7 +543,6 @@ func (c *Action) GetExecutionScript(ctx context.Context) []string {
 		for _, scriptLine := range c.Script {
 			scriptLineStr := fmt.Sprintf("%v", scriptLine)
 			scriptStrings = append(scriptStrings, scriptLineStr)
-			log.Debugf("scriptLine as String: %s", scriptLineStr)
 		}
 		script := append(scriptSlice, scriptStrings...)
 		return script

@@ -132,26 +132,25 @@ func (b *Block) Flush() *Block {
 	return b
 }
 
-func (b *Block) SSH(ctx context.Context, hostname string, workspace *Workspace) error {
-	log := polycrate.GetContextLogger(ctx)
+func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Workspace) error {
+	log := tx.Log.log
 	log.Infof("Starting SSH session")
 
-	txid := polycrate.GetContextTXID(ctx)
-	containerName := slugify([]string{txid.String(), "ssh"})
+	containerName := slugify([]string{tx.TXID.String(), "ssh"})
 	fileName := strings.Join([]string{containerName, "yml"}, ".")
-	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath(ctx))
-	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath(ctx))
+	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath(tx))
+	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath(tx))
 	workspace.registerCurrentBlock(b)
 
 	// Create temp file to write output to
-	f, err := polycrate.getTempFile(ctx, fileName)
+	f, err := polycrate.getTempFile(tx.Context, fileName)
 	if err != nil {
 		return err
 	}
 
 	workspace.registerMount(f.Name(), f.Name())
 
-	if _, err := workspace.SaveSnapshot(ctx); err != nil {
+	if _, err := workspace.SaveSnapshot(tx); err != nil {
 		return err
 	}
 
@@ -163,7 +162,7 @@ func (b *Block) SSH(ctx context.Context, hostname string, workspace *Workspace) 
 		"--output-file",
 		f.Name(),
 	}
-	ctx, err = workspace.RunContainerWithContext(ctx, containerName, workspace.ContainerPath, cmd)
+	err = workspace.RunContainer(tx, containerName, workspace.ContainerPath, cmd)
 	if err != nil {
 		return err
 	}
@@ -212,7 +211,7 @@ func (b *Block) SSH(ctx context.Context, hostname string, workspace *Workspace) 
 
 	//err = connectWithSSH(user, ip, port, privateKey)
 	interactive = true
-	err = ConnectWithSSH(ctx, user, ip, port, privateKey)
+	err = ConnectWithSSH(tx, user, ip, port, privateKey)
 	if err != nil {
 		return err
 	}
@@ -464,22 +463,22 @@ func (b *Block) ValidateSchema() error {
 	return nil
 }
 
-func (b *Block) Reload(ctx context.Context, workspace *Workspace) error {
+func (b *Block) Reload(tx *PolycrateTransaction) error {
 	eg := new(errgroup.Group)
 
 	// Update Artifacts, Kubeconfig & Inventory
 	eg.Go(func() error {
-		err := b.LoadArtifacts(ctx, workspace)
+		err := b.LoadArtifacts(tx)
 		if err != nil {
 			return err
 		}
 
-		err = b.LoadInventory(ctx, workspace)
+		err = b.LoadInventory(tx)
 		if err != nil {
 			return err
 		}
 
-		err = b.LoadKubeconfig(ctx, workspace)
+		err = b.LoadKubeconfig(tx)
 		if err != nil {
 			return err
 		}
@@ -492,8 +491,7 @@ func (b *Block) Reload(ctx context.Context, workspace *Workspace) error {
 	return nil
 }
 
-func (c *Block) getInventoryPath(ctx context.Context) string {
-	log := polycrate.GetContextLogger(ctx)
+func (c *Block) getInventoryPath(tx *PolycrateTransaction) string {
 
 	// workspace, err := polycrate.GetContextWorkspace(ctx)
 	// if err != nil {
@@ -503,16 +501,16 @@ func (c *Block) getInventoryPath(ctx context.Context) string {
 
 	if c.Inventory.From != "" {
 		// Take the inventory from another Block
-		log.Debugf("Loading inventory from block %s", c.Inventory.From)
+		tx.Log.Debugf("Loading inventory from block %s", c.Inventory.From)
 		inventorySourceBlock, err := workspace.GetBlock(c.Inventory.From)
 		if err != nil {
-			log.Errorf("Block %s not found", c.Inventory.From)
+			tx.Log.Errorf("Block %s not found", c.Inventory.From)
 		}
 
 		if inventorySourceBlock != nil {
 			return inventorySourceBlock.Inventory.Path
 		} else {
-			log.Errorf("Inventory source '%s' not found", c.Inventory.From)
+			tx.Log.Errorf("Inventory source '%s' not found", c.Inventory.From)
 		}
 	} else {
 		return c.Inventory.Path
@@ -520,31 +518,30 @@ func (c *Block) getInventoryPath(ctx context.Context) string {
 	return "/etc/ansible/hosts"
 }
 
-func (c *Block) getKubeconfigPath(ctx context.Context) string {
-	log := polycrate.GetContextLogger(ctx)
-
+func (b *Block) getKubeconfigPath(tx *PolycrateTransaction) string {
 	// workspace, err := polycrate.GetContextWorkspace(ctx)
 	// if err != nil {
 	// 	log.Fatalf("Couldn't get workspace from context")
 	// }
-	workspace := c.workspace
+	workspace := b.workspace
 
-	if c.Kubeconfig.From != "" {
+	if b.Kubeconfig.From != "" {
 		// Take the kubeconfig from another Block
-		log.Debugf("Loading Kubeconfig from block %s", c.Kubeconfig.From)
-		kubeconfigSourceBlock := workspace.getBlockByName(c.Kubeconfig.From)
+		log.Debugf("Loading Kubeconfig from block %s", b.Kubeconfig.From)
+		kubeconfigSourceBlock := workspace.getBlockByName(b.Kubeconfig.From)
 		if kubeconfigSourceBlock != nil {
 			return kubeconfigSourceBlock.Kubeconfig.Path
 		} else {
-			log.Errorf("Kubeconfig source '%s' not found", c.Kubeconfig.From)
+			tx.Log.Errorf("Kubeconfig source '%s' not found", b.Kubeconfig.From)
 		}
 	} else {
-		return c.Kubeconfig.Path
+		return b.Kubeconfig.Path
 	}
 	return ""
 }
 
-func (b *Block) GetActionWithContext(ctx context.Context, name string) (context.Context, *Action, error) {
+func (b *Block) GetActionWithContext(tx *PolycrateTransaction, name string) (context.Context, *Action, error) {
+	ctx := tx.Context
 	action, err := b.GetAction(name)
 	if err != nil {
 		return ctx, nil, err
@@ -674,28 +671,7 @@ func (c *Block) MergeIn(block *Block) error {
 		if polycrate.Config.Experimental.MergeV2 {
 			log.Warn("Merging block config using experimental merge method")
 
-			// Unmarshal into installed block
-			fmt.Println(c.blockConfig.AllKeys())
-			fmt.Println(block.blockConfig.AllKeys())
-
-			// Marshal existing config to bytes
-			// ec, err := yaml.Marshal(c.Config)
-			// if err != nil {
-			// 	return err
-			// }
-
-			// Unmarshal that into the existing block config
-
 			c.Config = mergeMaps(block.Config, c.Config)
-			//err = yaml.Unmarshal(ec, incomfingBlockConfig)
-			// if err != nil {
-			// 	return err
-			// }
-			// err := block.blockConfig.UnmarshalKey("config", &c.Config)
-			// if err != nil {
-			// 	return err
-			// }
-
 		} else {
 
 			if err := mergo.Merge(&c.Config, block.Config); err != nil {
@@ -783,9 +759,8 @@ func (b *Block) Inspect() {
 	printObject(b)
 }
 
-func (c *Block) LoadInventory(ctx context.Context, workspace *Workspace) error {
+func (c *Block) LoadInventory(tx *PolycrateTransaction) error {
 	// Locate "inventory.yml" in blockArtifactsDir
-	log := polycrate.GetContextLogger(ctx)
 
 	var localInventoryFile string
 	var containerInventoryFile string
@@ -819,15 +794,11 @@ func (c *Block) LoadInventory(ctx context.Context, workspace *Workspace) error {
 		c.Inventory.Path = c.Inventory.ContainerPath
 	}
 
-	log = log.WithField("path", c.Inventory.Path)
-	log = log.WithField("exists", c.Inventory.exists)
-	log.Debugf("Inventory loaded")
 	return nil
 }
 
-func (c *Block) LoadKubeconfig(ctx context.Context, workspace *Workspace) error {
+func (c *Block) LoadKubeconfig(tx *PolycrateTransaction) error {
 	// Locate "kubeconfig.yml" in blockArtifactsDir
-	log := polycrate.GetContextLogger(ctx)
 
 	var localKubeconfigFile string
 	var containerKubeconfigFile string
@@ -860,17 +831,15 @@ func (c *Block) LoadKubeconfig(ctx context.Context, workspace *Workspace) error 
 		c.Kubeconfig.Path = c.Kubeconfig.ContainerPath
 	}
 
-	log = log.WithField("path", c.Kubeconfig.Path)
-	log = log.WithField("exists", c.Kubeconfig.exists)
-	log.Debugf("Kubeconfig loaded")
 	return nil
 }
 
-func (b *Block) LoadArtifacts(ctx context.Context, workspace *Workspace) error {
+func (b *Block) LoadArtifacts(tx *PolycrateTransaction) error {
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
-	b.Artifacts.LocalPath = filepath.Join(workspace.LocalPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, b.Name)
+
+	b.Artifacts.LocalPath = filepath.Join(b.workspace.LocalPath, b.workspace.Config.ArtifactsRoot, b.workspace.Config.BlocksRoot, b.Name)
 	// e.g. /workspace/artifacts/blocks/block-1
-	b.Artifacts.ContainerPath = filepath.Join(workspace.ContainerPath, workspace.Config.ArtifactsRoot, workspace.Config.BlocksRoot, b.Name)
+	b.Artifacts.ContainerPath = filepath.Join(b.workspace.ContainerPath, b.workspace.Config.ArtifactsRoot, b.workspace.Config.BlocksRoot, b.Name)
 
 	if local {
 		b.Artifacts.Path = b.Artifacts.LocalPath
@@ -885,7 +854,7 @@ func (b *Block) LoadArtifacts(ctx context.Context, workspace *Workspace) error {
 		if err := os.MkdirAll(b.Artifacts.LocalPath, os.ModePerm); err != nil {
 			return err
 		}
-		log.Debugf("Created artifacts directory for block %s at %s", b.Name, b.Artifacts.LocalPath)
+		tx.Log.Debugf("Created artifacts directory for block %s at %s", b.Name, b.Artifacts.LocalPath)
 	}
 	return nil
 

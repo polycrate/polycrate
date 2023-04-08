@@ -16,8 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -31,28 +29,23 @@ var actionsInspectCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction()
+		tx.SetCommand(cmd)
+		defer tx.Stop()
 
-		log := polycrate.GetContextLogger(ctx)
-
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		var block *Block
-		ctx, block, err = workspace.GetBlockWithContext(ctx, args[0])
+		block, err = workspace.GetBlock(args[0])
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		var action *Action
-		_, action, err = block.GetActionWithContext(ctx, args[1])
+		action, err = block.GetAction(args[1])
 		if err != nil {
 			log.Fatal(err)
 		}

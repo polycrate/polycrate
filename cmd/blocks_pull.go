@@ -16,8 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -30,21 +28,16 @@ var blocksPullCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		log := polycrate.GetContextLogger(ctx)
-
-		ctx, workspace, err := polycrate.PreloadWorkspaceWithContext(ctx, _w, false)
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		blockInfo := args[0]
+
+		tx := polycrate.Transaction()
+		tx.SetCommand(cmd)
+		defer tx.Stop()
+
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
+		if err != nil {
+			tx.Log.Fatal(err)
+		}
 
 		fullTag, registryUrl, blockName, blockVersion := mapDockerTag(blockInfo)
 
@@ -53,7 +46,7 @@ var blocksPullCmd = &cobra.Command{
 		// 	log.Fatal(err)
 		// }
 
-		err = workspace.PullBlock(ctx, fullTag, registryUrl, blockName, blockVersion)
+		err = workspace.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/moby/term"
 	log "github.com/sirupsen/logrus"
@@ -71,14 +70,14 @@ func PullImageGo(ctx context.Context, image string) error {
 	return nil
 }
 
-func PullImage(ctx context.Context, image string) (int, string, error) {
+func PullImage(tx *PolycrateTransaction, image string) (int, string, error) {
 	// Prepare container command
 	var runCmd []string
 
 	runCmd = append(runCmd, []string{"pull", image}...)
 
 	// Pull image
-	exitCode, output, err := RunCommandWithOutput(ctx, nil, "docker", runCmd...)
+	exitCode, output, err := RunCommandWithOutput(tx.Context, nil, "docker", runCmd...)
 
 	return exitCode, output, err
 }
@@ -183,7 +182,7 @@ func logDocker(reader io.ReadCloser) error {
 // 	return nil
 // }
 
-func PruneContainer(ctx context.Context, filters []string) (int, string, error) {
+func PruneContainer(tx *PolycrateTransaction, filters []string) (int, string, error) {
 
 	// Prepare container command
 	var runCmd []string
@@ -197,14 +196,12 @@ func PruneContainer(ctx context.Context, filters []string) (int, string, error) 
 	}
 
 	// Prune container
-	exitCode, output, err := RunCommandWithOutput(ctx, nil, "docker", runCmd...)
+	exitCode, output, err := RunCommandWithOutput(tx.Context, nil, "docker", runCmd...)
 
 	return exitCode, output, err
 }
 
-func RunContainer(ctx context.Context, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
-	log := polycrate.GetContextLogger(ctx)
-
+func RunContainer(tx *PolycrateTransaction, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
 	// Prepare container command
 	var runCmd []string
 
@@ -243,7 +240,7 @@ func RunContainer(ctx context.Context, image string, command []string, env []str
 
 	// Interactive
 	if interactive {
-		log.Info("Running in interactive mode")
+		tx.Log.Info("Running in interactive mode")
 		runCmd = append(runCmd, []string{"-it"}...)
 	} else {
 		runCmd = append(runCmd, []string{"-t"}...)
@@ -264,13 +261,13 @@ func RunContainer(ctx context.Context, image string, command []string, env []str
 	runCmd = append(runCmd, command...)
 
 	// Run container
-	exitCode, output, err := RunCommand(ctx, env, "docker", runCmd...)
+	exitCode, output, err := RunCommand(tx.Context, env, "docker", runCmd...)
 
 	return exitCode, output, err
 }
 
-func CreateContainer(ctx context.Context, name string, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
-	log := polycrate.GetContextLogger(ctx)
+func CreateContainer(tx *PolycrateTransaction, name string, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
+	log := tx.Log.log
 	log = log.WithField("container", name)
 	log.Debugf("Creating container")
 
@@ -320,32 +317,32 @@ func CreateContainer(ctx context.Context, name string, image string, command []s
 	}
 
 	// Run container
-	exitCode, _, err := RunCommandWithOutput(ctx, nil, "docker", runCmd...)
+	exitCode, _, err := RunCommandWithOutput(tx.Context, nil, "docker", runCmd...)
 
 	return exitCode, name, err
 }
 
-func CopyFromContainer(ctx context.Context, container string, src string, dst string) error {
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("container", container)
-	log = log.WithField("src", src)
-	log = log.WithField("dst", dst)
-	log.Debugf("Copying file from container")
+// func CopyFromContainer(tx *PolycrateTransaction, container string, src string, dst string) error {
+// 	log := tx.Log.log
+// 	log = log.WithField("container", container)
+// 	log = log.WithField("src", src)
+// 	log = log.WithField("dst", dst)
+// 	log.Debugf("Copying file from container")
 
-	// Prepare container command
-	var runCmd []string
+// 	// Prepare container command
+// 	var runCmd []string
 
-	_src := strings.Join([]string{container, src}, ":")
-	runCmd = append(runCmd, []string{"docker", "cp", _src, dst}...)
+// 	_src := strings.Join([]string{container, src}, ":")
+// 	runCmd = append(runCmd, []string{"docker", "cp", _src, dst}...)
 
-	// Copy
-	_, _, err := RunCommandWithOutput(ctx, nil, "sudo", runCmd...)
+// 	// Copy
+// 	_, _, err := RunCommandWithOutput(tx.Context, nil, "sudo", runCmd...)
 
-	return err
-}
+// 	return err
+// }
 
-func RemoveContainer(ctx context.Context, container string) error {
-	log := polycrate.GetContextLogger(ctx)
+func RemoveContainer(tx *PolycrateTransaction, container string) error {
+	log := tx.Log.log
 	log = log.WithField("container", container)
 	log.Debugf("Removing container")
 	// Prepare container command
@@ -354,7 +351,7 @@ func RemoveContainer(ctx context.Context, container string) error {
 	runCmd = append(runCmd, []string{"rm", "--force", container}...)
 
 	// Remove container
-	_, _, err := RunCommandWithOutput(ctx, nil, "docker", runCmd...)
+	_, _, err := RunCommandWithOutput(tx.Context, nil, "docker", runCmd...)
 
 	return err
 }

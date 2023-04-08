@@ -73,6 +73,7 @@ type Step struct {
 	Prompt      Prompt            `yaml:"prompt,omitempty" mapstructure:"prompt,omitempty" json:"prompt,omitempty"`
 	Workflow    string            `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
 	address     string
+	workflow    *Workflow
 	//err         error
 }
 
@@ -87,52 +88,51 @@ type Workflow struct {
 	AllowFailure bool              `yaml:"allow_failure,omitempty" mapstructure:"allow_failure,omitempty" json:"allow_failure,omitempty"`
 	address      string
 	//err         error
+	workspace *Workspace
 }
 
 func (c *Workflow) Inspect() {
 	printObject(c)
 }
 
-func (w *Workflow) RunWithContext(ctx context.Context, stepName string) (context.Context, error) {
-	log := polycrate.GetContextLogger(ctx)
-
-	log.Infof("Running Workflow")
+func (w *Workflow) Run(tx *PolycrateTransaction, stepName string) error {
+	tx.Log.Infof("Running Workflow")
 
 	// Check if a prompt is configured and execute it
 	if w.Prompt.Message != "" {
-		result := w.Prompt.Validate(ctx)
+		result := w.Prompt.Validate()
 		if !result {
-			return ctx, fmt.Errorf("not running workflow. user confirmation declined")
+			return fmt.Errorf("not running workflow. user confirmation declined")
 		}
 	}
 
 	// Check if any steps are configured
 	// Return an error if not
 	if len(w.Steps) == 0 {
-		return ctx, goErrors.New("no steps defined for workflow " + w.Name)
+		return goErrors.New("no steps defined for workflow " + w.Name)
 	}
 
 	// If a step name has been given, only run this step
 	if stepName != "" {
-		ctx, step, err := w.GetStepWithContext(ctx, stepName)
+		step, err := w.GetStep(stepName)
 		if err != nil {
-			return ctx, err
+			return err
 		}
 
-		return ctx, step.Run(ctx)
+		return step.Run(tx)
 	}
 
 	for _, step := range w.Steps {
-		ctx, step, err := w.GetStepWithContext(ctx, step.Name)
+		step, err := w.GetStep(step.Name)
 		if err != nil {
-			return ctx, err
+			return err
 		}
 
-		err = step.Run(ctx)
+		err = step.Run(tx)
 		if err != nil {
 			// Check AllowFailure, move on if it's OK
 			if !w.AllowFailure {
-				return ctx, err
+				return err
 			}
 			log.Warnf("Step exited with an error: '%s'; continuing workflow execution because `allow_failure` is true", err)
 		}
@@ -141,7 +141,7 @@ func (w *Workflow) RunWithContext(ctx context.Context, stepName string) (context
 		//workspace.Reload(ctx)
 	}
 
-	return ctx, nil
+	return nil
 }
 
 // func (w *Workflow) Run(ctx context.Context) error {
@@ -184,18 +184,13 @@ func (w *Workflow) RunWithContext(ctx context.Context, stepName string) (context
 // 	return nil
 // }
 
-func (s *Step) Run(ctx context.Context) error {
-	log := polycrate.GetContextLogger(ctx)
-
-	workspace, err := polycrate.GetContextWorkspace(ctx)
-	if err != nil {
-		return err
-	}
+func (s *Step) Run(tx *PolycrateTransaction) error {
+	workspace := s.workflow.workspace
 
 	// // Get workflow from step
 	// workflow := workspace.GetWorkflowFromIndex(s.Workflow)
 
-	log.Infof("Running step")
+	tx.Log.Infof("Running step")
 
 	// Reloading Workspace to discover new files
 	//workspace.load().Flush()
@@ -213,11 +208,11 @@ func (s *Step) Run(ctx context.Context) error {
 	// Check for prompt
 	var runStep = true
 	if s.Prompt.Message != "" {
-		runStep = s.Prompt.Validate(ctx)
+		runStep = s.Prompt.Validate()
 	}
 
 	if runStep {
-		_, err = workspace.RunActionWithContext(ctx, s.Block, s.Action)
+		err := workspace.RunAction(tx, s.Block, s.Action)
 		if err != nil {
 			return err
 		}

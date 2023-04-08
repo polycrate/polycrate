@@ -16,8 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -33,19 +31,16 @@ The action address is a combination of the Block name and the Action name, joine
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
+		tx := polycrate.Transaction()
+		tx.SetCommand(cmd)
+		defer tx.Stop()
+
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		_, err = workspace.RunActionWithContext(ctx, args[0], args[1])
+		err = workspace.RunAction(tx, args[0], args[1])
 		if err != nil {
 			log.Fatal(err)
 		}

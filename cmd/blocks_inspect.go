@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -32,22 +31,16 @@ var blocksInspectCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
+		tx := polycrate.Transaction()
+		tx.SetCommand(cmd)
+		defer tx.Stop()
+
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
-		log := polycrate.GetContextLogger(ctx)
-
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		var block *Block
-		_, block, err = workspace.GetBlockWithContext(ctx, args[0])
+		block, err := workspace.GetBlock(args[0])
 		if err != nil {
 			log.Fatal(err)
 		}
