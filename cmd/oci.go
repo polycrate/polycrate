@@ -16,6 +16,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	log "github.com/sirupsen/logrus"
 )
 
 func OCIImageExists(name string) bool {
@@ -32,13 +33,12 @@ func PullOCIImage(ctx context.Context, name string) (v1.Image, error) {
 }
 
 func WrapOCIImage(ctx context.Context, path string, registryUrl string, imageName string, imageTag string, labels map[string]string) error {
-	log := polycrate.GetContextLogger(ctx)
 
 	var tag name.Tag
 	var latestTag name.Tag
 	var err error
 
-	log = log.WithField("registry", registryUrl)
+	log := log.WithField("registry", registryUrl)
 	log = log.WithField("image", imageName)
 	log = log.WithField("tag", imageTag)
 	ctx = polycrate.SetContextLogger(ctx, log)
@@ -145,8 +145,6 @@ func WrapOCIImage(ctx context.Context, path string, registryUrl string, imageNam
 }
 
 func UnwrapOCIImage(ctx context.Context, path string, registryUrl string, imageName string, imageTag string) error {
-	log := polycrate.GetContextLogger(ctx)
-
 	registryBase := polycrate.Config.Registry.Url
 
 	if registryUrl != "" {
@@ -159,7 +157,7 @@ func UnwrapOCIImage(ctx context.Context, path string, registryUrl string, imageN
 		return err
 	}
 
-	log = log.WithField("image", tag.String())
+	log := log.WithField("image", tag.String())
 	ctx = polycrate.SetContextLogger(ctx, log)
 
 	log.Debugf("Pulling block image")

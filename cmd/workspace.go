@@ -34,14 +34,13 @@ import (
 
 	//"github.com/docker/docker/container"
 	"github.com/google/uuid"
-	"github.com/jeremywohl/flatten"
 
 	"github.com/go-playground/validator/v10"
-	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/xlab/treeprint"
 	"gopkg.in/yaml.v2"
 )
 
@@ -153,27 +152,18 @@ type Workspace struct {
 	currentAction   *Action
 	currentWorkflow *Workflow
 	currentStep     *Step
-	index           *WorkspaceIndex
 	revision        *WorkspaceRevision
 	env             map[string]string
 	mounts          map[string]string
-	err             error
 	runtimeDir      string
 	installedBlocks []*Block
-	//overrides       []string
-	synced bool
-	//syncLoaded      bool
-	syncNeeded      bool
-	syncStatus      string
 	isGitRepo       bool
 	containerStatus WorkspaceContainerStatus
-}
-
-type WorkspaceIndex struct {
-	Actions   map[string]*Action   `yaml:"actions" mapstructure:"actions" json:"actions"`
-	Steps     map[string]*Step     `yaml:"steps" mapstructure:"steps" json:"steps"`
-	Blocks    map[string]*Block    `yaml:"blocks" mapstructure:"blocks" json:"blocks"`
-	Workflows map[string]*Workflow `yaml:"workflows" mapstructure:"workflows" json:"workflows"`
+	//overrides       []string
+	// synced bool
+	//syncLoaded      bool
+	//syncNeeded      bool
+	//syncStatus      string
 }
 
 type WorkspaceSnapshot struct {
@@ -215,72 +205,72 @@ func (w *Workspace) FormatCommand(cmd *cobra.Command) string {
 	return command
 }
 
-func (w *Workspace) SaveRevision(ctx context.Context) error {
-	log := polycrate.GetContextLogger(ctx)
-	log.Debugf("Saving revision")
+// func (w *Workspace) SaveRevision(ctx context.Context) error {
+// 	log := polycrate.GetContextLogger(ctx)
+// 	log.Debugf("Saving revision")
 
-	f, err := os.OpenFile(filepath.Join(w.LocalPath, "revision.poly"), os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+// 	f, err := os.OpenFile(filepath.Join(w.LocalPath, "revision.poly"), os.O_CREATE|os.O_WRONLY, 0666)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer f.Close()
 
-	// Export revision to yaml
-	yaml, err := yaml.Marshal(w.revision)
-	if err != nil {
-		return err
-	}
+// 	// Export revision to yaml
+// 	yaml, err := yaml.Marshal(w.revision)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Write yaml export to file
-	_, err = f.Write(yaml)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// 	// Write yaml export to file
+// 	_, err = f.Write(yaml)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
-func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
-	// create empty map to hold the flattened keys
-	var jsonMap map[string]interface{}
-	// err := mapstructure.Decode(snapshot, &jsonMap)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+// func (c *Workspace) RegisterSnapshotEnv(snapshot WorkspaceSnapshot) *Workspace {
+// 	// create empty map to hold the flattened keys
+// 	var jsonMap map[string]interface{}
+// 	// err := mapstructure.Decode(snapshot, &jsonMap)
+// 	// if err != nil {
+// 	// 	panic(err)
+// 	// }
+// 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-	// marshal the snapshot into json
-	jsonData, err := json.Marshal(snapshot)
-	if err != nil {
-		log.Errorf("Error marshalling: %s", err)
-		c.err = err
-		return c
-	}
+// 	// marshal the snapshot into json
+// 	jsonData, err := json.Marshal(snapshot)
+// 	if err != nil {
+// 		log.Errorf("Error marshalling: %s", err)
+// 		c.err = err
+// 		return c
+// 	}
 
-	// unmarshal the json into the previously created json map
-	// flatten needs this input format: map[string]interface
-	// which we achieve by first marshalling the struct (snapshot)
-	// and then unmarshalling the resulting bytes into our json structure
-	if err := json.Unmarshal(jsonData, &jsonMap); err != nil {
-		log.Errorf("Error unmarshalling: %s", err)
-		c.err = err
-		return c
-	}
+// 	// unmarshal the json into the previously created json map
+// 	// flatten needs this input format: map[string]interface
+// 	// which we achieve by first marshalling the struct (snapshot)
+// 	// and then unmarshalling the resulting bytes into our json structure
+// 	if err := json.Unmarshal(jsonData, &jsonMap); err != nil {
+// 		log.Errorf("Error unmarshalling: %s", err)
+// 		c.err = err
+// 		return c
+// 	}
 
-	// flatten to key_key_0_key=value
-	flat, err := flatten.Flatten(jsonMap, "", flatten.UnderscoreStyle)
-	if err != nil {
-		c.err = err
-		return c
-	}
+// 	// flatten to key_key_0_key=value
+// 	flat, err := flatten.Flatten(jsonMap, "", flatten.UnderscoreStyle)
+// 	if err != nil {
+// 		c.err = err
+// 		return c
+// 	}
 
-	for key := range flat {
-		keyString := fmt.Sprintf("%v", flat[key])
-		//fmt.Printf("%s=%s\n", strings.ToUpper(key), keyString)
-		c.registerEnvVar(strings.ToUpper(key), keyString)
-	}
+// 	for key := range flat {
+// 		keyString := fmt.Sprintf("%v", flat[key])
+// 		//fmt.Printf("%s=%s\n", strings.ToUpper(key), keyString)
+// 		c.registerEnvVar(strings.ToUpper(key), keyString)
+// 	}
 
-	return c
-}
+// 	return c
+// }
 
 func (c *Workspace) Snapshot() {
 	snapshot := c.GetSnapshot()
@@ -288,15 +278,8 @@ func (c *Workspace) Snapshot() {
 	//convertToEnv(&snapshot)
 }
 
-func (w *Workspace) Inspect(ctx context.Context) {
+func (w *Workspace) Inspect() {
 	w.Print()
-}
-
-func (w *Workspace) Flush() *Workspace {
-	if w.err != nil {
-		log.Fatal(w.err)
-	}
-	return w
 }
 
 func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action string) error {
@@ -435,16 +418,14 @@ func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action s
 // }
 
 func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspaceLocalPath string, workspaceContainerPath string) error {
-	log := tx.Log.log.WithField("block", block.Name)
-
 	if !block.resolved {
-		log.Tracef("Resolving block")
+		tx.Log.Tracef("Resolving block '%s'", block.Name)
 
 		// Check if a "from:" stanza is given and not empty
 		// This means that the loadedBlock should inherit from another Block
 		if block.From != "" {
 			// a "from:" stanza is given
-			log.WithField("dependency", block.From).Tracef("Dependency detected")
+			tx.Log.Tracef("Dependency '%s' detected for block '%s'", block.From, block.Name)
 
 			// Try to load the referenced Block
 			dependency, err := w.GetBlock(block.From)
@@ -459,7 +440,7 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 				return err
 			}
 
-			log.WithField("dependency", block.From).Tracef("Dependency loaded")
+			tx.Log.Tracef("Dependency '%s' loaded for block '%s'", block.From, block.Name)
 
 			dep := dependency
 
@@ -467,7 +448,7 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			// If not, re-queue the loaded Block so it can be resolved in another iteration
 			if !dep.resolved {
 				// Needed Block from 'from' stanza is not yet resolved
-				log.WithField("dependency", block.From).Tracef("Dependency not resolved. Deferring.")
+				tx.Log.Tracef("Dependency '%s' for block '%s' not yet resolved. Deferring.", block.From, block.Name)
 
 				block.resolved = false
 				err := ErrDependencyNotResolved
@@ -487,10 +468,10 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			block.Workdir.LocalPath = dep.Workdir.LocalPath
 			block.Workdir.ContainerPath = dep.Workdir.ContainerPath
 
-			log.WithField("dependency", block.From).Tracef("Dependency resolved")
+			tx.Log.Tracef("Dependency '%s' for block '%s' resolved", block.From, block.Name)
 
 		} else {
-			log.WithField("dependency", block.From).Tracef("No dependency found")
+			tx.Log.Tracef("No dependency found for block '%s'", block.Name)
 		}
 
 		// Validate schema
@@ -499,10 +480,7 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			return err
 		}
 
-		// Register the Block to the Index
-		block.address = block.Name
 		block.workspace = w
-		w.registerBlock(block)
 
 		// Update Artifacts, Kubeconfig & Inventory
 		err = block.LoadArtifacts(tx)
@@ -518,36 +496,23 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			return err
 		}
 
-		// Update Action addresses for all blocks not covered by dependencies
-		if len(block.Actions) > 0 {
-
-			for _, action := range block.Actions {
-				existingAction := action
-				if err != nil {
-					return err
-				}
-				log = log.WithField("action", existingAction.Name)
-
-				actionAddress := strings.Join([]string{block.Name, existingAction.Name}, ".")
-				if existingAction.address != actionAddress {
-					existingAction.address = actionAddress
-				}
-
-				if existingAction.Block != block.Name {
-					existingAction.Block = block.Name
-				}
-
-				err = existingAction.validate()
-				if err != nil {
-					return err
-				}
-
-				existingAction.workspace = w
-				existingAction.block = block
-
-				// Register the Action to the Index
-				w.registerAction(existingAction)
+		for _, action := range block.Actions {
+			existingAction := action
+			if err != nil {
+				return err
 			}
+
+			if existingAction.Block != block.Name {
+				existingAction.Block = block.Name
+			}
+
+			err = existingAction.validate()
+			if err != nil {
+				return err
+			}
+
+			existingAction.workspace = w
+			existingAction.block = block
 		}
 
 		block.resolved = true
@@ -877,164 +842,136 @@ func (w *Workspace) RunWorkflow(tx *PolycrateTransaction, name string, stepName 
 // 	return nil
 // }
 
-func (w *Workspace) RunStep(tx *PolycrateTransaction, workflow string, name string) error {
-	// Find action in index and report
-	step := w.LookupStep(name)
+// func (w *Workspace) RunStep(tx *PolycrateTransaction, workflow string, name string) error {
+// 	// Find action in index and report
+// 	step := w.LookupStep(name)
 
-	if step != nil {
-		if snapshot {
-			w.Snapshot()
-		} else {
-			err := step.Run(tx)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		return goErrors.New("cannot find step: " + name)
-	}
-	return nil
-}
+// 	if step != nil {
+// 		if snapshot {
+// 			w.Snapshot()
+// 		} else {
+// 			err := step.Run(tx)
+// 			if err != nil {
+// 				return err
+// 			}
+// 		}
+// 	} else {
+// 		return goErrors.New("cannot find step: " + name)
+// 	}
+// 	return nil
+// }
 
-func (c *Workspace) registerBlock(block *Block) {
-	c.index.Blocks[block.address] = block
-}
-func (c *Workspace) registerWorkflow(workflow *Workflow) {
-	c.index.Workflows[workflow.address] = workflow
-}
-func (c *Workspace) registerAction(action *Action) {
-	c.index.Actions[action.address] = action
-}
-func (c *Workspace) registerStep(step *Step) {
-	c.index.Steps[step.address] = step
-}
+// func (w *Workspace) SoftloadWorkspaceConfig() *Workspace {
+// 	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
+// 	workspaceConfigFilePath := filepath.Join(w.Path, WorkspaceConfigFile)
 
-func (c *Workspace) LookupBlock(address string) *Block {
-	return c.index.Blocks[address]
-}
-func (c *Workspace) LookupAction(address string) *Action {
-	return c.index.Actions[address]
-}
-func (c *Workspace) ActivateAction(address string) *Action {
-	return c.index.Actions[address]
-}
-func (c *Workspace) LookupWorkflow(address string) *Workflow {
-	return c.index.Workflows[address]
-}
-func (c *Workspace) LookupStep(address string) *Step {
-	return c.index.Steps[address]
-}
+// 	workspaceConfig.SetConfigType("yaml")
+// 	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
 
-func (w *Workspace) SoftloadWorkspaceConfig() *Workspace {
-	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
-	workspaceConfigFilePath := filepath.Join(w.Path, WorkspaceConfigFile)
+// 	err := workspaceConfig.MergeInConfig()
+// 	if err != nil {
+// 		w.err = err
+// 		return w
+// 	}
 
-	workspaceConfig.SetConfigType("yaml")
-	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
+// 	if err := workspaceConfig.Unmarshal(&w); err != nil {
+// 		w.err = err
+// 		return w
+// 	}
 
-	err := workspaceConfig.MergeInConfig()
-	if err != nil {
-		w.err = err
-		return w
-	}
+// 	return w
+// }
 
-	if err := workspaceConfig.Unmarshal(&w); err != nil {
-		w.err = err
-		return w
-	}
+// func (w *Workspace) LoadConfig() *Workspace {
+// 	log.Warn("LoadConfig is deprecated")
+// 	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
+// 	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
 
-	return w
-}
+// 	// Match CLI Flags with Config options
+// 	// CLI Flags have precedence
 
-func (w *Workspace) LoadConfig() *Workspace {
-	log.Warn("LoadConfig is deprecated")
-	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
-	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
+// 	workspaceConfig.BindPFlag("sync.local.branch.name", rootCmd.Flags().Lookup("sync-local-branch"))
+// 	workspaceConfig.BindPFlag("sync.remote.branch.name", rootCmd.Flags().Lookup("sync-remote-branch"))
+// 	workspaceConfig.BindPFlag("sync.remote.name", rootCmd.Flags().Lookup("sync-remote-name"))
+// 	workspaceConfig.BindPFlag("sync.enabled", rootCmd.Flags().Lookup("sync-enabled"))
+// 	workspaceConfig.BindPFlag("sync.auto", rootCmd.Flags().Lookup("sync-auto"))
+// 	workspaceConfig.BindPFlag("config.registry.url", rootCmd.Flags().Lookup("registry-url"))
+// 	workspaceConfig.BindPFlag("config.registry.baseimage", rootCmd.Flags().Lookup("registry-base-image"))
+// 	workspaceConfig.BindPFlag("config.image.version", rootCmd.Flags().Lookup("image-version"))
+// 	workspaceConfig.BindPFlag("config.image.reference", rootCmd.Flags().Lookup("image-ref"))
+// 	workspaceConfig.BindPFlag("config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
+// 	workspaceConfig.BindPFlag("config.blocksconfig", rootCmd.Flags().Lookup("blocks-config"))
+// 	workspaceConfig.BindPFlag("config.workflowsroot", rootCmd.Flags().Lookup("workflows-root"))
+// 	workspaceConfig.BindPFlag("config.workspaceconfig", rootCmd.Flags().Lookup("workspace-config"))
+// 	workspaceConfig.BindPFlag("config.artifactsroot", rootCmd.Flags().Lookup("artifacts-root"))
+// 	workspaceConfig.BindPFlag("config.containerroot", rootCmd.Flags().Lookup("container-root"))
+// 	workspaceConfig.BindPFlag("config.remoteroot", rootCmd.Flags().Lookup("remote-root"))
+// 	workspaceConfig.BindPFlag("config.sshprivatekey", rootCmd.Flags().Lookup("ssh-private-key"))
+// 	workspaceConfig.BindPFlag("config.sshpublickey", rootCmd.Flags().Lookup("ssh-public-key"))
+// 	workspaceConfig.BindPFlag("config.dockerfile", rootCmd.Flags().Lookup("dockerfile"))
 
-	// Match CLI Flags with Config options
-	// CLI Flags have precedence
+// 	workspaceConfig.SetEnvPrefix(EnvPrefix)
+// 	workspaceConfig.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+// 	workspaceConfig.AutomaticEnv()
 
-	workspaceConfig.BindPFlag("sync.local.branch.name", rootCmd.Flags().Lookup("sync-local-branch"))
-	workspaceConfig.BindPFlag("sync.remote.branch.name", rootCmd.Flags().Lookup("sync-remote-branch"))
-	workspaceConfig.BindPFlag("sync.remote.name", rootCmd.Flags().Lookup("sync-remote-name"))
-	workspaceConfig.BindPFlag("sync.enabled", rootCmd.Flags().Lookup("sync-enabled"))
-	workspaceConfig.BindPFlag("sync.auto", rootCmd.Flags().Lookup("sync-auto"))
-	workspaceConfig.BindPFlag("config.registry.url", rootCmd.Flags().Lookup("registry-url"))
-	workspaceConfig.BindPFlag("config.registry.baseimage", rootCmd.Flags().Lookup("registry-base-image"))
-	workspaceConfig.BindPFlag("config.image.version", rootCmd.Flags().Lookup("image-version"))
-	workspaceConfig.BindPFlag("config.image.reference", rootCmd.Flags().Lookup("image-ref"))
-	workspaceConfig.BindPFlag("config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
-	workspaceConfig.BindPFlag("config.blocksconfig", rootCmd.Flags().Lookup("blocks-config"))
-	workspaceConfig.BindPFlag("config.workflowsroot", rootCmd.Flags().Lookup("workflows-root"))
-	workspaceConfig.BindPFlag("config.workspaceconfig", rootCmd.Flags().Lookup("workspace-config"))
-	workspaceConfig.BindPFlag("config.artifactsroot", rootCmd.Flags().Lookup("artifacts-root"))
-	workspaceConfig.BindPFlag("config.containerroot", rootCmd.Flags().Lookup("container-root"))
-	workspaceConfig.BindPFlag("config.remoteroot", rootCmd.Flags().Lookup("remote-root"))
-	workspaceConfig.BindPFlag("config.sshprivatekey", rootCmd.Flags().Lookup("ssh-private-key"))
-	workspaceConfig.BindPFlag("config.sshpublickey", rootCmd.Flags().Lookup("ssh-public-key"))
-	workspaceConfig.BindPFlag("config.dockerfile", rootCmd.Flags().Lookup("dockerfile"))
+// 	// Check if a full path has been given
+// 	workspaceConfigFilePath := filepath.Join(w.LocalPath, w.Config.WorkspaceConfig)
 
-	workspaceConfig.SetEnvPrefix(EnvPrefix)
-	workspaceConfig.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	workspaceConfig.AutomaticEnv()
+// 	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
+// 		// The config file does not exist
+// 		// We try to look in the list of workspaces in $HOME/.polycrate/workspaces
 
-	// Check if a full path has been given
-	workspaceConfigFilePath := filepath.Join(w.LocalPath, w.Config.WorkspaceConfig)
+// 		// Assuming the "path" given is actually the name of a workspace
+// 		workspaceName := w.LocalPath
 
-	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
-		// The config file does not exist
-		// We try to look in the list of workspaces in $HOME/.polycrate/workspaces
+// 		log.WithFields(log.Fields{
+// 			"path":      workspaceConfigFilePath,
+// 			"workspace": workspaceName,
+// 		}).Debugf("Workspace config not found. Looking in the local workspace index")
 
-		// Assuming the "path" given is actually the name of a workspace
-		workspaceName := w.LocalPath
+// 		// Check if workspaceName exists in the local workspace index (see discoverWorkspaces())
+// 		if localWorkspaceIndex[workspaceName] != "" {
+// 			// We found a workspace with that name in the index
+// 			path := localWorkspaceIndex[workspaceName]
+// 			log.WithFields(log.Fields{
+// 				"workspace": workspaceName,
+// 				"path":      path,
+// 			}).Debugf("Found workspace in the local workspace index")
 
-		log.WithFields(log.Fields{
-			"path":      workspaceConfigFilePath,
-			"workspace": workspaceName,
-		}).Debugf("Workspace config not found. Looking in the local workspace index")
+// 			// Update the workspace config file path with the local workspace path from the index
+// 			w.LocalPath = path
+// 			workspaceConfigFilePath = filepath.Join(w.LocalPath, WorkspaceConfigFile)
+// 		} else {
+// 			w.err = fmt.Errorf("couldn't find workspace config at %s", workspaceConfigFilePath)
+// 			return w
+// 		}
+// 	}
 
-		// Check if workspaceName exists in the local workspace index (see discoverWorkspaces())
-		if localWorkspaceIndex[workspaceName] != "" {
-			// We found a workspace with that name in the index
-			path := localWorkspaceIndex[workspaceName]
-			log.WithFields(log.Fields{
-				"workspace": workspaceName,
-				"path":      path,
-			}).Debugf("Found workspace in the local workspace index")
+// 	workspaceConfig.SetConfigType("yaml")
+// 	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
 
-			// Update the workspace config file path with the local workspace path from the index
-			w.LocalPath = path
-			workspaceConfigFilePath = filepath.Join(w.LocalPath, WorkspaceConfigFile)
-		} else {
-			w.err = fmt.Errorf("couldn't find workspace config at %s", workspaceConfigFilePath)
-			return w
-		}
-	}
+// 	err := workspaceConfig.MergeInConfig()
+// 	if err != nil {
+// 		w.err = err
+// 		return w
+// 	}
 
-	workspaceConfig.SetConfigType("yaml")
-	workspaceConfig.SetConfigFile(workspaceConfigFilePath)
+// 	if err := workspaceConfig.Unmarshal(&w); err != nil {
+// 		w.err = err
+// 		return w
+// 	}
 
-	err := workspaceConfig.MergeInConfig()
-	if err != nil {
-		w.err = err
-		return w
-	}
+// 	if err := w.validate(); err != nil {
+// 		w.err = err
+// 		return w
+// 	}
 
-	if err := workspaceConfig.Unmarshal(&w); err != nil {
-		w.err = err
-		return w
-	}
+// 	// set runtime dir
+// 	w.runtimeDir = filepath.Join(polycrateRuntimeDir, w.Name)
 
-	if err := w.validate(); err != nil {
-		w.err = err
-		return w
-	}
+// 	return w
+// }
 
-	// set runtime dir
-	w.runtimeDir = filepath.Join(polycrateRuntimeDir, w.Name)
-
-	return w
-}
 func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, validate bool) error {
 	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
 	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
@@ -1130,7 +1067,7 @@ func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, va
 	return nil
 }
 
-func (w *Workspace) Save(ctx context.Context) error {
+func (w *Workspace) Save(tx *PolycrateTransaction) error {
 	workspaceConfigFilePath := filepath.Join(w.LocalPath, w.Config.WorkspaceConfig)
 
 	if _, err := os.Stat(workspaceConfigFilePath); !os.IsNotExist(err) {
@@ -1152,70 +1089,70 @@ func (w *Workspace) Save(ctx context.Context) error {
 	return nil
 }
 
-func (c *Workspace) updateConfig(path string, value string) *Workspace {
-	var sideloadConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
-	//var sideloadStruct Workspace
+// func (c *Workspace) updateConfig(path string, value string) *Workspace {
+// 	var sideloadConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
+// 	//var sideloadStruct Workspace
 
-	// Check if a full path has been given
-	workspaceConfigFilePath := filepath.Join(c.LocalPath, workspace.Config.WorkspaceConfig)
+// 	// Check if a full path has been given
+// 	workspaceConfigFilePath := filepath.Join(c.LocalPath, workspace.Config.WorkspaceConfig)
 
-	log.WithFields(log.Fields{
-		"workspace": c.Name,
-		"key":       path,
-		"value":     value,
-		"path":      workspaceConfigFilePath,
-	}).Debugf("Updating workspace config")
+// 	log.WithFields(log.Fields{
+// 		"workspace": c.Name,
+// 		"key":       path,
+// 		"value":     value,
+// 		"path":      workspaceConfigFilePath,
+// 	}).Debugf("Updating workspace config")
 
-	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
-		c.err = fmt.Errorf("couldn't find workspace config at %s: %s", workspaceConfigFilePath, err)
-		return c
-	}
+// 	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
+// 		c.err = fmt.Errorf("couldn't find workspace config at %s: %s", workspaceConfigFilePath, err)
+// 		return c
+// 	}
 
-	yamlFile, err := ioutil.ReadFile(workspaceConfigFilePath)
-	if err != nil {
-		c.err = err
-		return c
-	}
+// 	yamlFile, err := ioutil.ReadFile(workspaceConfigFilePath)
+// 	if err != nil {
+// 		c.err = err
+// 		return c
+// 	}
 
-	sideloadConfig.SetConfigType("yaml")
-	sideloadConfig.SetConfigName("workspace")
-	sideloadConfig.SetConfigFile(workspaceConfigFilePath)
-	//sideloadConfig.ReadInConfig()
+// 	sideloadConfig.SetConfigType("yaml")
+// 	sideloadConfig.SetConfigName("workspace")
+// 	sideloadConfig.SetConfigFile(workspaceConfigFilePath)
+// 	//sideloadConfig.ReadInConfig()
 
-	err = sideloadConfig.ReadConfig(bytes.NewBuffer(yamlFile))
-	if err != nil {
-		c.err = err
-		return c
-	}
+// 	err = sideloadConfig.ReadConfig(bytes.NewBuffer(yamlFile))
+// 	if err != nil {
+// 		c.err = err
+// 		return c
+// 	}
 
-	// Update here
-	sideloadConfig.Set(path, value)
+// 	// Update here
+// 	sideloadConfig.Set(path, value)
 
-	// if err := sideloadConfig.Unmarshal(&sideloadStruct); err != nil {
-	// 	c.err = err
-	// 	return c
-	// }
+// 	// if err := sideloadConfig.Unmarshal(&sideloadStruct); err != nil {
+// 	// 	c.err = err
+// 	// 	return c
+// 	// }
 
-	// if err := sideloadStruct.validate(); err != nil {
-	// 	c.err = err
-	// 	return c
-	// }
+// 	// if err := sideloadStruct.validate(); err != nil {
+// 	// 	c.err = err
+// 	// 	return c
+// 	// }
 
-	// Write back
-	s := sideloadConfig.AllSettings()
-	bs, err := yaml.Marshal(s)
-	if err != nil {
-		c.err = err
-		return c
-	}
+// 	// Write back
+// 	s := sideloadConfig.AllSettings()
+// 	bs, err := yaml.Marshal(s)
+// 	if err != nil {
+// 		c.err = err
+// 		return c
+// 	}
 
-	err = ioutil.WriteFile(workspaceConfigFilePath, bs, 0)
-	if err != nil {
-		c.err = err
-		return c
-	}
-	return c
-}
+// 	err = ioutil.WriteFile(workspaceConfigFilePath, bs, 0)
+// 	if err != nil {
+// 		c.err = err
+// 		return c
+// 	}
+// 	return c
+// }
 
 func (w *Workspace) Reload(tx *PolycrateTransaction, validate bool) (*Workspace, error) {
 	tx.Log.Debug("Reloading workspace")
@@ -1247,15 +1184,6 @@ func (w *Workspace) Preload(tx *PolycrateTransaction, path string, validate bool
 		w.Path = w.LocalPath
 	} else {
 		w.Path = w.ContainerPath
-	}
-
-	// Bootstrap the workspace index
-	if w.index == nil {
-		w.index = &WorkspaceIndex{}
-		w.index.Actions = make(map[string]*Action)
-		w.index.Blocks = make(map[string]*Block)
-		w.index.Workflows = make(map[string]*Workflow)
-		w.index.Steps = make(map[string]*Step)
 	}
 
 	// Import installed blocks
@@ -1332,7 +1260,9 @@ func (w *Workspace) Load(tx *PolycrateTransaction, path string, validate bool) (
 	}
 
 	// Template action scripts
-	w.templateActionScripts().Flush()
+	if err := w.templateActionScripts(); err != nil {
+		return nil, err
+	}
 
 	// Mark workspace as loaded
 	w.loaded = true
@@ -1658,45 +1588,45 @@ func (w *Workspace) Load(tx *PolycrateTransaction, path string, validate bool) (
 // 	return nil
 // }
 
-func (w *Workspace) Cleanup() *Workspace {
+// func (w *Workspace) Cleanup() *Workspace {
 
-	// log.WithFields(log.Fields{
-	// 	"workspace": w.Name,
-	// }).Debugf("Cleaning orphaned containers")
-	// workspace.PruneContainer().Flush()
+// 	// log.WithFields(log.Fields{
+// 	// 	"workspace": w.Name,
+// 	// }).Debugf("Cleaning orphaned containers")
+// 	// workspace.PruneContainer().Flush()
 
-	// Create runtime dir
-	log.WithFields(log.Fields{
-		"workspace": w.Name,
-		"path":      w.runtimeDir,
-	}).Debugf("Creating runtime directory")
+// 	// Create runtime dir
+// 	log.WithFields(log.Fields{
+// 		"workspace": w.Name,
+// 		"path":      w.runtimeDir,
+// 	}).Debugf("Creating runtime directory")
 
-	err := os.MkdirAll(w.runtimeDir, os.ModePerm)
-	if err != nil {
-		w.err = err
-		return w
-	}
+// 	err := os.MkdirAll(w.runtimeDir, os.ModePerm)
+// 	if err != nil {
+// 		w.err = err
+// 		return w
+// 	}
 
-	// Purge all contents of runtime dir
-	dir, err := ioutil.ReadDir(w.runtimeDir)
-	if err != nil {
-		w.err = err
-		return w
-	}
-	for _, d := range dir {
-		log.WithFields(log.Fields{
-			"workspace": w.Name,
-			"path":      w.runtimeDir,
-			"file":      d.Name(),
-		}).Debugf("Cleaning runtime directory")
-		err := os.RemoveAll(filepath.Join([]string{w.runtimeDir, d.Name()}...))
-		if err != nil {
-			w.err = err
-			return w
-		}
-	}
-	return w
-}
+// 	// Purge all contents of runtime dir
+// 	dir, err := ioutil.ReadDir(w.runtimeDir)
+// 	if err != nil {
+// 		w.err = err
+// 		return w
+// 	}
+// 	for _, d := range dir {
+// 		log.WithFields(log.Fields{
+// 			"workspace": w.Name,
+// 			"path":      w.runtimeDir,
+// 			"file":      d.Name(),
+// 		}).Debugf("Cleaning runtime directory")
+// 		err := os.RemoveAll(filepath.Join([]string{w.runtimeDir, d.Name()}...))
+// 		if err != nil {
+// 			w.err = err
+// 			return w
+// 		}
+// 	}
+// 	return w
+// }
 
 func (c *Workspace) Uninstall() error {
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
@@ -1744,7 +1674,6 @@ func (w *Workspace) ResolveBlockDependencies(tx *PolycrateTransaction) error {
 					switch {
 					case errors.Is(err, ErrDependencyNotResolved):
 						loadedBlock.resolved = false
-						loadedBlock.err = nil
 						continue
 					default:
 						return err
@@ -1757,65 +1686,11 @@ func (w *Workspace) ResolveBlockDependencies(tx *PolycrateTransaction) error {
 	return nil
 }
 
-func (w *Workspace) resolveWorkflows() *Workspace {
-	log.WithFields(log.Fields{
-		"workspace": w.Name,
-	}).Debugf("Resolving workflows")
-
-	for i := 0; i < len(w.Workflows); i++ {
-		loadedWorkflow := w.Workflows[i]
-
-		loadedWorkflow.address = loadedWorkflow.Name
-		// Register the workflow to the Index
-		w.registerWorkflow(loadedWorkflow)
-
-		// Loop over the steps
-		for _, step := range loadedWorkflow.Steps {
-			loadedStep := loadedWorkflow.getStepByName(step.Name)
-
-			// Set step address
-			loadedStep.address = strings.Join([]string{loadedWorkflow.Name, loadedStep.Name}, ".")
-			loadedStep.Workflow = loadedWorkflow.Name
-
-			log.WithFields(log.Fields{
-				"workspace": w.Name,
-				"workflow":  loadedWorkflow.Name,
-				"step":      loadedStep.Name,
-			}).Tracef("Validating step")
-			if err := loadedStep.validate(); err != nil {
-				w.err = err
-				return w
-			}
-
-			log.WithFields(log.Fields{
-				"workspace": w.Name,
-				"workflow":  loadedWorkflow.Name,
-				"step":      loadedStep.Name,
-			}).Tracef("Registering step")
-			w.registerStep(loadedStep)
-		}
-
-		log.WithFields(log.Fields{
-			"workspace": w.Name,
-			"workflow":  loadedWorkflow.Name,
-		}).Debugf("Validating workflow")
-		if err := loadedWorkflow.validate(); err != nil {
-			w.err = err
-			return w
-		}
-
-	}
-	return w
-}
 func (w *Workspace) ResolveWorkflows(tx *PolycrateTransaction) error {
 	for i := 0; i < len(w.Workflows); i++ {
 		loadedWorkflow := w.Workflows[i]
 
-		loadedWorkflow.address = loadedWorkflow.Name
 		loadedWorkflow.workspace = w
-
-		// Register the workflow to the Index
-		w.registerWorkflow(loadedWorkflow)
 
 		// Loop over the steps
 		for _, step := range loadedWorkflow.Steps {
@@ -1824,16 +1699,12 @@ func (w *Workspace) ResolveWorkflows(tx *PolycrateTransaction) error {
 				return err
 			}
 
-			// Set step address
-			loadedStep.address = strings.Join([]string{loadedWorkflow.Name, loadedStep.Name}, ".")
-			loadedStep.Workflow = loadedWorkflow.Name
-
 			if err := loadedStep.validate(); err != nil {
 				return err
 			}
 
+			loadedStep.Workflow = loadedWorkflow.Name
 			loadedStep.workflow = loadedWorkflow
-			w.registerStep(loadedStep)
 		}
 
 		if err := loadedWorkflow.validate(); err != nil {
@@ -1911,38 +1782,43 @@ func (c *Workspace) validate() error {
 }
 
 func (c *Workspace) ListBlocks() *Workspace {
+	fmt.Println("Blocks")
+	tree := treeprint.New()
 	for _, block := range c.Blocks {
-		str := block.Name
+		_b := block.Name + ":" + block.Version
+
+		//str := " " + block.Name + ":" + block.Version
 
 		if block.From != "" {
-			str = str + " (from: " + block.From + ")"
+			b := tree.AddBranch(_b)
+			parent, err := c.GetBlock(block.From)
+			if err != nil {
+				_b := block.From + " (NOT FOUND)"
+				b.AddNode(_b)
+			} else {
+				_b := parent.Name + ":" + parent.Version
+				b.AddNode(_b)
+			}
 		}
-		fmt.Println(str)
 	}
+	fmt.Println(tree.String())
 	return c
 }
 
 func (c *Workspace) ListWorkflows() error {
-	for workflow := range c.index.Workflows {
+	for workflow := range c.Workflows {
 		fmt.Println(workflow)
 	}
 	return nil
 }
 
 func (c *Workspace) ListActions() *Workspace {
-	for action := range c.index.Actions {
-		fmt.Println(action)
+	for _, block := range c.Blocks {
+		for action := range block.Actions {
+			fmt.Println(action)
+		}
 	}
 	return c
-}
-
-func (w *Workspace) BootstrapIndex() *Workspace {
-	w.index = &WorkspaceIndex{}
-	w.index.Actions = make(map[string]*Action)
-	w.index.Blocks = make(map[string]*Block)
-	w.index.Workflows = make(map[string]*Workflow)
-	w.index.Steps = make(map[string]*Step)
-	return w
 }
 
 func (c *Workspace) bootstrapMounts() error {
@@ -1974,9 +1850,9 @@ func (c *Workspace) bootstrapMounts() error {
 // Resolve the templates of all actions
 // If we don't do this, Ansible reads in Go's template tags
 // which results in a jinja error
-func (c *Workspace) templateActionScripts() *Workspace {
+func (c *Workspace) templateActionScripts() error {
 	// Loop over all blocks
-	for _, block := range c.index.Blocks {
+	for _, block := range c.Blocks {
 		// Generate intermediate snapshot
 		snapshot := WorkspaceSnapshot{
 			Workspace: c,
@@ -1994,16 +1870,14 @@ func (c *Workspace) templateActionScripts() *Workspace {
 					//log.Debug("Templating at snapshot generation, line: " + scriptLine)
 					t, err := template.New("script-line").Parse(scriptLine)
 					if err != nil {
-						c.err = err
-						return c
+						return err
 					}
 
 					// Execute the template and save the substituted content to a var
 					var substitutedScriptLine bytes.Buffer
 					err = t.Execute(&substitutedScriptLine, snapshot)
 					if err != nil {
-						c.err = err
-						return c
+						return err
 					}
 					//log.Debug("Substituted the following content: " + substitutedScriptLine.String())
 
@@ -2018,7 +1892,7 @@ func (c *Workspace) templateActionScripts() *Workspace {
 			action.Script = newScript
 		}
 	}
-	return c
+	return nil
 }
 
 func (w *Workspace) DumpEnv() []string {
@@ -2116,14 +1990,11 @@ func (c *Workspace) GetSnapshot() WorkspaceSnapshot {
 		Mounts:    c.mounts,
 	}
 
-	// c.RegisterSnapshotEnv(snapshot).Flush()
 	return snapshot
 }
 
 func (w *Workspace) SaveSnapshot(tx *PolycrateTransaction) (string, error) {
 	snapshot := w.GetSnapshot()
-
-	//c.RegisterSnapshotEnv(snapshot).Flush()
 
 	// Marshal the snapshot to yaml
 	data, err := yaml.Marshal(snapshot)
@@ -2201,13 +2072,6 @@ func (c *Workspace) registerCurrentStep(step *Step) {
 	c.currentStep = step
 }
 
-func (c *Workspace) GetActionFromIndex(name string) *Action {
-	if action, ok := c.index.Actions[name]; ok {
-		return action
-	}
-	return nil
-}
-
 // func (c *Workspace) getActionByPath(actionPath string) *Action {
 // 	// Validate actionPath
 // 	s := strings.Split(actionPath, ".")
@@ -2242,28 +2106,21 @@ func (c *Workspace) GetActionFromIndex(name string) *Action {
 // 	return ctx, block, nil
 // }
 
-func (w *Workspace) GetWorkflowWithContext(ctx context.Context, name string) (context.Context, *Workflow, error) {
-	workflow, err := w.GetWorkflow(name)
-	if err != nil {
-		return ctx, nil, err
-	}
+// func (w *Workspace) GetWorkflowWithContext(ctx context.Context, name string) (context.Context, *Workflow, error) {
+// 	workflow, err := w.GetWorkflow(name)
+// 	if err != nil {
+// 		return ctx, nil, err
+// 	}
 
-	workflowKey := ContextKey("workflow")
-	ctx = context.WithValue(ctx, workflowKey, workflow)
+// 	workflowKey := ContextKey("workflow")
+// 	ctx = context.WithValue(ctx, workflowKey, workflow)
 
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("workflow", workflow.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
+// 	log := polycrate.GetContextLogger(ctx)
+// 	log = log.WithField("workflow", workflow.Name)
+// 	ctx = polycrate.SetContextLogger(ctx, log)
 
-	return ctx, workflow, nil
-}
-
-func (c *Workspace) GetBlockFromIndex(name string) *Block {
-	if block, ok := c.index.Blocks[name]; ok {
-		return block
-	}
-	return nil
-}
+// 	return ctx, workflow, nil
+// }
 
 func (c *Workspace) getBlockByName(blockName string) *Block {
 	panic("DEPRECATED")
@@ -2292,13 +2149,6 @@ func (c *Workspace) GetWorkflow(name string) (*Workflow, error) {
 		}
 	}
 	return nil, fmt.Errorf("workflow not found: %s", name)
-}
-
-func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {
-	if workflow, ok := c.index.Workflows[name]; ok {
-		return workflow
-	}
-	return nil
 }
 
 // func (c *Workspace) Create(ctx context.Context, path string) error {
@@ -2351,89 +2201,89 @@ func (c *Workspace) GetWorkflowFromIndex(name string) *Workflow {
 // 	return c
 // }
 
-func (w *Workspace) UpdateSyncStatus(tx *PolycrateTransaction) error {
-	if polycrate.Config.Sync.Enabled {
-		if GitHasRemote(tx, w.LocalPath) {
-			log.Tracef("Getting remote repository status")
+// func (w *Workspace) UpdateSyncStatus(tx *PolycrateTransaction) error {
+// 	if polycrate.Config.Sync.Enabled {
+// 		if GitHasRemote(tx, w.LocalPath) {
+// 			log.Tracef("Getting remote repository status")
 
-			// https://stackoverflow.com/posts/68187853/revisions
-			// Get remote reference
-			_, err := GitFetch(tx, w.LocalPath)
-			if err != nil {
-				return err
-			}
+// 			// https://stackoverflow.com/posts/68187853/revisions
+// 			// Get remote reference
+// 			_, err := GitFetch(tx, w.LocalPath)
+// 			if err != nil {
+// 				return err
+// 			}
 
-			// LocalRefReference := this.SyncOptions.Local.Branch.Name
-			// RemoteRefReference := fmt.Sprintf("%s/%s", this.SyncOptions.Remote.Name, this.SyncOptions.Remote.Branch.Name)
+// 			// LocalRefReference := this.SyncOptions.Local.Branch.Name
+// 			// RemoteRefReference := fmt.Sprintf("%s/%s", this.SyncOptions.Remote.Name, this.SyncOptions.Remote.Branch.Name)
 
-			//log.Tracef("Getting last local commit")
-			// LocalRefBranchName := this.SyncOptions.Local.Branch.Name
-			// LocalRefCommit, err := GitGetHeadCommit(this.LocalPath, LocalRefReference)
-			// if err != nil {
-			// 	this.err = err
-			// 	return this
-			// }
+// 			//log.Tracef("Getting last local commit")
+// 			// LocalRefBranchName := this.SyncOptions.Local.Branch.Name
+// 			// LocalRefCommit, err := GitGetHeadCommit(this.LocalPath, LocalRefReference)
+// 			// if err != nil {
+// 			// 	this.err = err
+// 			// 	return this
+// 			// }
 
-			//log.Tracef("Getting last remote commit")
-			// RemoteRefBranchName := this.SyncOptions.Remote.Branch.Name
-			// RemoteRefCommit, err := GitGetHeadCommit(this.LocalPath, RemoteRefReference)
-			// if err != nil {
-			// 	this.err = err
-			// 	return this
-			// }
+// 			//log.Tracef("Getting last remote commit")
+// 			// RemoteRefBranchName := this.SyncOptions.Remote.Branch.Name
+// 			// RemoteRefCommit, err := GitGetHeadCommit(this.LocalPath, RemoteRefReference)
+// 			// if err != nil {
+// 			// 	this.err = err
+// 			// 	return this
+// 			// }
 
-			log.Tracef("Checking if behind remote")
-			behindBy, err := GitBehindBy(tx, w.LocalPath)
-			if err != nil {
-				return err
-			}
+// 			log.Tracef("Checking if behind remote")
+// 			behindBy, err := GitBehindBy(tx, w.LocalPath)
+// 			if err != nil {
+// 				return err
+// 			}
 
-			log.Tracef("Checking if ahead of remote")
-			aheadBy, err := GitAheadBy(tx, w.LocalPath)
-			if err != nil {
-				return err
-			}
+// 			log.Tracef("Checking if ahead of remote")
+// 			aheadBy, err := GitAheadBy(tx, w.LocalPath)
+// 			if err != nil {
+// 				return err
+// 			}
 
-			// ahead > 0, behind == 0
-			if aheadBy != 0 && behindBy == 0 {
-				w.syncStatus = "ahead"
-			}
+// 			// ahead > 0, behind == 0
+// 			if aheadBy != 0 && behindBy == 0 {
+// 				w.syncStatus = "ahead"
+// 			}
 
-			// ahead == 0, behind > 0
-			if behindBy != 0 && aheadBy == 0 {
-				w.syncStatus = "behind"
-			}
+// 			// ahead == 0, behind > 0
+// 			if behindBy != 0 && aheadBy == 0 {
+// 				w.syncStatus = "behind"
+// 			}
 
-			// ahead == 0, behind == 0
-			if behindBy == 0 && aheadBy == 0 {
-				w.syncStatus = "synced"
-			}
+// 			// ahead == 0, behind == 0
+// 			if behindBy == 0 && aheadBy == 0 {
+// 				w.syncStatus = "synced"
+// 			}
 
-			// ahead > 0, behind > 0
-			if behindBy != 0 && aheadBy != 0 {
-				w.syncStatus = "diverged"
-			}
+// 			// ahead > 0, behind > 0
+// 			if behindBy != 0 && aheadBy != 0 {
+// 				w.syncStatus = "diverged"
+// 			}
 
-			log.Tracef("Checking for uncommited changes")
+// 			log.Tracef("Checking for uncommited changes")
 
-			// Has uncommited changes?
-			if GitHasChanges(tx, w.LocalPath) {
-				w.syncStatus = "changed"
-			}
+// 			// Has uncommited changes?
+// 			if GitHasChanges(tx, w.LocalPath) {
+// 				w.syncStatus = "changed"
+// 			}
 
-			log := log.WithField("status", w.syncStatus).WithField("ahead", aheadBy).WithField("behind", behindBy)
-			log.Debugf("Reporting sync status")
-		} else {
-			err := fmt.Errorf("no remote configured")
-			return err
-		}
+// 			log := log.WithField("status", w.syncStatus).WithField("ahead", aheadBy).WithField("behind", behindBy)
+// 			log.Debugf("Reporting sync status")
+// 		} else {
+// 			err := fmt.Errorf("no remote configured")
+// 			return err
+// 		}
 
-	} else {
-		log := log.WithField("status", "disabled")
-		log.Debugf("Reporting sync status")
-	}
-	return nil
-}
+// 	} else {
+// 		log := log.WithField("status", "disabled")
+// 		log.Debugf("Reporting sync status")
+// 	}
+// 	return nil
+// }
 
 // func (this *Workspace) SyncCommit(message string) *Workspace {
 // 	if this.syncLoaded {
@@ -2510,98 +2360,98 @@ func (w *Workspace) Push(tx *PolycrateTransaction) error {
 	return nil
 }
 
-func (w *Workspace) RunSync(tx *PolycrateTransaction) error {
+// func (w *Workspace) RunSync(tx *PolycrateTransaction) error {
 
-	// if !w.syncLoaded {
-	// 	err := fmt.Errorf("sync not loaded")
-	// 	return err
-	// }
+// 	// if !w.syncLoaded {
+// 	// 	err := fmt.Errorf("sync not loaded")
+// 	// 	return err
+// 	// }
 
-	if w.SyncOptions.Enabled {
-		if err := w.UpdateSyncStatus(tx); err != nil {
-			return err
-		}
+// 	if w.SyncOptions.Enabled {
+// 		if err := w.UpdateSyncStatus(tx); err != nil {
+// 			return err
+// 		}
 
-		switch status := w.syncStatus; status {
-		case "changed":
-			log.Debugf("Sync status: changes found - committing")
+// 		switch status := w.syncStatus; status {
+// 		case "changed":
+// 			log.Debugf("Sync status: changes found - committing")
 
-			if err := w.Commit(tx, "Sync auto-commit"); err != nil {
-				return err
-			}
+// 			if err := w.Commit(tx, "Sync auto-commit"); err != nil {
+// 				return err
+// 			}
 
-			if err := w.RunSync(tx); err != nil {
-				return err
-			}
-		case "synced":
-			log.Debugf("Sync status: up-to-date")
-		case "diverged":
-			// log.WithFields(log.Fields{
-			// 	"workspace": workspace.Name,
-			// 	"module":    "sync",
-			// }).Fatalf("Sync error - run `polycrate sync status` for more information")
-			err := fmt.Errorf("sync error - run `polycrate sync status` for more information")
-			return err
-		case "ahead":
-			log.Debugf("Sync status: ahead of remote - pushing")
+// 			if err := w.RunSync(tx); err != nil {
+// 				return err
+// 			}
+// 		case "synced":
+// 			log.Debugf("Sync status: up-to-date")
+// 		case "diverged":
+// 			// log.WithFields(log.Fields{
+// 			// 	"workspace": workspace.Name,
+// 			// 	"module":    "sync",
+// 			// }).Fatalf("Sync error - run `polycrate sync status` for more information")
+// 			err := fmt.Errorf("sync error - run `polycrate sync status` for more information")
+// 			return err
+// 		case "ahead":
+// 			log.Debugf("Sync status: ahead of remote - pushing")
 
-			if err := w.Push(tx); err != nil {
-				return err
-			}
+// 			if err := w.Push(tx); err != nil {
+// 				return err
+// 			}
 
-			if err := w.RunSync(tx); err != nil {
-				return err
-			}
-		case "behind":
-			log.Debugf("Sync status: behind remote - pulling")
+// 			if err := w.RunSync(tx); err != nil {
+// 				return err
+// 			}
+// 		case "behind":
+// 			log.Debugf("Sync status: behind remote - pulling")
 
-			if err := w.Pull(tx); err != nil {
-				return err
-			}
+// 			if err := w.Pull(tx); err != nil {
+// 				return err
+// 			}
 
-			if err := w.RunSync(tx); err != nil {
-				return err
-			}
-		}
-	} else {
-		err := fmt.Errorf("sync disabled")
-		return err
-	}
+// 			if err := w.RunSync(tx); err != nil {
+// 				return err
+// 			}
+// 		}
+// 	} else {
+// 		err := fmt.Errorf("sync disabled")
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (w *Workspace) Sync(tx *PolycrateTransaction) error {
-	if w.isGitRepo {
-		if !w.synced {
-			if w.syncNeeded {
-				if polycrate.Config.Sync.Enabled {
-					// if !w.syncLoaded {
-					// 	if err := w.LoadSync(ctx); err != nil {
-					// 		return err
-					// 	}
-					// }
+// func (w *Workspace) Sync(tx *PolycrateTransaction) error {
+// 	if w.isGitRepo {
+// 		if !w.synced {
+// 			if w.syncNeeded {
+// 				if polycrate.Config.Sync.Enabled {
+// 					// if !w.syncLoaded {
+// 					// 	if err := w.LoadSync(ctx); err != nil {
+// 					// 		return err
+// 					// 	}
+// 					// }
 
-					// sync workspace
-					if err := w.RunSync(tx); err != nil {
-						return err
-					}
+// 					// sync workspace
+// 					if err := w.RunSync(tx); err != nil {
+// 						return err
+// 					}
 
-					// mark workspace as synced
-					w.synced = true
+// 					// mark workspace as synced
+// 					w.synced = true
 
-					// unmark needed sync
-					w.syncNeeded = false
+// 					// unmark needed sync
+// 					w.syncNeeded = false
 
-				} else {
-					return fmt.Errorf("sync disabled")
-				}
-			}
-		}
-	}
+// 				} else {
+// 					return fmt.Errorf("sync disabled")
+// 				}
+// 			}
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (w *Workspace) IsBlockInstalled(fullTag string, registryUrl string, blockName string, blockVersion string) bool {
 	// Options for fullTag:
@@ -2774,16 +2624,14 @@ func (c *Workspace) PushBlock(tx *PolycrateTransaction, blockName string) error 
 	return nil
 }
 
-func (c *Workspace) UninstallBlocks(ctx context.Context, args []string) error {
+func (c *Workspace) UninstallBlocks(tx *PolycrateTransaction, args []string) error {
 	for _, blockName := range args {
-		block := c.GetBlockFromIndex(blockName)
-		if block != nil {
-			err := block.Uninstall(ctx, pruneBlock)
-			if err != nil {
-				return err
-			}
-		} else {
-			err := fmt.Errorf("Block not found: %s", blockName)
+		block, err := c.GetBlock(blockName)
+		if err != nil {
+			return err
+		}
+		err = block.Uninstall(tx, pruneBlock)
+		if err != nil {
 			return err
 		}
 	}

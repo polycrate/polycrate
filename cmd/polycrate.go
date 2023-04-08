@@ -9,7 +9,6 @@ import (
 	// "encoding/json"
 	goErrors "errors"
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -728,7 +727,6 @@ func (p *Polycrate) StopTransaction(ctx context.Context, cancel func()) error {
 	// Update with latest context
 	ctx = tx.Context
 
-	log := p.GetContextLogger(ctx)
 	log.Debug("Stopping transaction")
 	//log = log.WithField("txid", txid)
 
@@ -936,14 +934,14 @@ func (p *Polycrate) SetContextLogger(ctx context.Context, log *log.Entry) contex
 	return ctx
 }
 
-func (p *Polycrate) LoadWorkspaces() error {
-	// Discover local workspaces and load to localWorkspaceIndex
-	err := p.DiscoverWorkspaces()
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// func (p *Polycrate) LoadWorkspaces() error {
+// 	// Discover local workspaces and load to localWorkspaceIndex
+// 	err := p.DiscoverWorkspaces()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 func (p *Polycrate) LoadConfigFromFile(ctx context.Context, path string) error {
 	// 1. load $HOME/.polycrate/config.yml
@@ -1030,12 +1028,10 @@ func (p *Polycrate) CreateConfigFile(ctx context.Context) error {
 // 	return
 // }
 
-func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string, withSSHKeys bool, withConfig bool) (*Workspace, error) {
-	log := p.GetContextLogger(ctx)
+func (p *Polycrate) InitWorkspace(tx *PolycrateTransaction, path string, name string, withSSHKeys bool, withConfig bool) (*Workspace, error) {
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		log = log.WithField("path", path)
-		log.Debugf("Creating directory")
+		tx.Log.Debugf("Creating workspace directory at %s", path)
 
 		if err := CreateDir(path); err != nil {
 			return nil, err
@@ -1053,8 +1049,7 @@ func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string,
 
 	blocksDir := filepath.Join([]string{workspace.LocalPath, workspace.Config.BlocksRoot}...)
 	if _, err := os.Stat(blocksDir); os.IsNotExist(err) {
-		log = log.WithField("path", blocksDir)
-		log.Debugf("Creating directory")
+		tx.Log.Debugf("Creating blocks directory at %s", blocksDir)
 
 		if err := CreateDir(blocksDir); err != nil {
 			return nil, err
@@ -1062,16 +1057,15 @@ func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string,
 	}
 
 	if withConfig {
-		log = log.WithField("config", workspace.Config.WorkspaceConfig)
-		if err := workspace.Save(ctx); err != nil {
-			log.Debug("Config already exists")
+		if err := workspace.Save(tx); err != nil {
+			log.Debug("Config already exists at %s", workspace.Config.WorkspaceConfig)
 		} else {
-			log.Infof("Config created")
+			log.Infof("Config created at %s", workspace.Config.WorkspaceConfig)
 		}
 	}
 
 	if withSSHKeys {
-		err := workspace.CreateSshKeys(ctx)
+		err := workspace.CreateSshKeys(tx.Context)
 		if err != nil {
 			log.Debug(err)
 		}
@@ -1080,8 +1074,7 @@ func (p *Polycrate) InitWorkspace(ctx context.Context, path string, name string,
 	return workspace, nil
 }
 
-func (p *Polycrate) CleanupRuntimeDir(ctx context.Context) error {
-	log := p.GetContextLogger(ctx)
+func (p *Polycrate) CleanupRuntimeDir(tx *PolycrateTransaction) error {
 
 	err := os.MkdirAll(polycrateRuntimeDir, os.ModePerm)
 	if err != nil {
@@ -1089,7 +1082,7 @@ func (p *Polycrate) CleanupRuntimeDir(ctx context.Context) error {
 	}
 
 	// Create runtime dir
-	log.WithField("path", polycrateRuntimeDir).Debugf("Cleaning runtime directory")
+	tx.Log.Debugf("Cleaning runtime directory at %s", polycrateRuntimeDir)
 
 	// Purge all contents of runtime dir
 	dir, err := ioutil.ReadDir(polycrateRuntimeDir)
@@ -1097,7 +1090,7 @@ func (p *Polycrate) CleanupRuntimeDir(ctx context.Context) error {
 		return err
 	}
 	for _, d := range dir {
-		log.WithField("file", d.Name()).WithField("path", polycrateRuntimeDir).Debugf("Removing directory")
+		tx.Log.Debugf("Removing directory at %s/%s", polycrateRuntimeDir, d.Name())
 		err := os.RemoveAll(filepath.Join([]string{polycrateRuntimeDir, d.Name()}...))
 		if err != nil {
 			return err
@@ -1107,37 +1100,37 @@ func (p *Polycrate) CleanupRuntimeDir(ctx context.Context) error {
 	return nil
 }
 
-func (p *Polycrate) PreloadWorkspaceWithContext(ctx context.Context, path string, validate bool) (*Workspace, error) {
-	workspace, err := p.PreloadWorkspace(&PolycrateTransaction{}, path, validate)
-	if err != nil {
-		return nil, err
-	}
+// func (p *Polycrate) PreloadWorkspaceWithContext(ctx context.Context, path string, validate bool) (*Workspace, error) {
+// 	workspace, err := p.PreloadWorkspace(&PolycrateTransaction{}, path, validate)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	workspaceKey := ContextKey("workspace")
-	ctx = context.WithValue(ctx, workspaceKey, workspace)
+// 	workspaceKey := ContextKey("workspace")
+// 	ctx = context.WithValue(ctx, workspaceKey, workspace)
 
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("workspace", workspace.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
+// 	log := polycrate.GetContextLogger(ctx)
+// 	log = log.WithField("workspace", workspace.Name)
+// 	ctx = polycrate.SetContextLogger(ctx, log)
 
-	return workspace, nil
-}
+// 	return workspace, nil
+// }
 
-func (p *Polycrate) GetWorkspaceWithContext(ctx context.Context, path string, validate bool) (context.Context, *Workspace, error) {
-	workspace, err := p.LoadWorkspace(&PolycrateTransaction{}, path, validate)
-	if err != nil {
-		return ctx, nil, err
-	}
+// func (p *Polycrate) GetWorkspaceWithContext(ctx context.Context, path string, validate bool) (context.Context, *Workspace, error) {
+// 	workspace, err := p.LoadWorkspace(&PolycrateTransaction{}, path, validate)
+// 	if err != nil {
+// 		return ctx, nil, err
+// 	}
 
-	workspaceKey := ContextKey("workspace")
-	ctx = context.WithValue(ctx, workspaceKey, workspace)
+// 	workspaceKey := ContextKey("workspace")
+// 	ctx = context.WithValue(ctx, workspaceKey, workspace)
 
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("workspace", workspace.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
+// 	log := polycrate.GetContextLogger(ctx)
+// 	log = log.WithField("workspace", workspace.Name)
+// 	ctx = polycrate.SetContextLogger(ctx, log)
 
-	return ctx, workspace, nil
-}
+// 	return ctx, workspace, nil
+// }
 
 func (p *Polycrate) PreloadWorkspace(tx *PolycrateTransaction, path string, validate bool) (*Workspace, error) {
 	var workspace *Workspace
@@ -1167,12 +1160,10 @@ func (p *Polycrate) LoadWorkspace(tx *PolycrateTransaction, path string, validat
 	// 3. If not, bootstrap from defaultWorkspace and add to polycrate.Workspaces
 	var workspace *Workspace
 	var err error
-	log := tx.Log.log
-	log = log.WithField("path", path)
 
 	workspace, err = p.GetWorkspace(path)
 	if err != nil {
-		log.Debugf("Loading workspace from path")
+		tx.Log.Debugf("Loading workspace from %s", path)
 
 		workspace = new(Workspace)
 
@@ -1186,7 +1177,7 @@ func (p *Polycrate) LoadWorkspace(tx *PolycrateTransaction, path string, validat
 		}
 	} else {
 		// Reload workspace
-		log.Debugf("Reloading workspace")
+		tx.Log.Debugf("Reloading workspace")
 
 		//workspace.Reload(ctx)
 		workspace, err = workspace.Reload(tx, validate)
@@ -1197,14 +1188,12 @@ func (p *Polycrate) LoadWorkspace(tx *PolycrateTransaction, path string, validat
 	//w.Load(ctx, path)
 
 	//w.load().Flush()
-	log.WithField("workspace", workspace.Name).WithField("blocks", len(workspace.Blocks)).WithField("workflows", len(workspace.Workflows)).Debugf("Workspace loaded")
+	tx.Log.Debug("Workspace loaded")
 
 	// RegisterWorkspace
 	if err = p.RegisterWorkspace(workspace); err != nil {
 		return nil, err
 	}
-
-	tx.Log.SetField("workspace", workspace.Name)
 
 	return workspace, nil
 }
@@ -1257,27 +1246,27 @@ func (p *Polycrate) HighjackSigint(ctx context.Context, tx *PolycrateTransaction
 	//}()
 }
 
-func (p *Polycrate) DiscoverWorkspaces() error {
-	workspacesDir := polycrateWorkspaceDir
+// func (p *Polycrate) DiscoverWorkspaces() error {
+// 	workspacesDir := polycrateWorkspaceDir
 
-	if _, err := os.Stat(workspacesDir); !os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"path": workspacesDir,
-		}).Debugf("Discovering local workspaces")
+// 	if _, err := os.Stat(workspacesDir); !os.IsNotExist(err) {
+// 		log.WithFields(log.Fields{
+// 			"path": workspacesDir,
+// 		}).Debugf("Discovering local workspaces")
 
-		// This function adds all valid Blocks to the list of
-		err := filepath.WalkDir(workspacesDir, p.WalkWorkspacesDir)
-		if err != nil {
-			return err
-		}
-	} else {
-		log.WithFields(log.Fields{
-			"path": workspacesDir,
-		}).Debugf("Skipping workspace discovery. Local workspaces directory not found")
-	}
+// 		// This function adds all valid Blocks to the list of
+// 		err := filepath.WalkDir(workspacesDir, p.WalkWorkspacesDir)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	} else {
+// 		log.WithFields(log.Fields{
+// 			"path": workspacesDir,
+// 		}).Debugf("Skipping workspace discovery. Local workspaces directory not found")
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // This functions looks for a specific workspace in polycrate.Workspaces
 func (p *Polycrate) GetWorkspace(id string) (*Workspace, error) {
@@ -1297,40 +1286,40 @@ func (p *Polycrate) GetWorkspace(id string) (*Workspace, error) {
 	return nil, err
 }
 
-func (p *Polycrate) WalkWorkspacesDir(path string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
+// func (p *Polycrate) WalkWorkspacesDir(path string, d fs.DirEntry, err error) error {
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if !d.IsDir() {
-		fileinfo, _ := d.Info()
+// 	if !d.IsDir() {
+// 		fileinfo, _ := d.Info()
 
-		if fileinfo.Name() == WorkspaceConfigFile {
-			workspaceConfigFileDir := filepath.Dir(path)
-			log.WithFields(log.Fields{
-				"path": workspaceConfigFileDir,
-			}).Tracef("Local workspace detected")
+// 		if fileinfo.Name() == WorkspaceConfigFile {
+// 			workspaceConfigFileDir := filepath.Dir(path)
+// 			log.WithFields(log.Fields{
+// 				"path": workspaceConfigFileDir,
+// 			}).Tracef("Local workspace detected")
 
-			w := Workspace{}
-			w.LocalPath = workspaceConfigFileDir
-			w.Path = workspaceConfigFileDir
+// 			w := Workspace{}
+// 			w.LocalPath = workspaceConfigFileDir
+// 			w.Path = workspaceConfigFileDir
 
-			log.WithFields(log.Fields{
-				"path": w.Path,
-			}).Tracef("Reading in local workspace")
+// 			log.WithFields(log.Fields{
+// 				"path": w.Path,
+// 			}).Tracef("Reading in local workspace")
 
-			w.SoftloadWorkspaceConfig().Flush()
+// 			w.SoftloadWorkspaceConfig().Flush()
 
-			// Check if the workspace has already been loaded to the local workspace index
-			_i, err := p.GetWorkspace(w.Name)
-			if err != nil {
-				// Workspace not indexed
-				p.Workspaces = append(p.Workspaces, _i)
-			}
-		}
-	}
-	return nil
-}
+// 			// Check if the workspace has already been loaded to the local workspace index
+// 			_i, err := p.GetWorkspace(w.Name)
+// 			if err != nil {
+// 				// Workspace not indexed
+// 				p.Workspaces = append(p.Workspaces, _i)
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (p *PolycrateConfig) validate() error {
 	err := validate.Struct(p)
@@ -1597,5 +1586,9 @@ func (pl *PolycrateLog) Tracef(format string, args ...interface{}) *PolycrateLog
 }
 func (pl *PolycrateLog) Errorf(format string, args ...interface{}) *PolycrateLog {
 	pl.log.Errorf(format, args)
+	return pl
+}
+func (pl *PolycrateLog) Fatalf(format string, args ...interface{}) *PolycrateLog {
+	pl.log.Fatalf(format, args)
 	return pl
 }

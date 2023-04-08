@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
@@ -33,16 +32,12 @@ var inventoryCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction().SetCommand(cmd)
+		defer tx.Stop()
 
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 		showInventory(workspace)
 	},

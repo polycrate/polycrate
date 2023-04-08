@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	goErrors "errors"
 	"fmt"
 	"io/ioutil"
@@ -51,18 +50,12 @@ var blocksCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction().SetCommand(cmd)
+		defer tx.Stop()
 
-		log := polycrate.GetContextLogger(ctx)
-
-		_, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		workspace.ListBlocks()
@@ -82,18 +75,18 @@ type BlockWorkdir struct {
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockKubeconfig struct {
+	exists        bool
 	Path          string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	From          string `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
 	Filename      string `yaml:"filename,omitempty" mapstructure:"filename,omitempty" json:"filename,omitempty"`
-	exists        bool
 	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 type BlockInventory struct {
+	exists        bool
 	Path          string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	From          string `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
 	Filename      string `yaml:"filename,omitempty" mapstructure:"filename,omitempty" json:"filename,omitempty"`
-	exists        bool
 	LocalPath     string `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
@@ -113,23 +106,14 @@ type Block struct {
 	From        string                      `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
 	Template    bool                        `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`
 	Version     string                      `yaml:"version,omitempty" mapstructure:"version" json:"version"`
+	Workdir     BlockWorkdir                `yaml:"workdir,omitempty" mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
+	Inventory   BlockInventory              `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
+	Kubeconfig  BlockKubeconfig             `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
+	Artifacts   BlockArtifacts              `yaml:"artifacts,omitempty" mapstructure:"artifacts,omitempty" json:"artifacts,omitempty"`
 	resolved    bool
-	Workdir     BlockWorkdir    `yaml:"workdir,omitempty" mapstructure:"workdir,omitempty" json:"workdir,omitempty"`
-	Inventory   BlockInventory  `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
-	Kubeconfig  BlockKubeconfig `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
-	Artifacts   BlockArtifacts  `yaml:"artifacts,omitempty" mapstructure:"artifacts,omitempty" json:"artifacts,omitempty"`
-	address     string
-	err         error
 	schema      string
 	workspace   *Workspace
 	blockConfig viper.Viper
-}
-
-func (b *Block) Flush() *Block {
-	if b.err != nil {
-		log.Fatal(b.err)
-	}
-	return b
 }
 
 func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Workspace) error {
@@ -540,22 +524,22 @@ func (b *Block) getKubeconfigPath(tx *PolycrateTransaction) string {
 	return ""
 }
 
-func (b *Block) GetActionWithContext(tx *PolycrateTransaction, name string) (context.Context, *Action, error) {
-	ctx := tx.Context
-	action, err := b.GetAction(name)
-	if err != nil {
-		return ctx, nil, err
-	}
+// func (b *Block) GetActionWithContext(tx *PolycrateTransaction, name string) (context.Context, *Action, error) {
+// 	ctx := tx.Context
+// 	action, err := b.GetAction(name)
+// 	if err != nil {
+// 		return ctx, nil, err
+// 	}
 
-	actionKey := ContextKey("action")
-	ctx = context.WithValue(ctx, actionKey, action)
+// 	actionKey := ContextKey("action")
+// 	ctx = context.WithValue(ctx, actionKey, action)
 
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("action", action.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
+// 	log := polycrate.GetContextLogger(ctx)
+// 	log = log.WithField("action", action.Name)
+// 	ctx = polycrate.SetContextLogger(ctx, log)
 
-	return ctx, action, nil
-}
+// 	return ctx, action, nil
+// }
 
 func (b *Block) GetAction(name string) (*Action, error) {
 	for i := 0; i < len(b.Actions); i++ {
@@ -654,11 +638,9 @@ func (c *Block) MergeIn(block *Block) error {
 					return err
 				}
 
-				destinationAction.address = strings.Join([]string{c.Name, sourceAction.Name}, ".")
 				destinationAction.Block = c.Name
 				destinationAction.block = c
 			} else {
-				sourceAction.address = strings.Join([]string{c.Name, sourceAction.Name}, ".")
 				sourceAction.Block = c.Name
 				sourceAction.block = c
 				c.Actions = append(c.Actions, sourceAction)
@@ -669,7 +651,7 @@ func (c *Block) MergeIn(block *Block) error {
 	// Config
 	if block.Config != nil {
 		if polycrate.Config.Experimental.MergeV2 {
-			log.Warn("Merging block config using experimental merge method")
+			log.Debug("Merging block config using experimental merge method")
 
 			c.Config = mergeMaps(block.Config, c.Config)
 		} else {
@@ -860,14 +842,13 @@ func (b *Block) LoadArtifacts(tx *PolycrateTransaction) error {
 
 }
 
-func (c *Block) Uninstall(ctx context.Context, prune bool) error {
+func (c *Block) Uninstall(tx *PolycrateTransaction, prune bool) error {
 	// e.g. $HOME/.polycrate/workspaces/workspace-1/artifacts/blocks/block-1
-	log := polycrate.GetContextLogger(ctx)
-	log.WithField("path", c.Workdir.LocalPath)
+
 	if _, err := os.Stat(c.Workdir.LocalPath); os.IsNotExist(err) {
-		log.Debugf("Block directory does not exist")
+		tx.Log.Debug("Block directory does not exist")
 	} else {
-		log.Debugf("Removing block directory")
+		tx.Log.Debug("Removing block directory")
 
 		err := os.RemoveAll(c.Workdir.LocalPath)
 		if err != nil {
@@ -875,7 +856,7 @@ func (c *Block) Uninstall(ctx context.Context, prune bool) error {
 		}
 
 		if prune {
-			log.Debugf("Pruning artifacts")
+			tx.Log.Debug("Pruning artifacts")
 
 			err := os.RemoveAll(c.Artifacts.LocalPath)
 			if err != nil {
@@ -883,7 +864,7 @@ func (c *Block) Uninstall(ctx context.Context, prune bool) error {
 			}
 		}
 	}
-	log.Debugf("Successfully uninstalled block from workspace")
+	tx.Log.Debug("Successfully uninstalled block from workspace")
 	return nil
 
 }

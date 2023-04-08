@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type MonkConfig struct {
@@ -28,7 +30,6 @@ func (m *Monk) Load(ctx context.Context, config *MonkConfig) error {
 }
 
 func (m *Monk) SubmitEvent(ctx context.Context, data []byte) error {
-	log := polycrate.GetContextLogger(ctx)
 
 	log.Warnf("Submitting event to Monk at %s", m.Config.Endpoint)
 

@@ -37,18 +37,12 @@ var workflowsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction().SetCommand(cmd)
+		defer tx.Stop()
 
-		log := polycrate.GetContextLogger(ctx)
-
-		_, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		err = workspace.ListWorkflows()
@@ -72,7 +66,6 @@ type Step struct {
 	Action      string            `yaml:"action" mapstructure:"action" json:"action" validate:"required"`
 	Prompt      Prompt            `yaml:"prompt,omitempty" mapstructure:"prompt,omitempty" json:"prompt,omitempty"`
 	Workflow    string            `yaml:"workflow,omitempty" mapstructure:"workflow,omitempty" json:"workflow,omitempty"`
-	address     string
 	workflow    *Workflow
 	//err         error
 }
@@ -86,7 +79,6 @@ type Workflow struct {
 	Steps        []Step            `yaml:"steps,omitempty" mapstructure:"steps,omitempty" json:"steps,omitempty"`
 	Prompt       Prompt            `yaml:"prompt,omitempty" mapstructure:"prompt,omitempty" json:"prompt,omitempty"`
 	AllowFailure bool              `yaml:"allow_failure,omitempty" mapstructure:"allow_failure,omitempty" json:"allow_failure,omitempty"`
-	address      string
 	//err         error
 	workspace *Workspace
 }

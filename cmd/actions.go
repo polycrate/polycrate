@@ -18,7 +18,6 @@ package cmd
 import (
 	"bufio"
 	"bytes"
-	"context"
 	goErrors "errors"
 	"fmt"
 	"os"
@@ -42,18 +41,12 @@ var actionsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction().SetCommand(cmd)
+		defer tx.Stop()
 
-		log := polycrate.GetContextLogger(ctx)
-
-		_, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		workspace.ListActions()
@@ -86,7 +79,6 @@ type Action struct {
 	//Ansible             ActionAnsibleConfig    `yaml:"ansible,omitempty" mapstructure:"ansible,omitempty" json:"ansible,omitempty"`
 	//Kubernetes          ActionKubernetesConfig `yaml:"kubernetes,omitempty" mapstructure:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	executionScriptPath string
-	address             string
 	Block               string                 `yaml:"block,omitempty" mapstructure:"block,omitempty" json:"block,omitempty"`
 	Config              map[string]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	workspace           *Workspace

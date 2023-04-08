@@ -60,8 +60,7 @@ var transactionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		tx := polycrate.Transaction()
-		tx.SetCommand(cmd)
+		tx := polycrate.Transaction().SetCommand(cmd)
 		defer tx.Stop()
 
 		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
@@ -69,7 +68,7 @@ var transactionCmd = &cobra.Command{
 			tx.Log.Fatal(err)
 		}
 
-		workspace.Inspect(tx.Context)
+		workspace.Inspect()
 	},
 }
 

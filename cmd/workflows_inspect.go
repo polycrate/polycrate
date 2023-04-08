@@ -16,9 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
-	"fmt"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -32,32 +29,21 @@ var workflowsInspectCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction().SetCommand(cmd)
+		defer tx.Stop()
 
-		log := polycrate.GetContextLogger(ctx)
-
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, true)
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		var workflow *Workflow
-		_, workflow, err = workspace.GetWorkflowWithContext(ctx, args[0])
+		workflow, err = workspace.GetWorkflow(args[0])
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		if workflow != nil {
-			workflow.Inspect()
-		} else {
-			err := fmt.Errorf("Workflow not found: %s", args[0])
-			log.Fatal(err)
-		}
+		workflow.Inspect()
 	},
 }
 

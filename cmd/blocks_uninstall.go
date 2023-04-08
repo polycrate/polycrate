@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -33,18 +32,12 @@ var blocksUninstallCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction().SetCommand(cmd)
+		defer tx.Stop()
 
-		log := polycrate.GetContextLogger(ctx)
-
-		ctx, workspace, err := polycrate.GetWorkspaceWithContext(ctx, _w, false)
+		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		if len(args) == 0 {
@@ -52,7 +45,7 @@ var blocksUninstallCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		err = workspace.UninstallBlocks(ctx, args)
+		err = workspace.UninstallBlocks(tx, args)
 		if err != nil {
 			log.Fatal(err)
 		}

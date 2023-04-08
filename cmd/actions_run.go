@@ -22,12 +22,9 @@ import (
 
 // installCmd represents the install command
 var actionsRunCmd = &cobra.Command{
-	Use:   "run 'block.action'",
+	Use:   "run $BLOCK $ACTION'",
 	Short: "Run an Action",
 	Args:  cobra.ExactArgs(2),
-	Long: `
-To run an Action, use this command with 1 argument - the Action address.
-The action address is a combination of the Block name and the Action name, joined with a dot/period.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 

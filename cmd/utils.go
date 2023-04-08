@@ -112,8 +112,7 @@ func CheckErr(msg interface{}) {
 }
 
 func RunCommand(ctx context.Context, env []string, name string, args ...string) (exitCode int, output string, err error) {
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("command", name)
+	log := log.WithField("command", name)
 	log = log.WithField("args", strings.Join(args, " "))
 
 	//log.Debug("Running command: ", name, " ", strings.Join(args, " "))

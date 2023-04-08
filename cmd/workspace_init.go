@@ -16,13 +16,11 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/manifoldco/promptui"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -39,20 +37,14 @@ var workspaceInitCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction().SetCommand(cmd)
+		defer tx.Stop()
 
-		log := polycrate.GetContextLogger(ctx)
-		log.Info("Initializing workspace")
+		tx.Log.Info("Initializing workspace")
 
 		// Check if config file exists already
 		workspaceConfigFilePath := filepath.Join(_w, defaultWorkspace.Config.WorkspaceConfig)
 		if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
-			log = log.WithField("config", workspace.Config.WorkspaceConfig)
 			// Check if a name has been given via flag
 			if withName == "" {
 				// Ask for a name via prompt
@@ -72,7 +64,7 @@ var workspaceInitCmd = &cobra.Command{
 				result, err := prompt.Run()
 
 				if err != nil {
-					log.Fatalf("Failed to save workspace name: %s", err)
+					tx.Log.Fatalf("Failed to save workspace name: %s", err)
 				}
 				withName = result
 			}
@@ -95,7 +87,7 @@ var workspaceInitCmd = &cobra.Command{
 				}
 			}
 		} else {
-			log.Debug("Config already exists")
+			tx.Log.Debug("Config already exists")
 			withConfig = false
 		}
 
@@ -117,9 +109,9 @@ var workspaceInitCmd = &cobra.Command{
 			}
 		}
 
-		_, err = polycrate.InitWorkspace(ctx, _w, withName, withSshKeys, withConfig)
+		_, err := polycrate.InitWorkspace(tx, _w, withName, withSshKeys, withConfig)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		// // Check if a git repo has been given via flag
