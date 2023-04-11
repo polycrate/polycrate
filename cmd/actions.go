@@ -88,7 +88,7 @@ type Action struct {
 func (c *Action) MergeIn(action Action) error {
 
 	if err := mergo.Merge(c, action); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	return nil
 }
@@ -357,7 +357,7 @@ func (a *Action) Run(tx *PolycrateTransaction) error {
 
 				runCommand := []string{}
 				if a.executionScriptPath != "" {
-					log.Debugf("Running script: %s", a.executionScriptPath)
+					tx.Log.Debugf("Running script: %s", a.executionScriptPath)
 
 					runCommand = append(runCommand, a.executionScriptPath)
 				} else {
@@ -371,7 +371,7 @@ func (a *Action) Run(tx *PolycrateTransaction) error {
 			} else {
 				args := []string{"-c"}
 				if a.executionScriptPath != "" {
-					log.Debugf("Running script: %s", a.executionScriptPath)
+					tx.Log.Debugf("Running script: %s", a.executionScriptPath)
 
 					args = append(args, a.executionScriptPath)
 				} else {
@@ -431,8 +431,7 @@ func (c *Action) SaveExecutionScript(tx *PolycrateTransaction) error {
 		}
 
 		datawriter.Flush()
-		log := tx.Log.log.WithField("path", f.Name())
-		log.Debug("Saved temporary execution script")
+		tx.Log.Debugf("Saved temporary execution script to %s", f.Name())
 
 		// Make executable
 		err = os.Chmod(f.Name(), 0755)

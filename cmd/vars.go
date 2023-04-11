@@ -85,6 +85,9 @@ const ValidateBlockNameRegex string = `([^\/]+\.[^\/.]+)?\/?([^:]+):?(.+)?`
 
 const WorkspaceEventHandler string = "workspace"
 
+const WorkspaceLogDateFormat string = "2006/01/02"
+const WorkspaceLogDateOutputFormat string = "02.01.2006 15:04:05"
+
 // Variable to decide if polycrate is run during block development
 var dev bool
 

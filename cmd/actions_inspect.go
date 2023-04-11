@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -47,12 +46,12 @@ var actionsInspectCmd = &cobra.Command{
 		var action *Action
 		action, err = block.GetAction(args[1])
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 		if action != nil {
 			action.Inspect()
 		} else {
-			log.Fatalf("Action not found: %s", args[0])
+			tx.Log.Fatalf("Action not found: %s", args[0])
 		}
 	},
 }

@@ -16,41 +16,41 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
-// installCmd represents the install command
-var blocksUninstallCmd = &cobra.Command{
-	Use:    "uninstall BLOCK1 BLOCK2",
-	Short:  "Uninstall blocks",
+var logsInspectCmd = &cobra.Command{
+	Use:    "inspect",
 	Hidden: true,
-	Long:   ``,
-	//Args:  cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
+	Short:  "Show workspace log",
+	Long:   `Show workspace log`,
+	Args:   cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
-		tx := polycrate.Transaction().SetCommand(cmd)
+		tx := polycrate.Transaction().SetCommand(cmd).SetJob(func(tx *PolycrateTransaction) error {
+			workspace, err := polycrate.LoadWorkspace(tx, _w, true)
+			if err != nil {
+				tx.Log.Fatal(err)
+			}
+
+			log, err := workspace.GetLog(args[0])
+			if err != nil {
+				return err
+			}
+			log.Inspect()
+			return nil
+		})
+
+		err := tx.Run()
+		if err != nil {
+			tx.Log.Fatal(err)
+		}
 		defer tx.Stop()
 
-		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
-		if err != nil {
-			tx.Log.Fatal(err)
-		}
-
-		if len(args) == 0 {
-			err := fmt.Errorf("no blocks given")
-			tx.Log.Fatal(err)
-		}
-
-		err = workspace.UninstallBlocks(tx, args)
-		if err != nil {
-			tx.Log.Fatal(err)
-		}
 	},
 }
 
 func init() {
-	blocksCmd.AddCommand(blocksUninstallCmd)
+	logsCmd.AddCommand(logsInspectCmd)
 }

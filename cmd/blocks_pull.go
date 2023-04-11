@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +47,7 @@ var blocksPullCmd = &cobra.Command{
 
 		err = workspace.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 	},
 }

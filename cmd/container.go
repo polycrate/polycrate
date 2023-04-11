@@ -52,11 +52,11 @@ func buildContainerImage(ctx context.Context, path string, dockerfilePath string
 func PullImageGo(ctx context.Context, image string) error {
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	reader, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer reader.Close()
 	termFd, isTerm := term.GetFdInfo(os.Stderr)
@@ -267,10 +267,6 @@ func RunContainer(tx *PolycrateTransaction, image string, command []string, env 
 }
 
 func CreateContainer(tx *PolycrateTransaction, name string, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
-	log := tx.Log.log
-	log = log.WithField("container", name)
-	log.Debugf("Creating container")
-
 	// Prepare container command
 	var runCmd []string
 
@@ -342,9 +338,7 @@ func CreateContainer(tx *PolycrateTransaction, name string, image string, comman
 // }
 
 func RemoveContainer(tx *PolycrateTransaction, container string) error {
-	log := tx.Log.log
-	log = log.WithField("container", container)
-	log.Debugf("Removing container")
+	tx.Log.Debugf("Removing container '%s'", container)
 	// Prepare container command
 	var runCmd []string
 

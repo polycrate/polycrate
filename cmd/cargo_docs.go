@@ -157,8 +157,6 @@ var cargoDocsCmd = &cobra.Command{
 		}
 
 		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
 		if err != nil {
 			log.Fatal(err)
 		}

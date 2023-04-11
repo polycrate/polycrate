@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -39,7 +38,7 @@ var actionsRunCmd = &cobra.Command{
 
 		err = workspace.RunAction(tx, args[0], args[1])
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 	},
 }

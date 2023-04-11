@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -157,12 +158,17 @@ type Workspace struct {
 	runtimeDir      string
 	installedBlocks []*Block
 	isGitRepo       bool
-	containerStatus WorkspaceContainerStatus
+	logs            []*WorkspaceLog
 	//overrides       []string
 	// synced bool
 	//syncLoaded      bool
 	//syncNeeded      bool
 	//syncStatus      string
+}
+
+type WorkspaceLog struct {
+	PolycrateEvent `mapstructure:",squash"`
+	path           string
 }
 
 type WorkspaceSnapshot struct {
@@ -303,8 +309,7 @@ func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action s
 	}
 
 	if block.Template {
-		err = errors.New("this is a template block. not running action")
-		return err
+		return errors.New("this is a template block. not running action")
 	}
 
 	//log := polycrate.GetContextLogger(ctx)
@@ -600,7 +605,7 @@ func (w *Workspace) PruneContainer(tx *PolycrateTransaction) error {
 
 func (w *Workspace) RunContainer(tx *PolycrateTransaction, name string, workdir string, cmd []string) error {
 
-	log.Infof("Starting container")
+	tx.Log.Infof("Starting container")
 
 	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
 
@@ -670,18 +675,6 @@ func (w *Workspace) RunContainer(tx *PolycrateTransaction, name string, workdir 
 	labels := []string{}
 	labels = append(labels, fmt.Sprintf("polycrate.txid=%s", tx.TXID.String()))
 
-	w.containerStatus.Running = true
-	w.containerStatus.Transaction = w.revision.Transaction
-
-	// Capture CTRL-C if the container is running and non-interactive
-	var cancelHighjack context.CancelFunc
-	var sigIntCtx context.Context
-	if !interactive {
-		sigIntCtx, cancelHighjack = context.WithCancel(tx.Context)
-		defer cancelHighjack()
-		polycrate.HighjackSigint(sigIntCtx, tx)
-
-	}
 	log.Debugf("Starting container")
 
 	ports := []string{}
@@ -702,6 +695,7 @@ func (w *Workspace) RunContainer(tx *PolycrateTransaction, name string, workdir 
 		runCommand,
 	)
 
+	// Save output and exit code to transaction metadata
 	tx.SetOutput(output)
 	tx.SetExitCode(exitCode)
 
@@ -711,89 +705,12 @@ func (w *Workspace) RunContainer(tx *PolycrateTransaction, name string, workdir 
 
 	tx.Log.Debugf("Stopped container. Exit code: %d", exitCode)
 
-	w.containerStatus.Running = false
+	//w.containerStatus.Running = false
 
 	// Prune container
-	w.PruneContainer(tx)
+	//w.PruneContainer(tx)
 
 	return nil
-
-	// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-
-	// if err != nil {
-	// 	w.err = err
-	// 	return w
-	// }
-
-	// log.WithFields(log.Fields{
-	// 	"workspace": w.Name,
-	// 	"build":     build,
-	// 	"pull":      pull,
-	// }).Debugf("Running container")
-
-	// entrypoint := []string{"/bin/bash", "-c"}
-	// runCommand := []string{}
-
-	// if cmd != "" {
-	// 	runCommand = append(runCommand, cmd)
-	// } else {
-	// 	w.err = goErrors.New("no execution script path given. Nothing to do")
-	// 	return w
-	// }
-
-	// log.WithFields(log.Fields{
-	// 	"workspace": w.Name,
-	// }).Debugf("Running entrypoint %s", entrypoint)
-
-	// log.WithFields(log.Fields{
-	// 	"workspace": w.Name,
-	// }).Debugf("Running command %s", runCommand)
-
-	// cc := &container.Config{
-	// 	Image:        containerImage,
-	// 	Entrypoint:   entrypoint,
-	// 	Cmd:          runCommand,
-	// 	Tty:          true,
-	// 	AttachStderr: true,
-	// 	AttachStdout: true,
-	// 	AttachStdin:  interactive,
-	// 	Labels: map[string]string{
-	// 		"polycrate.workspace": w.Name,
-	// 		"polycrate.name":      name,
-	// 	},
-	// 	StdinOnce:  interactive,
-	// 	OpenStdin:  interactive,
-	// 	Env:        w.DumpEnv(),
-	// 	WorkingDir: workdir,
-	// }
-
-	// // Setup mounts
-	// containerMounts := []mount.Mount{}
-	// for containerMount := range w.mounts {
-	// 	m := mount.Mount{
-	// 		Type:   mount.TypeBind,
-	// 		Source: containerMount,
-	// 		Target: workspace.mounts[containerMount],
-	// 	}
-	// 	containerMounts = append(containerMounts, m)
-	// }
-
-	// hc := &container.HostConfig{
-	// 	Mounts: containerMounts,
-	// }
-
-	// // Ignore / Stop Signal channel
-	// // if interactive {
-	// // 	signal.Ignore(os.Interrupt)
-	// // }
-
-	// err = runContainer(cli, cc, hc, name)
-
-	// if err != nil {
-	// 	w.err = err
-	// 	return w
-	// }
-	// return w
 }
 
 func (w *Workspace) RunWorkflow(tx *PolycrateTransaction, name string, stepName string) error {
@@ -1199,6 +1116,11 @@ func (w *Workspace) Preload(tx *PolycrateTransaction, path string, validate bool
 	tx.Log.Debug("Loading installed blocks")
 	if err := w.LoadInstalledBlocks(tx); err != nil {
 		return nil, err
+	}
+
+	logsDir := filepath.Join(w.LocalPath, w.Config.LogsRoot)
+	if err := w.FindLogs(tx, logsDir); err != nil {
+		tx.Log.Warn(err)
 	}
 
 	// Bootstrap revision data
@@ -2030,6 +1952,12 @@ func (w *Workspace) SaveSnapshot(tx *PolycrateTransaction) (string, error) {
 		w.registerEnvVar("POLYCRATE_WORKSPACE_SNAPSHOT_YAML", f.Name())
 		w.registerMount(f.Name(), f.Name())
 
+		// Save snapshot to transaction
+		// SaveSnapshot should be called just before running actual user code
+		// So this is the latest posible point in time to receive accurate
+		// data for later use
+		tx.Snapshot = snapshot
+
 		return f.Name(), nil
 	} else {
 		return "", fmt.Errorf("cannot save snapshot")
@@ -2130,6 +2058,15 @@ func (c *Workspace) getBlockByName(blockName string) *Block {
 	// 	}
 	// }
 	//return nil
+}
+func (w *Workspace) GetLog(txid string) (*WorkspaceLog, error) {
+	for i := 0; i < len(w.logs); i++ {
+		log := w.logs[i]
+		if log.Transaction == txid {
+			return log, nil
+		}
+	}
+	return nil, fmt.Errorf("log not found: %s", txid)
 }
 func (c *Workspace) GetBlock(name string) (*Block, error) {
 	for i := 0; i < len(c.Blocks); i++ {
@@ -2781,6 +2718,29 @@ func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, er
 
 	return block, nil
 }
+func (w *Workspace) LoadLog(tx *PolycrateTransaction, path string) (*WorkspaceLog, error) {
+	log := new(WorkspaceLog)
+
+	//blockConfigObject := viper.New()
+	// https: //github.com/spf13/viper#unmarshaling
+	// allows to use dots in keys
+	logConfigObject := viper.NewWithOptions(viper.KeyDelimiter("::"))
+	logConfigObject.SetConfigType("yaml")
+	logConfigObject.SetConfigFile(path)
+
+	if err := logConfigObject.MergeInConfig(); err != nil {
+		return nil, err
+	}
+	fmt.Println(logConfigObject.AllSettings())
+
+	if err := logConfigObject.UnmarshalExact(&log); err != nil {
+		return nil, err
+	}
+
+	log.path = path
+
+	return log, nil
+}
 
 // func (c *Workspace) LoadInstalledBlocks() *Workspace {
 // 	log.WithFields(log.Fields{
@@ -2866,7 +2826,7 @@ func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, er
 // }
 
 func (w *Workspace) FindInstalledBlocks(tx *PolycrateTransaction, path string) error {
-	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
+	blocksDir := path
 
 	// reset installedBlocks
 	// when running a workflow, without reseting the count of installed blocks just continuously increases
@@ -2906,7 +2866,44 @@ func (w *Workspace) FindInstalledBlocks(tx *PolycrateTransaction, path string) e
 		log := tx.Log.log.WithField("path", blocksDir)
 		log.Debugf("Skipping block discovery. Blocks directory not found")
 	}
-	tx.Log.Debugf("Installed blocks: %d", len(w.installedBlocks))
+
+	return nil
+}
+func (w *Workspace) FindLogs(tx *PolycrateTransaction, path string) error {
+	logsDir := path
+	tx.Log.Debugf("Searching for logs at %s", path)
+
+	// reset installedBlocks
+	// when running a workflow, without reseting the count of installed blocks just continuously increases
+	w.logs = []*WorkspaceLog{}
+
+	if _, err := os.Stat(logsDir); !os.IsNotExist(err) {
+		// This function adds all valid Blocks to the list of
+		err := filepath.WalkDir(logsDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if !d.IsDir() {
+				if filepath.Ext(path) == ".yml" {
+					log, err := w.LoadLog(tx, path)
+					if err != nil {
+						return err
+					}
+
+					// Add block to installedBlocks
+					w.logs = append(w.logs, log)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		log := tx.Log.log.WithField("path", logsDir)
+		log.Debugf("Skipping log discovery. Logs directory not found")
+	}
 
 	return nil
 }
@@ -2969,3 +2966,19 @@ func (c *Workspace) PullDependencies() *Workspace {
 // 	}
 // 	return f, nil
 // }
+
+func (w *Workspace) ListLogs(tx *PolycrateTransaction) {
+	// Loop through logs dir
+	// Collect date from folder structure
+	sort.Slice(w.logs, func(i, j int) bool {
+		return w.logs[i].Date > w.logs[j].Date
+	})
+	for _, log := range w.logs {
+		date, _ := time.Parse(time.RFC3339, log.Date)
+		fmt.Printf("%s - %s - %s\n", date.Format(WorkspaceLogDateOutputFormat), log.Transaction, log.Message)
+	}
+}
+
+func (wl *WorkspaceLog) Inspect() {
+	printObject(wl)
+}

@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	goErrors "errors"
 	"fmt"
 	"strings"
@@ -271,22 +270,6 @@ func (c *Step) validate() error {
 	// log.Debug("Found Block at " + blockDir)
 
 	return nil
-}
-
-func (w *Workflow) GetStepWithContext(ctx context.Context, name string) (context.Context, *Step, error) {
-	step, err := w.GetStep(name)
-	if err != nil {
-		return ctx, nil, err
-	}
-
-	stepKey := ContextKey("step")
-	ctx = context.WithValue(ctx, stepKey, step)
-
-	log := polycrate.GetContextLogger(ctx)
-	log = log.WithField("step", step.Name)
-	ctx = polycrate.SetContextLogger(ctx, log)
-
-	return ctx, step, nil
 }
 
 func (c *Workflow) GetStep(name string) (*Step, error) {

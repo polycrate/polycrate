@@ -117,8 +117,7 @@ type Block struct {
 }
 
 func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Workspace) error {
-	log := tx.Log.log
-	log.Infof("Starting SSH session")
+	tx.Log.Infof("Starting SSH session")
 
 	containerName := slugify([]string{tx.TXID.String(), "ssh"})
 	fileName := strings.Join([]string{containerName, "yml"}, ".")
@@ -191,7 +190,7 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Worksp
 		return err
 	}
 
-	log.Infof("Connecting via SSH")
+	tx.Log.Infof("Connecting via SSH")
 
 	//err = connectWithSSH(user, ip, port, privateKey)
 	interactive = true
@@ -477,10 +476,6 @@ func (b *Block) Reload(tx *PolycrateTransaction) error {
 
 func (c *Block) getInventoryPath(tx *PolycrateTransaction) string {
 
-	// workspace, err := polycrate.GetContextWorkspace(ctx)
-	// if err != nil {
-	// 	log.Fatalf("Couldn't get workspace from context")
-	// }
 	workspace := c.workspace
 
 	if c.Inventory.From != "" {
@@ -503,15 +498,11 @@ func (c *Block) getInventoryPath(tx *PolycrateTransaction) string {
 }
 
 func (b *Block) getKubeconfigPath(tx *PolycrateTransaction) string {
-	// workspace, err := polycrate.GetContextWorkspace(ctx)
-	// if err != nil {
-	// 	log.Fatalf("Couldn't get workspace from context")
-	// }
 	workspace := b.workspace
 
 	if b.Kubeconfig.From != "" {
 		// Take the kubeconfig from another Block
-		log.Debugf("Loading Kubeconfig from block %s", b.Kubeconfig.From)
+		tx.Log.Debugf("Loading Kubeconfig from block %s", b.Kubeconfig.From)
 		kubeconfigSourceBlock := workspace.getBlockByName(b.Kubeconfig.From)
 		if kubeconfigSourceBlock != nil {
 			return kubeconfigSourceBlock.Kubeconfig.Path
@@ -523,23 +514,6 @@ func (b *Block) getKubeconfigPath(tx *PolycrateTransaction) string {
 	}
 	return ""
 }
-
-// func (b *Block) GetActionWithContext(tx *PolycrateTransaction, name string) (context.Context, *Action, error) {
-// 	ctx := tx.Context
-// 	action, err := b.GetAction(name)
-// 	if err != nil {
-// 		return ctx, nil, err
-// 	}
-
-// 	actionKey := ContextKey("action")
-// 	ctx = context.WithValue(ctx, actionKey, action)
-
-// 	log := polycrate.GetContextLogger(ctx)
-// 	log = log.WithField("action", action.Name)
-// 	ctx = polycrate.SetContextLogger(ctx, log)
-
-// 	return ctx, action, nil
-// }
 
 func (b *Block) GetAction(name string) (*Action, error) {
 	for i := 0; i < len(b.Actions); i++ {
@@ -716,7 +690,7 @@ func (b *Block) README() error {
 	}
 	file, err := os.Open(readme)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer func() {
 		if err = file.Close(); err != nil {

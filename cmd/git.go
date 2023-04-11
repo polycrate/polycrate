@@ -94,9 +94,7 @@ func GitCheckout(tx *PolycrateTransaction, path string, branch string, create bo
 }
 
 func GitInit(tx *PolycrateTransaction, path string) (string, error) {
-	log.WithFields(log.Fields{
-		"path": path,
-	}).Debugf("Initializing git repository")
+	tx.Log.Debugf("Initializing git repository at %s", path)
 
 	initArgs := []string{
 		"init",
@@ -106,7 +104,6 @@ func GitInit(tx *PolycrateTransaction, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Debugf(output)
 
 	return output, nil
 }
@@ -117,8 +114,6 @@ func GitCreateAndCheckoutBranch(repository *git.Repository, branch string, remot
 	if err != nil {
 		return err
 	}
-
-	log.Warn("Marker")
 
 	opts := &gitConfig.Branch{
 		Name:   branch,

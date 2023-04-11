@@ -18,7 +18,6 @@ package cmd
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -48,11 +47,11 @@ var blocksReadmeCmd = &cobra.Command{
 		if block != nil {
 			err := block.README()
 			if err != nil {
-				log.Fatal(err)
+				tx.Log.Fatal(err)
 			}
 		} else {
 			err := fmt.Errorf("Block not found: %s", args[0])
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 	},
 }

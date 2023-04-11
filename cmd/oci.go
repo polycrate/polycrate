@@ -41,7 +41,6 @@ func WrapOCIImage(ctx context.Context, path string, registryUrl string, imageNam
 	log := log.WithField("registry", registryUrl)
 	log = log.WithField("image", imageName)
 	log = log.WithField("tag", imageTag)
-	ctx = polycrate.SetContextLogger(ctx, log)
 
 	log.Debugf("Preparing to push image")
 
@@ -158,7 +157,6 @@ func UnwrapOCIImage(ctx context.Context, path string, registryUrl string, imageN
 	}
 
 	log := log.WithField("image", tag.String())
-	ctx = polycrate.SetContextLogger(ctx, log)
 
 	log.Debugf("Pulling block image")
 

@@ -764,7 +764,6 @@ func generateKey() (string, string, error) {
 }
 
 func CreateSSHKeys(ctx context.Context, path string, SshPrivateKey string, SshPublicKey string) error {
-	log := polycrate.GetContextLogger(ctx)
 
 	privKeyPath := filepath.Join(path, SshPrivateKey)
 	pubKeyPath := filepath.Join(path, SshPublicKey)

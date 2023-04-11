@@ -57,11 +57,8 @@ Use --force to re-install or downgrade to a specific version
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
-		ctx, _, cancel, err := polycrate.NewTransaction(ctx, cmd)
-		defer polycrate.StopTransaction(ctx, cancel)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tx := polycrate.Transaction().SetCommand(cmd)
+		defer tx.Stop()
 
 		// err = polycrate.UpdateCLI(ctx)
 		// if err != nil {
