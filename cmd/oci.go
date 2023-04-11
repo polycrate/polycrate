@@ -158,7 +158,7 @@ func UnwrapOCIImage(ctx context.Context, path string, registryUrl string, imageN
 
 	log := log.WithField("image", tag.String())
 
-	log.Debugf("Pulling block image")
+	log.Debugf("Pulling image")
 
 	img, err := PullOCIImage(ctx, tag.String())
 	if err != nil {
