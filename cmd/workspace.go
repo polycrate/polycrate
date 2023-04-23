@@ -2736,7 +2736,6 @@ func (w *Workspace) LoadLog(tx *PolycrateTransaction, path string) (*WorkspaceLo
 	if err := logConfigObject.MergeInConfig(); err != nil {
 		return nil, err
 	}
-	fmt.Println(logConfigObject.AllSettings())
 
 	if err := logConfigObject.UnmarshalExact(&log); err != nil {
 		return nil, err
