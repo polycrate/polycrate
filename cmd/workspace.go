@@ -191,6 +191,9 @@ func (w *Workspace) CreateSshKeys(ctx context.Context) error {
 
 func (w *Workspace) FormatCommand(cmd *cobra.Command) string {
 
+	if cmd == nil {
+		return ""
+	}
 	commandPath := cmd.CommandPath()
 	localArgs := cmd.Flags().Args()
 
@@ -920,7 +923,8 @@ func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, va
 	// workspaceConfig.AutomaticEnv()
 
 	// Check if a full path has been given
-	workspaceConfigFilePath := filepath.Join(w.LocalPath, w.Config.WorkspaceConfig)
+	//workspaceConfigFilePath := filepath.Join(w.LocalPath, w.Config.WorkspaceConfig)
+	workspaceConfigFilePath := filepath.Join(path, w.Config.WorkspaceConfig)
 
 	if _, err := os.Stat(workspaceConfigFilePath); os.IsNotExist(err) {
 		// The config file does not exist
@@ -942,6 +946,7 @@ func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, va
 			workspaceConfigFilePath = filepath.Join(w.LocalPath, WorkspaceConfigFile)
 		} else {
 			// err = fmt.Errorf("couldn't find workspace config at %s", workspaceConfigFilePath)
+			tx.Log.Errorf("Workspace config not found at %s", workspaceConfigFilePath)
 			return ErrWorkspaceConfigNotFound
 		}
 	}

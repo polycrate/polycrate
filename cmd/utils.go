@@ -550,7 +550,7 @@ func promptYesNo(pc promptContent) string {
 	}
 
 	if err != nil {
-		log.Error("Prompt failed %v\n", err)
+		log.Errorf("Prompt failed %v\n", err)
 		os.Exit(1)
 	}
 

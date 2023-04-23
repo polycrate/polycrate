@@ -902,7 +902,7 @@ func (p *Polycrate) InitWorkspace(tx *PolycrateTransaction, path string, name st
 
 	if withConfig {
 		if err := workspace.Save(tx); err != nil {
-			log.Debug("Config already exists at %s", workspace.Config.WorkspaceConfig)
+			log.Debugf("Config already exists at %s", workspace.Config.WorkspaceConfig)
 		} else {
 			log.Infof("Config created at %s", workspace.Config.WorkspaceConfig)
 		}

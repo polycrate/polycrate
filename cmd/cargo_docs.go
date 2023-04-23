@@ -289,13 +289,13 @@ var cargoDocsCmd = &cobra.Command{
 						// Create / Truncate target file
 						f, err := os.Create(docsReadmeFile)
 						if err != nil {
-							log.Fatalf("create file: ", err)
+							log.Fatal("create file: ", err)
 						}
 						defer f.Close()
 
 						err = t.Execute(f, tag)
 						if err != nil {
-							log.Fatalf("execute: ", err)
+							log.Fatal("execute: ", err)
 						}
 						f.Close()
 
@@ -319,11 +319,11 @@ var cargoDocsCmd = &cobra.Command{
 
 				f, err := os.Create(docsBlockREADME)
 				if err != nil {
-					log.Fatalf("create file: ", err)
+					log.Fatal("create file: ", err)
 				}
 				err = t.Execute(f, catalogBlock)
 				if err != nil {
-					log.Fatalf("execute: ", err)
+					log.Fatal("execute: ", err)
 				}
 				f.Close()
 				log.Infof("Created file at %s", f.Name())
@@ -341,11 +341,11 @@ var cargoDocsCmd = &cobra.Command{
 
 		f, err := os.Create(docsBlocksMainREADME)
 		if err != nil {
-			log.Fatalf("create file: ", err)
+			log.Fatal("create file: ", err)
 		}
 		err = t.Execute(f, catalog)
 		if err != nil {
-			log.Fatalf("execute: ", err)
+			log.Fatal("execute: ", err)
 		}
 		f.Close()
 		log.Infof("Created file at %s", f.Name())
