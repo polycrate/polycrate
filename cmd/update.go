@@ -125,9 +125,9 @@ func init() {
 
 	updateCmd.PersistentFlags().BoolVarP(&consent, "yes", "y", false, "Consent to update")
 	updateCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "d", false, "Don't actually do anything")
-	updateCmd.PersistentFlags().StringVar(&latestUrl, "latest-url", "https://dl.polycrate.io/polycrate/cli/latest", "Latest URL")
+	updateCmd.PersistentFlags().StringVar(&latestUrl, "latest-url", "https://api.github.com/repos/polycrate/polycrate/releases/latest", "Latest URL")
 	updateCmd.PersistentFlags().StringVar(&tempDownloadPath, "temp-download-path", "/tmp/polycrate", "Temporary download path")
-	updateCmd.PersistentFlags().StringVar(&packageRegistry, "package-registry", "https://dl.polycrate.io/polycrate/cli", "Package Registry")
+	updateCmd.PersistentFlags().StringVar(&packageRegistry, "package-registry", "https://github.com//polycrate/polycrate/releases/download", "Package Registry")
 	updateCmd.PersistentFlags().StringVar(&downloadUrlTemplate, "download-url", "{{ .PackageRegistry }}/v{{ .Version }}/polycrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}.tar.gz", "Download URL Template")
 
 }
@@ -304,7 +304,7 @@ func downloadPolycrateCLI(packageVersion string) error {
 
 		defer os.Remove(packageDownload.Name())
 
-		log.Debug("Downloaded version " + packageVersion + " to " + packageDownload.Name())
+		log.Debug("Downloaded version " + packageVersion + " from " + url.String() + " to " + packageDownload.Name())
 
 		// Unpack
 		//extract.Archive(packageDownload, "/tmp")
