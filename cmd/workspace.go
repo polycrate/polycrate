@@ -2746,65 +2746,6 @@ func (w *Workspace) LoadLog(tx *PolycrateTransaction, path string) (*WorkspaceLo
 	return log, nil
 }
 
-// func (c *Workspace) LoadInstalledBlocks() *Workspace {
-// 	log.WithFields(log.Fields{
-// 		"workspace": c.Name,
-// 	}).Debugf("Loading installed blocks")
-
-// 	for _, blockPath := range blockPaths {
-// 		var loadedBlock Block
-// 		loadedBlock.Workdir.LocalPath = filepath.Join(blockPath, c.Config.BlocksConfig)
-// 		err := c.LoadBlock(&loadedBlock)
-// 		if err != nil {
-// 			c.err = err
-// 			return c
-// 		}
-
-// 		// blockConfigFilePath := filepath.Join(blockPath, c.Config.BlocksConfig)
-
-// 		// blockConfigObject := viper.New()
-// 		// blockConfigObject.SetConfigType("yaml")
-// 		// blockConfigObject.SetConfigFile(blockConfigFilePath)
-
-// 		// log.WithFields(log.Fields{
-// 		// 	"workspace": c.Name,
-// 		// 	"path":      blockPath,
-// 		// }).Debugf("Loading installed block")
-// 		// if err := blockConfigObject.MergeInConfig(); err != nil {
-// 		// 	c.err = err
-// 		// 	return c
-// 		// }
-
-// 		// if err := blockConfigObject.UnmarshalExact(&loadedBlock); err != nil {
-// 		// 	c.err = err
-// 		// 	return c
-// 		// }
-// 		// if err := loadedBlock.validate(); err != nil {
-// 		// 	c.err = err
-// 		// 	return c
-// 		// }
-// 		// log.WithFields(log.Fields{
-// 		// 	"block":     loadedBlock.Name,
-// 		// 	"workspace": c.Name,
-// 		// }).Debugf("Loaded block")
-
-// 		// // Set Block vars
-// 		// loadedBlock.Workdir.LocalPath = blockPath
-// 		// loadedBlock.Workdir.ContainerPath = filepath.Join(c.ContainerPath, c.Config.BlocksRoot, loadedBlock.Name)
-
-// 		// if local {
-// 		// 	loadedBlock.Workdir.Path = loadedBlock.Workdir.LocalPath
-// 		// } else {
-// 		// 	loadedBlock.Workdir.Path = loadedBlock.Workdir.ContainerPath
-// 		// }
-
-// 		// // Add block to installedBlocks
-// 		// c.installedBlocks = append(installedBlocks, loadedBlock)
-// 	}
-// 	return c
-
-// }
-
 // func (w *Workspace) DiscoverInstalledBlocks() *Workspace {
 // 	blocksDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot)
 
