@@ -13,9 +13,6 @@
   <a href="https://github.com/polycrate/polycrate/releases" alt="Releases">
     <img src="https://img.shields.io/github/v/release/polycrate/polycrate" alt="Releases" />
   </a>
-  <a href="https://docs.polycrate.io" alt="Docs">
-    <img src="https://api.netlify.com/api/v1/badges/67a4a921-cfbb-442d-ae7c-a2f9439a4001/deploy-status" alt="Docs" />
-  </a>
 </p>
 
 Polycrate is a framework that lets you package, integrate and automate complex applications and infrastructure. With Polycrate you can bundle dependencies, tools, cofiguration and deployment logic for any kind of IT system in a single workspace and expose reusable actions that enable a streamlined DevOps workflow.
@@ -34,10 +31,10 @@ You can share workspaces with your team or customers and make them use pre-defin
 
 ### Install Polycrate
 
-To see more examples on how to install Polycrate, please refer to our [docs](https://docs.polycrate.io/6_installation)
+To see more examples on how to install Polycrate, please refer to our [docs](https://www.ayedo.de/polycrate/installation/)
 
 ```bash
-curl https://docs.polycrate.io/get-polycrate.sh | bash
+curl https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh | bash
 polycrate version
 ```
 
@@ -106,9 +103,9 @@ For more examples on how to get started, please visit our [docs](https://docs.po
 
 ## Play with Polycrate
 
-- [Installation](https://docs.polycrate.io/6_installation)
-- [Quick start](https://docs.polycrate.io/1_getting-started)
-- [Examples](https://docs.polycrate.io/examples)
+- [Installation](https://www.ayedo.de/polycrate/installation/)
+- [Quick start](https://www.ayedo.de/polycrate/erste-schritte/)
+- [Examples](https://www.ayedo.de/polycrate/)
 
 ## Support
 
@@ -121,4 +118,4 @@ For enterprise support, please contact us at [hello@ayedo.de](mailto:hello@ayedo
 
 ## Copyright & License
 
-Copyright (c) 2021-2022 Ayedo Cloud Solutions GmbH - Released under the Sustainable Use License. Polycrate and the Polycrate Logo are trademarks of Ayedo Cloud Solutions GmbH.
+Copyright (c) 2021-2023 Ayedo Cloud Solutions GmbH - Released under the Sustainable Use License. Polycrate and the Polycrate Logo are trademarks of Ayedo Cloud Solutions GmbH.
