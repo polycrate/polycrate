@@ -503,7 +503,11 @@ func (b *Block) getKubeconfigPath(tx *PolycrateTransaction) string {
 	if b.Kubeconfig.From != "" {
 		// Take the kubeconfig from another Block
 		tx.Log.Debugf("Loading Kubeconfig from block %s", b.Kubeconfig.From)
-		kubeconfigSourceBlock := workspace.getBlockByName(b.Kubeconfig.From)
+		kubeconfigSourceBlock, err := workspace.GetBlock(b.Kubeconfig.From)
+		if err != nil {
+			tx.Log.Errorf("Block %s not found", b.Kubeconfig.From)
+		}
+
 		if kubeconfigSourceBlock != nil {
 			return kubeconfigSourceBlock.Kubeconfig.Path
 		} else {
