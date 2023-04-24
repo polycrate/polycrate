@@ -722,6 +722,8 @@ func (b *Block) Inspect() {
 func (c *Block) LoadInventory(tx *PolycrateTransaction) error {
 	// Locate "inventory.yml" in blockArtifactsDir
 
+	workspace := c.workspace
+
 	var localInventoryFile string
 	var containerInventoryFile string
 	if c.Inventory.Filename != "" {
@@ -738,6 +740,7 @@ func (c *Block) LoadInventory(tx *PolycrateTransaction) error {
 		c.Inventory.LocalPath = localInventoryFile
 		c.Inventory.ContainerPath = containerInventoryFile
 	} else {
+		log.Debugf("Using workspace inventory at %s for block", c.Inventory.LocalPath)
 		// Check if workspace inventory exists
 		if workspace.Inventory.exists {
 			c.Inventory.exists = true
@@ -759,6 +762,8 @@ func (c *Block) LoadInventory(tx *PolycrateTransaction) error {
 
 func (c *Block) LoadKubeconfig(tx *PolycrateTransaction) error {
 	// Locate "kubeconfig.yml" in blockArtifactsDir
+
+	workspace := c.workspace
 
 	var localKubeconfigFile string
 	var containerKubeconfigFile string
