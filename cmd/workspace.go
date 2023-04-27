@@ -2541,15 +2541,15 @@ func (c *Workspace) PushBlock(tx *PolycrateTransaction, blockName string) error 
 
 	// if --dev flag has been used, assume we're just developing that block
 	// append "dev" and the first 98 chars of the transaction ID to the tag (still sem-ver compatible)
+	if block.Labels == nil {
+		block.Labels = map[string]string{}
+	}
 	if dev {
 		// Append "-dev" to tag
 		txid := tx.TXID.String()
 		_tagVersion := strings.Join([]string{tagVersion, "dev"}, "-")
 		tagVersion = strings.Join([]string{_tagVersion, txid[:8]}, ".")
 
-		if block.Labels == nil {
-			block.Labels = map[string]string{}
-		}
 		block.Labels["polycrate.flags.dev"] = "true"
 	}
 
