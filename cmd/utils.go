@@ -73,6 +73,24 @@ func CreateDir(path string) error {
 	return err
 }
 
+func mapBlockName(name string) (string, string) {
+	var _version string
+	var _name string
+	_s := strings.Split(name, ":")
+
+	if len(_s) > 0 {
+		_name = _s[0]
+
+		if len(_s) == 2 {
+			_version = _s[1]
+		}
+	} else {
+		return "", ""
+	}
+
+	return _name, _version
+}
+
 func mapDockerTag(tag string) (string, string, string, string) {
 	regex := regexp.MustCompile(`([^\/]+\.[^\/.]+)?\/?([^:]+):?(.+)?`)
 

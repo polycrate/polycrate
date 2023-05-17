@@ -45,7 +45,7 @@ var blocksPullCmd = &cobra.Command{
 		// 	log.Fatal(err)
 		// }
 
-		err = workspace.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
+		_, err = workspace.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
 		if err != nil {
 			tx.Log.Fatal(err)
 		}

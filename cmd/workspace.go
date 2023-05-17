@@ -437,7 +437,24 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			// Try to load the referenced Block
 			dependency, err := w.GetBlock(block.From)
 			if err != nil {
-				return err
+				// Block does not exist
+				// Try to download it
+				tx.Log.Warnf("Block '%s' not found in workspace. Pulling.", block.From)
+				fullTag, registryUrl, blockName, blockVersion := mapDockerTag(block.From)
+
+				dependency, err = w.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
+				if err != nil {
+					return err
+				}
+
+				// Append block to block list
+				w.Blocks = append(w.Blocks, dependency)
+
+				err = w.ResolveBlock(tx, dependency, workspaceLocalPath, workspaceContainerPath)
+				if err != nil {
+					return err
+				}
+				//dependency, _ = w.GetBlock(block.From)
 			}
 
 			if dependency == nil {
@@ -2074,10 +2091,20 @@ func (w *Workspace) GetLog(txid string) (*WorkspaceLog, error) {
 	return nil, fmt.Errorf("log not found: %s", txid)
 }
 func (c *Workspace) GetBlock(name string) (*Block, error) {
+	// Determine version from block string if any
+	_name, _version := mapBlockName(name)
+
 	for i := 0; i < len(c.Blocks); i++ {
 		block := c.Blocks[i]
-		if block.Name == name {
-			return block, nil
+
+		if block.Name == _name {
+			if _version != "" {
+				if block.Version == _version {
+					return block, nil
+				}
+			} else {
+				return block, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("block not found: %s", name)
@@ -2441,7 +2468,7 @@ func (w *Workspace) UpdateBlocks(tx *PolycrateTransaction, args []string) error 
 			fullTag, registryUrl, blockName, blockVersion := mapDockerTag(arg)
 
 			// Download blocks from registry
-			err := w.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
+			_, err := w.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
 			if err != nil {
 				return err
 			}
@@ -2472,41 +2499,47 @@ func (w *Workspace) UpdateBlocks(tx *PolycrateTransaction, args []string) error 
 // 			return err
 // 		}
 
-func (w *Workspace) PullBlock(tx *PolycrateTransaction, fullTag string, registryUrl string, blockName string, blockVersion string) error {
+func (w *Workspace) PullBlock(tx *PolycrateTransaction, fullTag string, registryUrl string, blockName string, blockVersion string) (*Block, error) {
 	log := tx.Log.log
 	log = log.WithField("block", blockName)
 	log = log.WithField("version", blockVersion)
 	log = log.WithField("registry", registryUrl)
 
-	if w.IsBlockInstalled(fullTag, registryUrl, blockName, blockVersion) {
+	// if w.IsBlockInstalled(fullTag, registryUrl, blockName, blockVersion) {
+	// 	log.Infof("Block is already installed")
+	// 	return nil, nil
+	// }
+
+	block, err := w.GetBlock(fullTag)
+	if err == nil {
 		log.Infof("Block is already installed")
-		return nil
+		return block, nil
 	}
 
-	targetDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot, registryUrl, blockName)
+	targetDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot, registryUrl, blockName, blockVersion)
 
 	//log.Debugf("Pulling block %s:%s", blockName, blockVersion)
 	log = log.WithField("path", targetDir)
 
 	log.Infof("Pulling block")
 
-	err := UnwrapOCIImage(tx.Context, targetDir, registryUrl, blockName, blockVersion)
+	err = UnwrapOCIImage(tx.Context, targetDir, registryUrl, blockName, blockVersion)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Load Block
 	//var block Block
 	//block.Workdir.LocalPath = targetDir
-	block, err := w.LoadBlock(tx, targetDir)
+	block, err = w.LoadBlock(tx, targetDir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Register installed block
 	w.installedBlocks = append(w.installedBlocks, block)
 
-	return nil
+	return block, nil
 }
 
 func (c *Workspace) PushBlock(tx *PolycrateTransaction, blockName string) error {

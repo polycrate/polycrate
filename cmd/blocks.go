@@ -740,14 +740,18 @@ func (c *Block) LoadInventory(tx *PolycrateTransaction) error {
 		c.Inventory.LocalPath = localInventoryFile
 		c.Inventory.ContainerPath = containerInventoryFile
 	} else {
-		log.Debugf("Using workspace inventory at %s for block", c.Inventory.LocalPath)
 		// Check if workspace inventory exists
 		if workspace.Inventory.exists {
 			c.Inventory.exists = true
 			c.Inventory.LocalPath = workspace.Inventory.LocalPath
 			c.Inventory.ContainerPath = workspace.Inventory.ContainerPath
+
+			log.Debugf("Using workspace inventory at %s for block", c.Inventory.LocalPath)
 		} else {
 			c.Inventory.exists = false
+			c.Inventory.LocalPath = "/etc/ansible/hosts"
+			c.Inventory.ContainerPath = "/etc/ansible/hosts"
+			log.Debugf("Using fallback inventory at /etc/ansible/hosts for block")
 		}
 	}
 
