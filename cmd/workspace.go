@@ -126,6 +126,10 @@ type WorkspaceInventory struct {
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 
+type Inventory struct {
+	Path string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
+}
+
 type Workspace struct {
 	Name            string                 `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
 	Description     string                 `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`

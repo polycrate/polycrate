@@ -25,10 +25,11 @@ import (
 
 // installCmd represents the install command
 var inventoryCmd = &cobra.Command{
-	Hidden: true,
+	// Hidden: true,
 	Use:    "inventory",
 	Short:  "Inventory",
 	Long:   `Inventory`,
+	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 

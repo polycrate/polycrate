@@ -203,6 +203,67 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Worksp
 
 }
 
+func (b *Block) ConvertInventory(tx *PolycrateTransaction) error {
+	tx.Log.Infof("Converting inventory")
+
+	containerName := slugify([]string{tx.TXID.String(), "convert-inventory"})
+
+	fileName := strings.Join([]string{containerName, "yml"}, ".")
+	fmt.Println(b.getKubeconfigPath(tx))
+	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath(tx))
+	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath(tx))
+	workspace.registerCurrentBlock(b)
+
+	// Create temp file to write output to
+	f, err := polycrate.getTempFile(tx.Context, fileName)
+	if err != nil {
+		return err
+	}
+
+	workspace.registerMount(f.Name(), f.Name())
+
+	if _, err := workspace.SaveSnapshot(tx); err != nil {
+		return err
+	}
+
+	//cmd := "exec $(poly-utils ssh cmd " + hostname + ")"
+	cmd := []string{
+		"poly-utils",
+		"inventory",
+		"hosts",
+		"--output-file",
+		f.Name(),
+	}
+	err = workspace.RunContainer(tx, containerName, workspace.ContainerPath, cmd)
+	if err != nil {
+		return err
+	}
+
+	// Load hosts from file
+	var hosts = viper.New()
+	if _, err := os.Stat(f.Name()); !os.IsNotExist(err) {
+		hosts.SetConfigType("yaml")
+		hosts.SetConfigFile(f.Name())
+	} else {
+		return err
+	}
+
+	err = hosts.MergeInConfig()
+	if err != nil {
+		return err
+	}
+
+	// Save to inventory.poly
+	converted_inventory_path := filepath.Join(b.Artifacts.LocalPath, "inventory.poly")
+	err = hosts.WriteConfigAs(converted_inventory_path)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
 // func (b *Block) Resolve() *Block {
 // 	if !b.resolved {
 // 		log.WithFields(log.Fields{
@@ -746,12 +807,12 @@ func (c *Block) LoadInventory(tx *PolycrateTransaction) error {
 			c.Inventory.LocalPath = workspace.Inventory.LocalPath
 			c.Inventory.ContainerPath = workspace.Inventory.ContainerPath
 
-			log.Debugf("Using workspace inventory at %s for block", c.Inventory.LocalPath)
+			tx.Log.Debugf("Using workspace inventory at %s for block", c.Inventory.LocalPath)
 		} else {
 			c.Inventory.exists = false
 			c.Inventory.LocalPath = "/etc/ansible/hosts"
 			c.Inventory.ContainerPath = "/etc/ansible/hosts"
-			log.Debugf("Using fallback inventory at /etc/ansible/hosts for block")
+			tx.Log.Debugf("Using fallback inventory at /etc/ansible/hosts for block")
 		}
 	}
 
