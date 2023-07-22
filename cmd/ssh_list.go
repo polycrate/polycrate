@@ -18,20 +18,22 @@ package cmd
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-var _inventoryConvertBlock string
+var _formatHosts bool
 
 // installCmd represents the install command
-var inventoryConvertCmd = &cobra.Command{
-	Use:    "convert",
-	Short:  "Convert inventory to inventory.poly",
-	Long:   ``,
+var sshListCmd = &cobra.Command{
+	Use:    "list",
+	Short:  "list hosts to ssh into",
 	Hidden: true,
+	Long:   ``,
 	Args:   cobra.ExactArgs(0), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
+		// Get all inventories from workspace
+		// convert all inventories from workspace
+		// populate global host cache in $ARTIFACTS_DIR/ssh_hosts.json
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
 		tx := polycrate.Transaction()
@@ -43,31 +45,33 @@ var inventoryConvertCmd = &cobra.Command{
 			tx.Log.Fatal(err)
 		}
 
-		if _inventoryConvertBlock == "" {
+		if _sshBlock == "" {
 			err := fmt.Errorf("no block selected. Use ' --block $BLOCK_NAME' to select an inventory source")
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		var block *Block
-		block, err = workspace.GetBlock(_inventoryConvertBlock)
+		block, err = workspace.GetBlock(_sshBlock)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		if block != nil {
-			err := block.ConvertInventory(tx)
+			err := block.SSHList(tx, _refreshHosts, _formatHosts)
 			if err != nil {
-				log.Error(err)
+				tx.Log.Fatal(err)
 			}
 		} else {
-			err := fmt.Errorf("block does not exist: %s", _inventoryConvertBlock)
-			log.Fatal(err)
+			err := fmt.Errorf("block does not exist: %s", _sshBlock)
+			tx.Log.Fatal(err)
 		}
 	},
 }
 
 func init() {
-	inventoryCmd.AddCommand(inventoryConvertCmd)
+	sshCmd.AddCommand(sshListCmd)
 
-	inventoryConvertCmd.PersistentFlags().StringVar(&_inventoryConvertBlock, "block", "vpc", "Block to load inventory from")
+	sshListCmd.PersistentFlags().StringVar(&_sshBlock, "block", "vpc", "Block to list hosts from")
+	sshListCmd.PersistentFlags().BoolVar(&_refreshHosts, "refresh", false, "Refresh hosts cache")
+	sshListCmd.PersistentFlags().BoolVar(&_formatHosts, "format", false, "Output polycrate commands instead of objects")
 }

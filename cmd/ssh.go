@@ -18,11 +18,11 @@ package cmd
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var _sshBlock string = ""
+var _refreshHosts bool = false
 
 // installCmd represents the install command
 var sshCmd = &cobra.Command{
@@ -46,23 +46,23 @@ var sshCmd = &cobra.Command{
 
 		if _sshBlock == "" {
 			err := fmt.Errorf("no block selected. Use ' --block $BLOCK_NAME' to select an inventory source")
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		var block *Block
 		block, err = workspace.GetBlock(_sshBlock)
 		if err != nil {
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 
 		if block != nil {
-			err := block.SSH(tx, hostname, workspace)
+			err := block.SSH(tx, hostname, _refreshHosts)
 			if err != nil {
-				log.Error(err)
+				tx.Log.Fatal(err)
 			}
 		} else {
 			err := fmt.Errorf("block does not exist: %s", _sshBlock)
-			log.Fatal(err)
+			tx.Log.Fatal(err)
 		}
 	},
 }
@@ -70,7 +70,8 @@ var sshCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(sshCmd)
 
-	sshCmd.PersistentFlags().StringVar(&_sshBlock, "block", "inventory", "Block to load inventory from")
+	sshCmd.PersistentFlags().StringVar(&_sshBlock, "block", "vpc", "Block to load inventory from")
+	sshCmd.PersistentFlags().BoolVar(&_refreshHosts, "refresh", false, "Refresh hosts cache")
 }
 
 func ConnectWithSSH(tx *PolycrateTransaction, username string, hostname string, port string, privateKey string) error {

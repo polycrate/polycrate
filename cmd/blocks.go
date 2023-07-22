@@ -116,8 +116,15 @@ type Block struct {
 	blockConfig viper.Viper
 }
 
-func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Workspace) error {
-	tx.Log.Infof("Starting SSH session")
+type SSHHost struct {
+	Ip   string `yaml:"ip,omitempty" mapstructure:"ip,omitempty" json:"ip,omitempty"`
+	Port string `yaml:"port,omitempty" mapstructure:"port,omitempty" json:"port,omitempty"`
+	User string `yaml:"user,omitempty" mapstructure:"user,omitempty" json:"user,omitempty"`
+}
+
+func (b *Block) getHostsFromInventory(tx *PolycrateTransaction) (*viper.Viper, error) {
+
+	workspace := b.workspace
 
 	containerName := slugify([]string{tx.TXID.String(), "ssh"})
 	fileName := strings.Join([]string{containerName, "yml"}, ".")
@@ -128,13 +135,13 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Worksp
 	// Create temp file to write output to
 	f, err := polycrate.getTempFile(tx.Context, fileName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	workspace.registerMount(f.Name(), f.Name())
 
 	if _, err := workspace.SaveSnapshot(tx); err != nil {
-		return err
+		return nil, err
 	}
 
 	//cmd := "exec $(poly-utils ssh cmd " + hostname + ")"
@@ -145,40 +152,83 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Worksp
 		"--output-file",
 		f.Name(),
 	}
+
+	tx.Log.Infof("Starting container for inventory conversion")
 	err = workspace.RunContainer(tx, containerName, workspace.ContainerPath, cmd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Load hosts from file
 	var hosts = viper.New()
 	if _, err := os.Stat(f.Name()); !os.IsNotExist(err) {
-		hosts.SetConfigType("yaml")
+		hosts.SetConfigType("json")
 		hosts.SetConfigFile(f.Name())
 	} else {
-		return err
+		return nil, err
 	}
 
 	err = hosts.MergeInConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	hosts_cache_path := filepath.Join(b.Artifacts.LocalPath, "hosts_cache.json")
+	err = hosts.WriteConfigAs(hosts_cache_path)
+	if err != nil {
+		return nil, err
+	}
+
+	return hosts, nil
+}
+
+func (b *Block) SSH(tx *PolycrateTransaction, hostname string, refresh bool) error {
+	workspace := b.workspace
+
+	tx.Log.Infof("Starting SSH session")
+
+	host_cache := map[string]SSHHost{}
+	hosts_cache_path := filepath.Join(b.Artifacts.LocalPath, "hosts_cache.json")
+
+	var hosts = viper.New()
+
+	if _, err := os.Stat(hosts_cache_path); os.IsNotExist(err) || refresh {
+		hosts, err = b.getHostsFromInventory(tx)
+		if err != nil {
+			return err
+		}
+	} else {
+		tx.Log.Infof("Loading hosts from cache (use --refresh to update hosts list)")
+		hosts.SetConfigType("json")
+		hosts.SetConfigFile(hosts_cache_path)
+
+		err = hosts.MergeInConfig()
+		if err != nil {
+			return err
+		}
+
+	}
+
+	err := hosts.Unmarshal(&host_cache)
 	if err != nil {
 		return err
 	}
 
 	// Get IP
-	sshHost := hosts.Sub(hostname)
-	if sshHost == nil {
-		return fmt.Errorf("host not found: %s", hostname)
-	}
-	ip := sshHost.GetString("ip")
+	//sshHost := hosts.Sub(hostname)
+	sshHost := host_cache[hostname]
+
+	//ip := sshHost.GetString("ip")
+	ip := sshHost.Ip
 	if ip == "" {
 		return fmt.Errorf("ip of host %s not found", hostname)
 	}
-	user := sshHost.GetString("user")
+	user := sshHost.User
 	if user == "" {
 		// set default user
 		user = "root"
 	}
-	port := sshHost.GetString("port")
+	port := sshHost.Port
 	if port == "" {
 		// set default port
 		port = "22"
@@ -186,7 +236,7 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Worksp
 
 	privateKey := filepath.Join(workspace.LocalPath, workspace.Config.SshPrivateKey)
 	if privateKey == "" {
-		err = fmt.Errorf("no private key found")
+		err := fmt.Errorf("no private key found")
 		return err
 	}
 
@@ -203,13 +253,59 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, workspace *Worksp
 
 }
 
+func (b *Block) SSHList(tx *PolycrateTransaction, refresh bool, format bool) error {
+	//workspace := b.workspace
+
+	host_cache := map[string]SSHHost{}
+	hosts_cache_path := filepath.Join(b.Artifacts.LocalPath, "hosts_cache.json")
+
+	var hosts = viper.New()
+
+	if _, err := os.Stat(hosts_cache_path); os.IsNotExist(err) || refresh {
+		hosts, err = b.getHostsFromInventory(tx)
+		if err != nil {
+			return err
+		}
+	} else {
+		tx.Log.Warnf("Loading hosts from cache (use --refresh to update hosts list)")
+		hosts.SetConfigType("json")
+		hosts.SetConfigFile(hosts_cache_path)
+
+		err = hosts.MergeInConfig()
+		if err != nil {
+			return err
+		}
+
+	}
+
+	err := hosts.Unmarshal(&host_cache)
+	if err != nil {
+		return err
+	}
+
+	if !format {
+		printObject(host_cache)
+	} else {
+		for host, _ := range host_cache {
+			polycrate_command := fmt.Sprintf("polycrate ssh --block %s %s", b.Name, host)
+			fmt.Println(polycrate_command)
+		}
+	}
+
+	return nil
+
+}
+
 func (b *Block) ConvertInventory(tx *PolycrateTransaction) error {
-	tx.Log.Infof("Converting inventory")
+	log := tx.Log.log.WithField("block", b.Name)
+
+	log.Infof("Converting inventory")
+	workspace := b.workspace
 
 	containerName := slugify([]string{tx.TXID.String(), "convert-inventory"})
 
 	fileName := strings.Join([]string{containerName, "yml"}, ".")
-	fmt.Println(b.getKubeconfigPath(tx))
+
 	workspace.registerEnvVar("ANSIBLE_INVENTORY", b.getInventoryPath(tx))
 	workspace.registerEnvVar("KUBECONFIG", b.getKubeconfigPath(tx))
 	workspace.registerCurrentBlock(b)
@@ -219,6 +315,8 @@ func (b *Block) ConvertInventory(tx *PolycrateTransaction) error {
 	if err != nil {
 		return err
 	}
+
+	log.Debugf("Using temp file at %s", f.Name())
 
 	workspace.registerMount(f.Name(), f.Name())
 
@@ -230,7 +328,7 @@ func (b *Block) ConvertInventory(tx *PolycrateTransaction) error {
 	cmd := []string{
 		"poly-utils",
 		"inventory",
-		"hosts",
+		"convert",
 		"--output-file",
 		f.Name(),
 	}
@@ -254,7 +352,8 @@ func (b *Block) ConvertInventory(tx *PolycrateTransaction) error {
 	}
 
 	// Save to inventory.poly
-	converted_inventory_path := filepath.Join(b.Artifacts.LocalPath, "inventory.poly")
+	converted_inventory_path := filepath.Join(b.Artifacts.LocalPath, "converted-inventory.yml")
+
 	err = hosts.WriteConfigAs(converted_inventory_path)
 	if err != nil {
 		return err

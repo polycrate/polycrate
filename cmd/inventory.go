@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
@@ -40,7 +41,10 @@ var inventoryCmd = &cobra.Command{
 		if err != nil {
 			tx.Log.Fatal(err)
 		}
-		showInventory(workspace)
+
+		for path, _ := range workspace.FindInventories(tx) {
+			fmt.Printf("%s\n", path)
+		}
 	},
 }
 

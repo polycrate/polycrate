@@ -590,6 +590,18 @@ func (w *Workspace) LoadKubeconfig(tx *PolycrateTransaction) error {
 	return nil
 }
 
+func (w *Workspace) FindInventories(tx *PolycrateTransaction) map[string]string {
+	inventories := map[string]string{}
+	for _, block := range w.Blocks {
+		if path := block.Inventory.LocalPath; path != "" {
+
+			inventories[path] = block.Name
+		}
+	}
+
+	return inventories
+}
+
 func (w *Workspace) LoadInventory(tx *PolycrateTransaction) error {
 	var workspaceInventoryFile string
 	if w.Inventory.Filename != "" {
@@ -2516,11 +2528,17 @@ func (w *Workspace) PullBlock(tx *PolycrateTransaction, fullTag string, registry
 
 	block, err := w.GetBlock(fullTag)
 	if err == nil {
+		log = log.WithField("path", block.Workdir.LocalPath)
 		log.Infof("Block is already installed")
-		return block, nil
+
+		if block.Version == blockVersion {
+			return block, nil
+
+		}
+		log.Infof("Installed version differs from requested version")
 	}
 
-	targetDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot, registryUrl, blockName, blockVersion)
+	targetDir := filepath.Join(w.LocalPath, w.Config.BlocksRoot, registryUrl, blockName)
 
 	//log.Debugf("Pulling block %s:%s", blockName, blockVersion)
 	log = log.WithField("path", targetDir)

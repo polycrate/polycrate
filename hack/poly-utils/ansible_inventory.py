@@ -23,24 +23,25 @@ app = typer.Typer()
 
 def load(ctx: typer.Context):
     ctx.obj.ansible_inventory = InventoryManager(
-        loader=ctx.obj.ansible_dataloader,
-        sources=[ctx.obj.ansible_inventory_path])
+        loader=ctx.obj.ansible_dataloader, sources=[ctx.obj.ansible_inventory_path]
+    )
 
-    ctx.obj.ansible_vars = VariableManager(loader=ctx.obj.ansible_dataloader,
-                                           inventory=ctx.obj.ansible_inventory)
+    ctx.obj.ansible_vars = VariableManager(
+        loader=ctx.obj.ansible_dataloader, inventory=ctx.obj.ansible_inventory
+    )
     ctx.obj.ansible_vars._extra_vars = ctx.obj.snapshot
 
 
 @app.command()
 def hosts(
-        ctx: typer.Context,
-        host: Optional[str] = typer.Argument("all"),
-        output_file: str = typer.Option(""),
+    ctx: typer.Context,
+    host: Optional[str] = typer.Argument("all"),
+    output_file: str = typer.Option(""),
 ):
     hosts = {}
     try:
         load(ctx)
-        #print(ctx.obj.ansible_inventory.get_hosts(pattern=host))
+        # print(ctx.obj.ansible_inventory.get_hosts(pattern=host))
         for host in ctx.obj.ansible_inventory.get_hosts():
             host_vars = ctx.obj.ansible_vars.get_vars(host=host)
 
@@ -50,24 +51,66 @@ def hosts(
             #     print(
             #         f"Host: {host_vars['inventory_hostname']}, IP: {host_vars['ansible_host']}"
             #     )
-            hosts[host_vars['inventory_hostname']] = {}
+            hosts[host_vars["inventory_hostname"]] = {}
             if "ansible_host" in host_vars:
-                hosts[host_vars['inventory_hostname']]["ip"] = host_vars[
-                    "ansible_host"]
+                hosts[host_vars["inventory_hostname"]]["ip"] = host_vars["ansible_host"]
             if "ansible_ssh_port" in host_vars:
-                hosts[host_vars['inventory_hostname']]["port"] = host_vars[
-                    'ansible_ssh_port']
+                hosts[host_vars["inventory_hostname"]]["port"] = host_vars[
+                    "ansible_ssh_port"
+                ]
             if "ansible_ssh_user" in host_vars:
-                hosts[host_vars['inventory_hostname']]["user"] = host_vars[
-                    'ansible_ssh_user']
+                hosts[host_vars["inventory_hostname"]]["user"] = host_vars[
+                    "ansible_ssh_user"
+                ]
             if "ansible_user" in host_vars:
-                hosts[host_vars['inventory_hostname']]["user"] = host_vars[
-                    'ansible_user']
+                hosts[host_vars["inventory_hostname"]]["user"] = host_vars[
+                    "ansible_user"
+                ]
         if output_file != "":
-            with open(output_file, 'w') as file:
+            with open(output_file, "w") as file:
                 utils.json_file(hosts, file)
         else:
             print(utils.yaml_dump(hosts))
+    except:
+        raise RuntimeError("Inventory error")
+
+
+@app.command()
+def convert(
+    ctx: typer.Context,
+    host: Optional[str] = typer.Argument("all"),
+    output_file: str = typer.Option(""),
+):
+    out = {"_meta": {"hostvars": {}}}
+    try:
+        ctx.obj.ansible_inventory = InventoryManager(
+            loader=ctx.obj.ansible_dataloader, sources=[ctx.obj.ansible_inventory_path]
+        )
+
+        # ctx.obj.ansible_inventory.parse_sources()
+        # print(ctx.obj.ansible_inventory.get_hosts(pattern=host))
+
+        for group in ctx.obj.ansible_inventory.groups.values():
+            out[group.name] = {
+                "hosts": [h.name for h in group.hosts],
+                # "vars": group.vars,
+                "children": [c.name for c in group.child_groups],
+            }
+        for host in ctx.obj.ansible_inventory.get_hosts():
+            vars = host.vars
+
+            # Remove polycrate specific vars
+            del vars["block"]
+            del vars["env"]
+            del vars["mounts"]
+            del vars["workspace"]
+            out["_meta"]["hostvars"][host.name] = vars
+
+        if output_file != "":
+            with open(output_file, "w") as file:
+                utils.json_file(out, file)
+        else:
+            print(utils.yaml_dump(out))
     except:
         raise RuntimeError("Inventory error")
 
