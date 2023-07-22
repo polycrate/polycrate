@@ -1,6 +1,6 @@
 FROM docker:dind as docker
 FROM quay.io/git-chglog/git-chglog:latest as git-chglog
-FROM python:3.10.4-slim-bullseye
+FROM python:3.11.4-slim-bullseye
 
 ARG TERRAFORM_VERSION=1.0.7
 ARG KUBE_VERSION=1.21.1
@@ -36,7 +36,7 @@ RUN apt-get update &&\
   git \
   jq=1.6-2.1 \
   gettext=0.21-4 \
-  libssl-dev=1.1.1n-0+deb11u4 \
+  libssl-dev \
   libffi-dev=3.3-6 \
   python3-dev=3.9.2-3 \
   rsync=3.2.3-4+deb11u1 \

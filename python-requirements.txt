@@ -9,7 +9,7 @@
 #hcloud==1.16.0
 #netaddr==0.8.0
 jsonpatch # 1.32
-PyYAML #5.4.1
+PyYAML==5.3.1 #5.4.1
 kubernetes # 24.2.0
 cffi #1.15.1
 openshift # 0.13.1
