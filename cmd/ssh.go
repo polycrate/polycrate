@@ -62,7 +62,6 @@ var sshCmd = &cobra.Command{
 				tx.Log.Fatal(err)
 			}
 		}
-
 		if block != nil {
 			err := block.SSH(tx, hostname, _refreshHosts)
 			if err != nil {
