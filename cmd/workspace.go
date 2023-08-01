@@ -2125,6 +2125,24 @@ func (c *Workspace) GetBlock(name string) (*Block, error) {
 	}
 	return nil, fmt.Errorf("block not found: %s", name)
 }
+func (c *Workspace) GetBlocksWithInventory() ([]*Block, error) {
+	// Determine version from block string if any
+	_blocks := make([]*Block, 0)
+
+	for i := 0; i < len(c.Blocks); i++ {
+		block := c.Blocks[i]
+
+		if block.Inventory.exists {
+			_blocks = append(_blocks, block)
+		}
+	}
+
+	if len(_blocks) > 0 {
+		return _blocks, nil
+	}
+	return nil, fmt.Errorf("no blocks found")
+}
+
 func (c *Workspace) GetWorkflow(name string) (*Workflow, error) {
 	for i := 0; i < len(c.Workflows); i++ {
 		workflow := c.Workflows[i]

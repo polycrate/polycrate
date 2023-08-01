@@ -44,15 +44,23 @@ var sshCmd = &cobra.Command{
 			tx.Log.Fatal(err)
 		}
 
-		if _sshBlock == "" {
-			err := fmt.Errorf("no block selected. Use ' --block $BLOCK_NAME' to select an inventory source")
-			tx.Log.Fatal(err)
-		}
+		// if _sshBlock == "" {
+		// 	err := fmt.Errorf("no block selected. Use ' --block $BLOCK_NAME' to select an inventory source")
+		// 	tx.Log.Fatal(err)
+		// }
 
 		var block *Block
-		block, err = workspace.GetBlock(_sshBlock)
-		if err != nil {
-			tx.Log.Fatal(err)
+		if _sshBlock == "" {
+			_blocks, err := workspace.GetBlocksWithInventory()
+			if err != nil {
+				tx.Log.Fatal(err)
+			}
+			block = _blocks[0]
+		} else {
+			block, err = workspace.GetBlock(_sshBlock)
+			if err != nil {
+				tx.Log.Fatal(err)
+			}
 		}
 
 		if block != nil {
@@ -70,7 +78,7 @@ var sshCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(sshCmd)
 
-	sshCmd.PersistentFlags().StringVar(&_sshBlock, "block", "vpc", "Block to load inventory from")
+	sshCmd.PersistentFlags().StringVar(&_sshBlock, "block", "", "Block to load inventory from")
 	sshCmd.PersistentFlags().BoolVar(&_refreshHosts, "refresh", false, "Refresh hosts cache")
 }
 
