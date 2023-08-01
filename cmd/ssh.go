@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -32,6 +33,8 @@ var sshCmd = &cobra.Command{
 	Long:   ``,
 	Args:   cobra.ExactArgs(1), // https://github.com/spf13/cobra/blob/master/user_guide.md
 	Run: func(cmd *cobra.Command, args []string) {
+		pull = false
+
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 		hostname := args[0]
 
@@ -81,14 +84,22 @@ func init() {
 	sshCmd.PersistentFlags().BoolVar(&_refreshHosts, "refresh", false, "Refresh hosts cache")
 }
 
-func ConnectWithSSH(tx *PolycrateTransaction, username string, hostname string, port string, privateKey string) error {
+func ConnectWithSSH(tx *PolycrateTransaction, username string, hostname string, port string, privateKey string, sshControlPath string) error {
 	log := tx.Log.log
 	log = log.WithField("user", username)
 	log = log.WithField("port", port)
 	log = log.WithField("host", hostname)
 	log = log.WithField("privateKey", privateKey)
+	log = log.WithField("sshControlPath", sshControlPath)
 
 	log.Debugf("Starting ssh session")
+
+	err := os.Chmod(privateKey, 0600)
+	if err != nil {
+		return err
+	}
+
+	controlPath := fmt.Sprintf("ControlPath=%s/%%r@%%h:%%p", sshControlPath)
 
 	args := []string{
 		"-l",
@@ -101,10 +112,20 @@ func ConnectWithSSH(tx *PolycrateTransaction, username string, hostname string, 
 		"StrictHostKeyChecking=no",
 		"-o",
 		"BatchMode=yes",
+		"-o",
+		"RemoteCommand=mkdir -p /opt/polycrate; cd /opt/polycrate; sudo bash",
+		"-o",
+		"ControlMaster=auto",
+		"-o",
+		"ControlPersist=yes",
+		"-o",
+		controlPath,
+		"-o",
+		"RequestTTY=yes",
 		hostname,
 	}
 
-	_, _, err := RunCommand(tx.Context, nil, "ssh", args...)
+	_, _, err = RunCommand(tx.Context, nil, "ssh", args...)
 	if err != nil {
 		return err
 	}

@@ -240,11 +240,13 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, refresh bool) err
 		return err
 	}
 
-	tx.Log.Infof("Connecting via SSH")
+	sshControlPath := "/tmp"
+
+	// tx.Log.Infof("Connecting via SSH")
 
 	//err = connectWithSSH(user, ip, port, privateKey)
 	interactive = true
-	err = ConnectWithSSH(tx, user, ip, port, privateKey)
+	err = ConnectWithSSH(tx, user, ip, port, privateKey, sshControlPath)
 	if err != nil {
 		return err
 	}

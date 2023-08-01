@@ -34,6 +34,7 @@ var sshListCmd = &cobra.Command{
 		// Get all inventories from workspace
 		// convert all inventories from workspace
 		// populate global host cache in $ARTIFACTS_DIR/ssh_hosts.json
+		pull = false
 		_w := cmd.Flags().Lookup("workspace").Value.String()
 
 		tx := polycrate.Transaction()
