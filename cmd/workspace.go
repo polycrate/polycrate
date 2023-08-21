@@ -442,20 +442,26 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			dependency, err := w.GetBlock(block.From)
 			if err != nil {
 				// Block does not exist
-				// Try to download it
-				tx.Log.Warnf("Block '%s' not found in workspace. Pulling.", block.From)
-				fullTag, registryUrl, blockName, blockVersion := mapDockerTag(block.From)
+				if blocksAutoPull {
+					// Auto-pulling enabled with --blocks-auto-pull
+					// Try to download it
+					tx.Log.Warnf("Block '%s' not found in workspace. Pulling.", block.From)
+					fullTag, registryUrl, blockName, blockVersion := mapDockerTag(block.From)
 
-				dependency, err = w.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
-				if err != nil {
-					return err
-				}
+					dependency, err = w.PullBlock(tx, fullTag, registryUrl, blockName, blockVersion)
+					if err != nil {
+						return err
+					}
 
-				// Append block to block list
-				w.Blocks = append(w.Blocks, dependency)
+					// Append block to block list
+					w.Blocks = append(w.Blocks, dependency)
 
-				err = w.ResolveBlock(tx, dependency, workspaceLocalPath, workspaceContainerPath)
-				if err != nil {
+					err = w.ResolveBlock(tx, dependency, workspaceLocalPath, workspaceContainerPath)
+					if err != nil {
+						return err
+					}
+				} else {
+					err := fmt.Errorf("dependency '%s' not found in the Workspace. Please run `polycrate workspace update`, `polycrate block pull %s` or run Polycrate with the `--blocks-auto-pull` flag", block.From, block.From)
 					return err
 				}
 				//dependency, _ = w.GetBlock(block.From)

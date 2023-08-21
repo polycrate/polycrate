@@ -82,6 +82,7 @@ func init() {
 	fs.BoolVarP(&local, "local", "l", false, "Run actions locally (without the polycrate container). Defaults to false.")
 	fs.BoolVarP(&interactive, "interactive", "i", false, "Make the container interactive and accept input from stdin. Like '-it' for Docker.")
 	fs.BoolVarP(&pull, "pull", "p", true, "Pull the workspace image before running the container. Defaults to true.")
+	fs.BoolVar(&blocksAutoPull, "blocks-auto-pull", false, "Automatically pull blocks that are missing from the workspace. Defaults to false.")
 	fs.BoolVarP(&build, "build", "b", true, "When this is true, a custom image will be built from the workspace Dockerfile. This image will then be used to run the action. Defaults to true.")
 
 	// CLI related

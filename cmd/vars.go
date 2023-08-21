@@ -99,6 +99,10 @@ var local bool
 // Can be overriden with the --pull flag
 var pull bool
 
+// Global variable to decide if blocks that are missing from the workspace should automatically be pulled
+// Can be overriden with the --blocks-auto-pull flag
+var blocksAutoPull bool
+
 // Global variable to decide if some actions in the workspace should be forced
 // Can be overriden with the --force flag
 var force bool
