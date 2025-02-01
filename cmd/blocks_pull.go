@@ -33,7 +33,7 @@ var blocksPullCmd = &cobra.Command{
 		tx.SetCommand(cmd)
 		defer tx.Stop()
 
-		workspace, err := polycrate.LoadWorkspace(tx, _w, true)
+		workspace, err := polycrate.PreloadWorkspace(tx, _w, true)
 		if err != nil {
 			tx.Log.Fatal(err)
 		}

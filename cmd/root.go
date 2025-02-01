@@ -24,6 +24,8 @@ import (
 	"github.com/spf13/cobra"
 
 	log "github.com/sirupsen/logrus"
+
+	kubectl "k8s.io/kubectl/pkg/cmd"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -303,4 +305,8 @@ func initConfig() {
 	// 	log.Fatal(err)
 	// }
 
+}
+
+func init() {
+	rootCmd.AddCommand(kubectl.NewDefaultKubectlCommand())
 }

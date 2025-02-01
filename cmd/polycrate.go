@@ -295,16 +295,16 @@ func (e *PolycrateEvent) Save(tx *PolycrateTransaction) error {
 		return err
 	}
 
-	// Check if git repo; if yes, commit
-	if GitIsRepo(tx, workspace.LocalPath) {
-		// Check if committing is enabled in workspace config
-		if workspace.Events.Commit {
-			_, err = GitCommitAll(tx, workspace.LocalPath, fmt.Sprintf("chore: saved event %s", tx.TXID.String()))
-			if err != nil {
-				return err
-			}
-		}
-	}
+	// // Check if git repo; if yes, commit
+	// if GitIsRepo(tx, workspace.LocalPath) {
+	// 	// Check if committing is enabled in workspace config
+	// 	if workspace.Events.Commit {
+	// 		_, err = GitCommitAll(tx, workspace.LocalPath, fmt.Sprintf("chore: saved event %s", tx.TXID.String()))
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 	return nil
 }
 

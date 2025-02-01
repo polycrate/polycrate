@@ -1,6 +1,7 @@
 import typer
 from loguru import logger
 from rich import print
+from ansible.module_utils.common.collections import ImmutableDict
 from ansible.inventory.manager import InventoryManager
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
@@ -8,7 +9,11 @@ from types import SimpleNamespace
 from typing import Optional
 import utils
 import yaml
-from ansible.module_utils.common.json import json_dump
+import sys
+#from ansible_collections.ansible import builtin
+#from ansible.module_utils.ansible_release import __version__
+#import ansible_collections.ansible.builtin
+#from ansible.module_utils.common.json import json_dump
 
 app = typer.Typer()
 
@@ -22,6 +27,7 @@ app = typer.Typer()
 
 
 def load(ctx: typer.Context):
+    print(sys.path)
     ctx.obj.ansible_inventory = InventoryManager(
         loader=ctx.obj.ansible_dataloader, sources=[ctx.obj.ansible_inventory_path]
     )
@@ -41,7 +47,7 @@ def hosts(
     hosts = {}
     try:
         load(ctx)
-        # print(ctx.obj.ansible_inventory.get_hosts(pattern=host))
+        print(ctx.obj.ansible_inventory.get_hosts(pattern=host))
         for host in ctx.obj.ansible_inventory.get_hosts():
             host_vars = ctx.obj.ansible_vars.get_vars(host=host)
 

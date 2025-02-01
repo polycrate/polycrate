@@ -145,12 +145,16 @@ func (b *Block) getHostsFromInventory(tx *PolycrateTransaction) (*viper.Viper, e
 	}
 
 	//cmd := "exec $(poly-utils ssh cmd " + hostname + ")"
+	// cmd := []string{
+	// 	"poly-utils",
+	// 	"inventory",
+	// 	"hosts",
+	// 	"--output-file",
+	// 	f.Name(),
+	// }
 	cmd := []string{
-		"poly-utils",
-		"inventory",
-		"hosts",
-		"--output-file",
-		f.Name(),
+		"ansible-inventory",
+		"--list",
 	}
 
 	tx.Log.Infof("Starting container for inventory conversion")

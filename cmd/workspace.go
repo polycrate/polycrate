@@ -560,12 +560,17 @@ func (w *Workspace) LoadKubeconfig(tx *PolycrateTransaction) error {
 	var workspaceKubeconfigFile string
 	var localKubeconfigFile string
 	var containerKubeconfigFile string
+
+	// Kubeconfig is defined in workspace.poly
 	if w.Kubeconfig.Filename != "" {
 		localKubeconfigFile = filepath.Join(w.LocalPath, w.Kubeconfig.Filename)
 		containerKubeconfigFile = filepath.Join(w.ContainerPath, w.Kubeconfig.Filename)
+		workspaceKubeconfigFile = localKubeconfigFile
 	} else {
-		localKubeconfigFile = filepath.Join(w.LocalPath, "kubeconfig.yml")
-		containerKubeconfigFile = filepath.Join(w.ContainerPath, "kubeconfig.yml")
+		// Default to $WORKSPACE/kubeconfig.yml
+		localKubeconfigFile = filepath.Join(w.LocalPath, w.Config.ArtifactsRoot, "blocks", "k8s", "kubeconfig.yml")
+		containerKubeconfigFile = filepath.Join(w.ContainerPath, w.Config.ArtifactsRoot, "blocks", "k8s", "kubeconfig.yml")
+		workspaceKubeconfigFile = localKubeconfigFile
 	}
 
 	if _, err := os.Stat(workspaceKubeconfigFile); !os.IsNotExist(err) {
@@ -1127,7 +1132,7 @@ func (w *Workspace) Preload(tx *PolycrateTransaction, path string, validate bool
 	w.Blocks = []*Block{}
 
 	// Check if this is a git repo
-	w.isGitRepo = GitIsRepo(tx, path)
+	// w.isGitRepo = GitIsRepo(tx, path)
 
 	// Load Workspace config (e.g. workspace.poly)
 	err = w.LoadConfigFromFile(tx, path, validate)
@@ -1903,8 +1908,9 @@ func (w *Workspace) bootstrapEnvVars() error {
 	w.registerEnvVar("ANSIBLE_COMMAND_WARNINGS", "False")
 	w.registerEnvVar("ANSIBLE_LOCALHOST_WARNING", "False")
 	w.registerEnvVar("ANSIBLE_DEPRECATION_WARNINGS", "False")
-	w.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
-	w.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
+	w.registerEnvVar("ANSIBLE_INVENTORY_ENABLED", "yaml,hcloud,host_list,script,auto,ini,toml")
+	//w.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
+	//w.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")
 	w.registerEnvVar("ANSIBLE_VERBOSITY", strconv.Itoa(polycrate.Config.Loglevel))
 	w.registerEnvVar("ANSIBLE_SSH_PRIVATE_KEY_FILE", filepath.Join(w.ContainerPath, w.Config.SshPrivateKey))
 	w.registerEnvVar("ANSIBLE_PRIVATE_KEY_FILE", filepath.Join(w.ContainerPath, w.Config.SshPrivateKey))
@@ -1921,6 +1927,10 @@ func (w *Workspace) bootstrapEnvVars() error {
 	w.registerEnvVar("IN_CI", "true")
 	w.registerEnvVar("IN_CONTAINER", _in_container)
 	w.registerEnvVar("TERM", "xterm-256color")
+
+	if polycrate.Config.Loglevel > 2 {
+		w.registerEnvVar("ANSIBLE_DEBUG", "True")
+	}
 
 	if local {
 		// Not in container

@@ -18,6 +18,7 @@ rich
 shellingham
 loguru
 ansible
+ansible-core==2.15.2
 pywinrm
 jmespath
 jsondiff
