@@ -8,26 +8,26 @@ before:
     - go mod tidy
     # you may remove this if you don't need go generate
     - go generate ./...
-blobs:
-  - # Template for the cloud provider name
-    # s3 for AWS S3 Storage
-    # azblob for Azure Blob Storage
-    # gs for Google Cloud Storage
-    provider: s3
+# blobs:
+#   - # Template for the cloud provider name
+#     # s3 for AWS S3 Storage
+#     # azblob for Azure Blob Storage
+#     # gs for Google Cloud Storage
+#     provider: s3
 
-    # Set a custom endpoint, useful if you're using a minio backend or
-    # other s3-compatible backends.
-    # Implies s3ForcePathStyle and requires provider to be `s3`
-    endpoint: s3.ayedo.de
+#     # Set a custom endpoint, useful if you're using a minio backend or
+#     # other s3-compatible backends.
+#     # Implies s3ForcePathStyle and requires provider to be `s3`
+#     endpoint: s3.ayedo.de
 
-    # Template for the bucket name
-    bucket: polycrate
+#     # Template for the bucket name
+#     bucket: polycrate
 
-    # Template for the path/name inside the bucket.
-    # Default is `{{ .ProjectName }}/{{ .Tag }}`
-    folder: "cli/{{ .Tag }}"
+#     # Template for the path/name inside the bucket.
+#     # Default is `{{ .ProjectName }}/{{ .Tag }}`
+#     folder: "cli/{{ .Tag }}"
 
-    region: us-west-1
+#region: us-west-1
 builds:
   - env:
       - CGO_ENABLED=0
