@@ -248,6 +248,10 @@ func RunContainer(tx *PolycrateTransaction, image string, command []string, env 
 	entrypointCmd := []string{"--entrypoint", "/bin/bash"}
 	runCmd = append(runCmd, entrypointCmd...)
 
+	// Network
+	network := []string{"--network", "host"}
+	runCmd = append(runCmd, network...)
+
 	// Image
 	runCmd = append(runCmd, image)
 

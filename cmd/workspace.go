@@ -1908,6 +1908,8 @@ func (w *Workspace) bootstrapEnvVars() error {
 	w.registerEnvVar("ANSIBLE_COMMAND_WARNINGS", "False")
 	w.registerEnvVar("ANSIBLE_LOCALHOST_WARNING", "False")
 	w.registerEnvVar("ANSIBLE_DEPRECATION_WARNINGS", "False")
+	w.registerEnvVar("ANSIBLE_STDOUT_CALLBACK", "ansible.builtin.default")
+	w.registerEnvVar("ANSIBLE_CALLBACK_RESULT_FORMAT", outputFormat)
 	w.registerEnvVar("ANSIBLE_INVENTORY_ENABLED", "yaml,hcloud,host_list,script,auto,ini,toml")
 	//w.registerEnvVar("ANSIBLE_ROLES_PATH", "/root/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles")
 	//w.registerEnvVar("ANSIBLE_COLLECTIONS_PATH", "/root/.ansible/collections:/usr/share/ansible/collections:/etc/ansible/collections")

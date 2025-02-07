@@ -3,7 +3,8 @@ jsonpatch # 1.32
 #PyYAML
 pyyaml!=6.0.0,!=5.4.0,!=5.4.1
 #kubernetes # 24.2.0
-kubernetes==32.0.0
+#kubernetes==32.0.0
+kubernetes
 cffi #1.15.1
 openshift # 0.13.1
 typer
@@ -12,7 +13,8 @@ shellingham
 loguru
 ansible
 #ansible-core==2.15.2
-ansible-core==2.18.2
+#ansible-core==2.18.2
+ansible-core
 pywinrm
 jmespath
 jsondiff
