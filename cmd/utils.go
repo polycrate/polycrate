@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"time"
 
 	// "encoding/json"
 	"encoding/pem"
@@ -129,6 +130,131 @@ func CheckErr(msg interface{}) {
 	}
 }
 
+func findChildPIDs(parentPID int) ([]int, error) {
+	var childPIDs []int
+
+	// Recursive helper function to find all descendants of a given PID.
+	var findDescendants func(int)
+	findDescendants = func(pid int) {
+		procDirs, err := os.ReadDir("/proc")
+		if err != nil {
+			return
+		}
+
+		for _, procDir := range procDirs {
+			if !procDir.IsDir() {
+				continue
+			}
+
+			childPid, err := strconv.Atoi(procDir.Name())
+			if err != nil {
+				continue
+			}
+
+			statusPath := filepath.Join("/proc", procDir.Name(), "status")
+			statusBytes, err := os.ReadFile(statusPath)
+			if err != nil {
+				continue
+			}
+
+			status := string(statusBytes)
+			for _, line := range strings.Split(status, "\n") {
+				if strings.HasPrefix(line, "PPid:") {
+					fields := strings.Fields(line)
+					if len(fields) == 2 {
+						ppid, err := strconv.Atoi(fields[1])
+						if err != nil {
+							break
+						}
+						if ppid == pid {
+							childPIDs = append(childPIDs, childPid)
+							findDescendants(childPid)
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// Start the recursion with the initial parent PID.
+	findDescendants(parentPID)
+
+	return childPIDs, nil
+}
+
+func getProcessGroupID(pid int) (int, error) {
+	statusPath := filepath.Join("/proc", strconv.Itoa(pid), "status")
+	statusBytes, err := os.ReadFile(statusPath)
+	if err != nil {
+		return 0, err
+	}
+
+	status := string(statusBytes)
+	for _, line := range strings.Split(status, "\n") {
+		if strings.HasPrefix(line, "NSpgid:") {
+			return extractIDFromStatusLine(line), nil
+		}
+	}
+
+	return 0, nil
+}
+
+func extractIDFromStatusLine(line string) int {
+	fields := strings.Fields(line)
+	if len(fields) == 2 {
+		id, err := strconv.Atoi(fields[1])
+		if err == nil {
+			return id
+		}
+	}
+	return -1
+}
+
+func uniqueProcessGroups(pids []int) ([]int, error) {
+	uniqueGroups := make(map[int]bool)
+	var uniqueGPIDs []int
+
+	for _, pid := range pids {
+		pgid, err := getProcessGroupID(pid)
+		if err != nil {
+			return nil, err
+		}
+		if !uniqueGroups[pgid] {
+			uniqueGroups[pgid] = true
+			uniqueGPIDs = append(uniqueGPIDs, pgid)
+		}
+	}
+
+	return uniqueGPIDs, nil
+}
+
+func interruptProcessTree(ppid int, sig syscall.Signal) error {
+	// Find all descendant PIDs of the given PID & then signal them.
+	// Any shell doesn't signal its children when it receives a signal.
+	// Children may have their own process groups, so we need to signal them separately.
+	children, err := findChildPIDs(ppid)
+	if err != nil {
+		return err
+	}
+
+	children = append(children, ppid)
+	uniqueProcess, err := uniqueProcessGroups(children)
+	if err != nil {
+		log.Debugf("failed to find unique process groups of PID %d: %s", ppid, err)
+		uniqueProcess = children
+	}
+
+	for _, pid := range uniqueProcess {
+		err := syscall.Kill(-pid, sig)
+		// ignore the ESRCH error as it means the process is already dead
+		if errno, ok := err.(syscall.Errno); ok && err != nil && errno != syscall.ESRCH {
+			log.Debugf("failed to send signal to process with PID %d: %s", pid, err)
+		}
+	}
+	return nil
+}
+
 func RunCommand(ctx context.Context, env []string, name string, args ...string) (exitCode int, output string, err error) {
 	log := log.WithField("command", name)
 	log = log.WithField("args", strings.Join(args, " "))
@@ -137,6 +263,17 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 	log.Trace("Running shell command")
 
 	cmd := exec.CommandContext(ctx, name, args...)
+
+	// to run child process in a new process group
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
+	cmd.Cancel = func() error {
+		return interruptProcessTree(cmd.Process.Pid, syscall.SIGINT)
+	}
+
+	cmd.WaitDelay = 1 * time.Second
 
 	cmd.Env = os.Environ()
 
@@ -156,9 +293,13 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
 	}
-	err = cmd.Run()
+
+	cmd.Start()
+	err = cmd.Wait()
 
 	if err != nil {
+		//log.Debugf("Error executing command: %s", err)
+
 		// try to get the exit code
 		if exitError, ok := err.(*exec.ExitError); ok {
 			ws := exitError.Sys().(syscall.WaitStatus)
@@ -169,9 +310,16 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 			// empty string very likely, so we use the default fail code, and format err
 			// to string and set to stderr
 			log.Warnf("Could not get exit code for failed program: %v, %v", name, args)
-			log.Trace(err)
+			log.Warnf("Error handling failed execution: %s", err)
 			exitCode = defaultFailedCode
 		}
+
+		// Check if the context has been killed/stopped/has errors
+		// if err := ctx.Err(); err != nil {
+		// 	if err := cmd.Process.Kill(); err != nil {
+		// 		log.Fatal("failed to kill process: ", err)
+		// 	}
+		// }
 	} else {
 		// success, exitCode should be 0 if go is ok
 		ws := cmd.ProcessState.Sys().(syscall.WaitStatus)

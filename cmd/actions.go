@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -62,10 +62,10 @@ func init() {
 // 	Hosts     string `yaml:"hosts,omitempty" mapstructure:"hosts,omitempty" json:"hosts,omitempty"`
 // }
 
-// type ActionKubernetesConfig struct {
-// 	Kubeconfig string `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
-// 	Context    string `yaml:"context,omitempty" mapstructure:"context,omitempty" json:"context,omitempty"`
-// }
+//	type ActionKubernetesConfig struct {
+//		Kubeconfig string `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
+//		Context    string `yaml:"context,omitempty" mapstructure:"context,omitempty" json:"context,omitempty"`
+//	}
 type Action struct {
 	//Metadata            Metadata               `mapstructure:"metadata,squash" json:"metadata" validate:"required"`
 	Name        string            `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,metadata_name"`
@@ -461,10 +461,14 @@ func (a *Action) saveAnsibleScript(tx *PolycrateTransaction, snapshotContainerPa
 	scriptSlice := []string{
 		"#!/bin/bash",
 		"set -euo pipefail",
+		"trap exit SIGINT",
+		"trap exit SIGTERM",
+		"trap exit SIGKILL",
 	}
 
-	scriptString := fmt.Sprintf("ansible-playbook -e '@%s' %s", snapshotContainerPath, a.Playbook)
-	script := append(scriptSlice, scriptString)
+	scriptString := fmt.Sprintf("ansible-playbook -e '@%s' %s &", snapshotContainerPath, a.Playbook)
+	script := append(scriptSlice, scriptString, "wait $!")
+
 	snapshot := workspace.GetSnapshot()
 
 	scriptSlug := slugify([]string{tx.TXID.String(), "execution", "script"})
@@ -526,15 +530,19 @@ func (c *Action) GetExecutionScript() []string {
 	scriptSlice := []string{
 		"#!/bin/bash",
 		"set -euo pipefail",
+		"trap 'exit 1' SIGINT",
+		"trap 'exit 1' SIGTERM",
+		"trap 'exit 1' SIGKILL",
 	}
 
 	if len(c.Script) > 0 {
 		// Loop over script slice, convert interface to string
 		scriptStrings := []string{}
 		for _, scriptLine := range c.Script {
-			scriptLineStr := fmt.Sprintf("%v", scriptLine)
+			scriptLineStr := fmt.Sprintf("%v &", scriptLine)
 			scriptStrings = append(scriptStrings, scriptLineStr)
 		}
+		scriptStrings = append(scriptStrings, "wait $!")
 		script := append(scriptSlice, scriptStrings...)
 		return script
 	}
@@ -546,10 +554,13 @@ func (c *Action) GetAnsibleScript(varsPath string, playbook string) []string {
 	scriptSlice := []string{
 		"#!/bin/bash",
 		"set -euo pipefail",
+		"trap 'exit 1' SIGINT",
+		"trap 'exit 1' SIGTERM",
+		"trap 'exit 1' SIGKILL",
 	}
 
-	scriptString := fmt.Sprintf("ansible-playbook -e '@%s' %s", varsPath, playbook)
-	script := append(scriptSlice, scriptString)
+	scriptString := fmt.Sprintf("ansible-playbook -e '@%s' %s &", varsPath, playbook)
+	script := append(scriptSlice, scriptString, "wait $!")
 
 	return script
 }

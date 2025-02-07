@@ -1,21 +1,12 @@
-FROM docker:dind as docker
-FROM quay.io/git-chglog/git-chglog:latest as git-chglog
-FROM python:3.11.4-slim-bullseye
+FROM docker:dind AS docker
+FROM python:3.11-slim
 
-ARG TERRAFORM_VERSION=1.0.7
-ARG KUBE_VERSION=1.28.1
-ARG HELM_VERSION=3.12.3
-ARG STEP_VERSION=0.17.2
-ARG VELERO_VERSION=1.7.0
-ARG ARGOCD_VERSION=2.5.22
-ARG YQ_VERSION=4.23.1
-ARG MINIO_CLI_VERSION=RELEASE.2023-08-18T21-57-55Z
-ARG GITHUB_CLI_VERSION=2.9.0
-ARG SVU_VERSION=1.9.0
-ARG GORELEASER_VERSION=1.8.3
-ARG GOLANG_VERSION=1.18.1
-ARG AWS_IAM_AUTHENTICATOR_VERSION=0.5.9
-ARG AWS_ARCH
+ARG K8S_VERSION=1.32.1
+ARG HELM_VERSION=3.17.0
+ARG CILIUM_VERSION=0.16.24
+ARG VELERO_VERSION=1.15.2
+ARG ARGOCD_VERSION=2.14.2
+ARG YQ_VERSION=4.45.1
 
 ARG TARGETPLATFORM
 ARG TARGETOS
@@ -27,26 +18,24 @@ ENV PATH=$PATH:/usr/local/go/bin
 
 # Copy Docker Client CLI from docker:dind
 COPY --from=docker /usr/local/bin/docker /usr/local/bin/
-COPY --from=git-chglog /usr/local/bin/git-chglog /usr/local/bin/
 
-RUN apt-get update &&\
+RUN apt-get update && \
   apt-get -y --no-install-recommends install \
-  ca-certificates=20210119 \
+  ca-certificates \
   curl \
   git \
-  jq=1.6-2.1 \
-  gettext=0.21-4 \
+  jq \
+  gettext \
   libssl-dev \
-  libffi-dev=3.3-6 \
-  python3-dev=3.9.2-3 \
-  rsync=3.2.3-4+deb11u1 \
-  openssh-client=1:8.4p1-5+deb11u1 \
+  libffi-dev \
+  python3-dev \
+  rsync \
+  openssh-client \
   sshpass \
-  unzip=6.0-26+deb11u1 \
-  wget=1.21-1+deb11u1 \
+  unzip \
+  wget \
   less \
-  build-essential \
-  mtr=0.94-1+deb11u1 && \
+  build-essential && \
   rm -rf /var/lib/apt/lists/* &&\
   apt-get clean
 
@@ -56,69 +45,35 @@ WORKDIR /tmp/polycrate
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-#COPY package.json package.json
-#COPY package-lock.json package-lock.json
-
-
-# RUN npm ci && \
-#     rm package.json package-lock.json
-
-
-# RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace && \
-#echo 'localhost' > /etc/ansible/hosts
-
-RUN wget -q -O "/usr/local/bin/kubectl" "https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/$TARGETOS/$TARGETARCH/kubectl" && \
+RUN wget -q -O "/usr/local/bin/kubectl" "https://dl.k8s.io/release/v${K8S_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
   chmod +x /usr/local/bin/kubectl && \
   chmod +x /usr/local/bin/docker && \
   wget -q "https://get.helm.sh/helm-v${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" -O - | tar -xzO $TARGETOS-$TARGETARCH/helm > /usr/local/bin/helm && \
   chmod +x /usr/local/bin/helm && \
   helm plugin install https://github.com/databus23/helm-diff  && \
-  wget -q "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${TARGETOS}_${TARGETARCH}.zip" && \
-  unzip terraform_${TERRAFORM_VERSION}_${TARGETOS}_${TARGETARCH}.zip -d /usr/bin && \
-  wget -q "https://github.com/smallstep/cli/releases/download/v${STEP_VERSION}/step_${TARGETOS}_${STEP_VERSION}_${TARGETARCH}.tar.gz" && \
-  tar xvzf step_${TARGETOS}_${STEP_VERSION}_${TARGETARCH}.tar.gz && \
-  mv step_${STEP_VERSION}/bin/step /usr/local/bin/step && \
-  chmod +x /usr/local/bin/step && \
   wget -q "https://github.com/vmware-tanzu/velero/releases/download/v${VELERO_VERSION}/velero-v${VELERO_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" && \
   tar xvzf velero-v${VELERO_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz && \
   mv velero-v${VELERO_VERSION}-${TARGETOS}-${TARGETARCH}/velero /usr/local/bin/velero && \
   chmod +x /usr/local/bin/velero && \
-  wget -q "https://github.com/caarlos0/svu/releases/download/v${SVU_VERSION}/svu_${SVU_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" && \
-  tar xvzf svu_${SVU_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz && \
-  mv svu /usr/local/bin/svu && \
-  chmod +x /usr/local/bin/svu && \
   wget -q "https://github.com/argoproj/argo-cd/releases/download/v${ARGOCD_VERSION}/argocd-${TARGETOS}-${TARGETARCH}" -O /usr/local/bin/argocd && \
   chmod +x /usr/local/bin/argocd && \
   wget -q "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/yq && \
   chmod +x /usr/local/bin/yq && \
-  wget -q "https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_${GORELEASER_VERSION}_${TARGETARCH}.deb" && \
-  dpkg -i goreleaser_${GORELEASER_VERSION}_${TARGETARCH}.deb && \
-  wget -q "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/yq && \
-  chmod +x /usr/local/bin/yq && \
-  wget  -q "https://dl.min.io/client/mc/release/${TARGETOS}-${TARGETARCH}/archive/mc.${MINIO_CLI_VERSION}" -O /usr/local/bin/mc && \
-  chmod +x /usr/local/bin/mc
-# wget -q "https://github.com/cli/cli/releases/download/v${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb" && \
-# dpkg -i gh_${GITHUB_CLI_VERSION}_${TARGETOS}_${TARGETARCH}.deb && \
-# wget -q "https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_${TARGETOS}_${TARGETARCH}" -O /usr/local/bin/aws-iam-authenticator && \
-# chmod +x /usr/local/bin/aws-iam-authenticator && \
-# wget -q "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -O "awscliv2.zip" && \
-# unzip awscliv2.zip && \
-# ./aws/install
-# wget -q "https://go.dev/dl/go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz" && \
-# rm -rf /usr/local/go && \
-# tar -C /usr/local -xzf go${GOLANG_VERSION}.${TARGETOS}-${TARGETARCH}.tar.gz && \
+  wget -q "https://github.com/cilium/cilium-cli/releases/download/v${CILIUM_VERSION}/cilium-${TARGETOS}-${TARGETARCH}.tar.gz" && \
+  tar xvzf cilium-${TARGETOS}-${TARGETARCH}.tar.gz && \
+  mv cilium /usr/local/bin/cilium && \
+  chmod +x /usr/local/bin/cilium 
+
 COPY python-requirements.txt python-requirements.txt
 COPY ansible-requirements.yml ansible-requirements.yml
 
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install pip --upgrade
+
 RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace /polycrate /usr/share/ansible/plugins/vars && \
   pip install --no-cache-dir -r python-requirements.txt
-# pip install --no-cache-dir packaging requests[security] xmltodict azure-cli-core==2.34.0 azure-common==1.1.11 azure-identity==1.7.0 azure-mgmt-apimanagement==0.2.0 azure-mgmt-authorization==0.51.1 azure-mgmt-batch==5.0.1 azure-mgmt-cdn==3.0.0 azure-mgmt-compute==26.1.0 azure-mgmt-containerinstance==1.4.0 azure-mgmt-containerregistry==2.0.0 azure-mgmt-containerservice==9.1.0 azure-mgmt-datalake-store==0.5.0 azure-mgmt-datafactory==2.0.0 azure-mgmt-dns==2.1.0 azure-mgmt-keyvault==1.1.0 azure-mgmt-marketplaceordering==0.1.0 azure-mgmt-monitor==3.0.0 azure-mgmt-managedservices==1.0.0 azure-mgmt-managementgroups==0.2.0 azure-mgmt-network==19.1.0 azure-mgmt-nspkg==2.0.0 azure-mgmt-privatedns==0.1.0 azure-mgmt-redis==13.0.0 azure-mgmt-resource==10.2.0 azure-mgmt-rdbms==1.9.0 azure-mgmt-search==3.0.0 azure-mgmt-servicebus==0.5.3 azure-mgmt-sql==3.0.1 azure-mgmt-storage==19.0.0 azure-mgmt-trafficmanager==0.50.0 azure-mgmt-web==0.41.0 azure-nspkg==2.0.0 azure-storage==0.35.1 msrest==0.6.21 msrestazure==0.6.4 azure-keyvault==1.0.0a1 azure-graphrbac==0.61.1 azure-mgmt-cosmosdb==0.15.0 azure-mgmt-hdinsight==0.1.0 azure-mgmt-devtestlabs==3.0.0 azure-mgmt-loganalytics==1.0.0 azure-mgmt-automation==1.0.0 azure-mgmt-iothub==0.7.0 azure-mgmt-recoveryservices==0.4.0 azure-mgmt-recoveryservicesbackup==0.6.0 azure-mgmt-notificationhubs==2.0.0 azure-mgmt-eventhub==2.0.0
-# Azure Python Toolchain
-# https://github.com/ansible-collections/azure/blob/v1.13.0/requirements-azure.txt
-
 
 RUN ansible-galaxy collection install community.general community.docker && \
-  #ansible-galaxy collection install --collections-path /etc/ansible/collections azure.azcollection:1.13.0 && \
   ansible-galaxy install -r ansible-requirements.yml
 
 COPY hack/ansible/plugins/vars/polycrate_vars.py /usr/share/ansible/plugins/vars/polycrate_vars.py

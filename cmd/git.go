@@ -312,7 +312,7 @@ func GitGetUserEmail() (string, error) {
 	}
 	output, err := GitExecute(context.TODO(), polycrateConfigDir, args)
 	if err != nil {
-		log.Error(err)
+		log.Debug(err)
 		return "", err
 	}
 
@@ -327,7 +327,7 @@ func GitGetUserName() (string, error) {
 
 	output, err := GitExecute(context.TODO(), polycrateConfigDir, args)
 	if err != nil {
-		log.Error(err)
+		log.Debug(err)
 		return "", err
 	}
 

@@ -175,16 +175,6 @@ func (p *Prompt) Validate() bool {
 
 }
 
-// func (p *Polycrate) GetTransaction(txid uuid.UUID) (*PolycrateTransaction, error) {
-// 	for i := 0; i < len(p.Transactions); i++ {
-// 		transaction := &p.Transactions[i]
-// 		if transaction.TXID == txid {
-// 			return transaction, nil
-// 		}
-// 	}
-// 	return nil, fmt.Errorf("transaction not found: %s", txid.String())
-// }
-
 func NewEvent(tx *PolycrateTransaction) *PolycrateEvent {
 	event := &PolycrateEvent{
 		Command:     tx.Command,
@@ -295,16 +285,6 @@ func (e *PolycrateEvent) Save(tx *PolycrateTransaction) error {
 		return err
 	}
 
-	// // Check if git repo; if yes, commit
-	// if GitIsRepo(tx, workspace.LocalPath) {
-	// 	// Check if committing is enabled in workspace config
-	// 	if workspace.Events.Commit {
-	// 		_, err = GitCommitAll(tx, workspace.LocalPath, fmt.Sprintf("chore: saved event %s", tx.TXID.String()))
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
 	return nil
 }
 
@@ -342,33 +322,6 @@ func (e *PolycrateEvent) Submit(tx *PolycrateTransaction) error {
 	return nil
 }
 
-// type PolycrateTransactionFn func(context.Context, string) error
-
-// func (p *Polycrate) WithTransaction(fn PolycrateTransactionFn, s string) error {
-// 	ctx, cancelFunc := context.WithCancel(context.Background())
-// 	ctx, _, err := p.StartTransaction(ctx, cancelFunc)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// Call function
-// 	if err := fn(ctx, s); err != nil {
-// 		if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
-// 			return err
-// 		}
-// 		return err
-// 	}
-
-// 	// Stop transaction
-// 	if err := polycrate.StopTransaction(ctx, cancelFunc); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-
-// 	//log := polycrate.GetContextLogger(ctx)
-// }
-
 func (p *Polycrate) EventHandler(tx *PolycrateTransaction) error {
 	// Exit if there's no event in the context
 	event := NewEvent(tx)
@@ -379,15 +332,6 @@ func (p *Polycrate) EventHandler(tx *PolycrateTransaction) error {
 		if err := event.Submit(tx); err != nil {
 			return err
 		}
-		// for _, webhook := range p.Config.Webhooks {
-		// 	if err := event.MergeInLabels(webhook.Labels); err != nil {
-		// 		return err
-		// 	}
-
-		// 	if err := event.Submit(ctx, webhook); err != nil {
-		// 		return err
-		// 	}
-		// }
 		return nil
 	})
 	if err := eg.Wait(); err != nil {
@@ -407,19 +351,6 @@ func (p *Polycrate) GetUserInfo() map[string]string {
 
 	return user
 }
-
-// func (p *Polycrate) PublishEvent(ctx context.Context, data *WorkspaceRevision, webhook Webhook) error {
-// 	//log := polycrate.GetContextLogger(ctx)
-
-// 	event := PolycrateEvent{}
-// 	event.Data = data
-
-// 	if err := event.Submit(ctx); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
 
 func (p *Polycrate) Load(ctx context.Context) error {
 	var logrusLogLevel string
@@ -441,11 +372,6 @@ func (p *Polycrate) Load(ctx context.Context) error {
 
 	// Set global log level
 	log.SetLevel(logrusLevel)
-
-	// Report the calling function if loglevel == 3
-	// if polycrate.Config.Loglevel == 3 {
-	// 	log.SetReportCaller(true)
-	// }
 
 	// Set Formatter
 	log.SetFormatter(&log.TextFormatter{})
@@ -523,31 +449,6 @@ func (p *Polycrate) RegisterWorkspace(workspace *Workspace) error {
 
 	return nil
 }
-
-// func (p *Polycrate) UpdateTransaction(txid uuid.UUID, ctx context.Context) error {
-// 	// Lock
-// 	p.lock.Lock()
-
-// 	if txid == uuid.Nil {
-// 		return fmt.Errorf("no TXID found")
-// 	}
-
-// 	// Check if transaction exists
-// 	t := p.GetTransaction(txid)
-// 	if t == nil {
-// 		return fmt.Errorf("transaction not registered: %s", txid)
-// 	}
-
-// 	err := t.Update(ctx)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// Unlock
-// 	p.lock.Unlock()
-
-// 	return nil
-// }
 
 func (p *Polycrate) RegisterTransaction(transaction *PolycrateTransaction) {
 	// Lock
@@ -665,6 +566,7 @@ func (tx *PolycrateTransaction) Stop() *PolycrateTransaction {
 	}
 
 	tx.Log.Debug("Stopped transaction")
+	tx.CancelFunc()
 	return tx
 }
 func (tx *PolycrateTransaction) Run() (err error) {
@@ -674,103 +576,6 @@ func (tx *PolycrateTransaction) Run() (err error) {
 
 	return fmt.Errorf("no job defined")
 }
-
-// func (p *Polycrate) NewTransaction(ctx context.Context, cmd *cobra.Command) (context.Context, *PolycrateTransaction, context.CancelFunc, error) {
-// 	ctx, cancel := context.WithCancel(ctx)
-// 	ctx, tx, err := p.StartTransaction(ctx, cancel)
-// 	if err != nil {
-// 		return ctx, nil, nil, err
-// 	}
-
-// 	revision := &WorkspaceRevision{}
-
-// 	revision.Date = time.Now().Format(time.RFC3339)
-// 	revision.Transaction = p.GetContextTXID(ctx)
-// 	revision.Version = p.GetContextVersion(ctx)
-
-// 	if cmd != nil {
-// 		cmdKey := ContextKey("cmd")
-// 		ctx = context.WithValue(ctx, cmdKey, cmd)
-// 		revision.Command = FormatCommand(cmd)
-// 	}
-
-// 	userInfo := polycrate.GetUserInfo()
-// 	revision.UserEmail = userInfo["email"]
-// 	revision.UserName = userInfo["name"]
-
-// 	revisionKey := ContextKey("revision")
-// 	ctx = context.WithValue(ctx, revisionKey, revision)
-
-// 	eventKey := ContextKey("event")
-// 	ctx = context.WithValue(ctx, eventKey, NewEvent(tx))
-
-// 	return ctx, tx, cancel, err
-// }
-
-// func (t *PolycrateTransaction) Update(ctx context.Context) error {
-// 	t.Context = ctx
-// 	return nil
-// }
-
-// func (p *Polycrate) StartTransaction(ctx context.Context, cancelFunc func()) (context.Context, *PolycrateTransaction, error) {
-// 	TXIDKey := ContextKey("TXID")
-// 	txid := uuid.New()
-// 	versionKey := ContextKey("version")
-
-// 	ctx = context.WithValue(ctx, TXIDKey, txid)
-// 	ctx = context.WithValue(ctx, versionKey, version)
-
-// 	transaction := PolycrateTransaction{
-// 		Context:    ctx,
-// 		TXID:       txid,
-// 		CancelFunc: cancelFunc,
-// 	}
-
-// 	p.RegisterTransaction(&transaction)
-
-// 	// Register transaction aware logger
-// 	log := log.WithField("txid", txid)
-// 	ctx = p.SetContextLogger(ctx, log)
-
-// 	txRuntimeDir := filepath.Join([]string{polycrateRuntimeDir, txid.String()}...)
-// 	err := os.MkdirAll(txRuntimeDir, os.ModePerm)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-
-// 	log.Debug("Started transaction")
-
-// 	return ctx, &transaction, nil
-// }
-
-// func (p *Polycrate) StopTransaction(ctx context.Context, cancel func()) error {
-// 	txid := p.GetContextTXID(ctx)
-
-// 	tx := p.GetTransaction(txid)
-
-// 	// Update with latest context
-// 	ctx = tx.Context
-
-// 	log.Debug("Stopping transaction")
-// 	//log = log.WithField("txid", txid)
-
-// 	// Call cancelFunc
-// 	defer cancel()
-
-// 	// Unregister the transaction
-// 	if err := p.UnregisterTransaction(tx); err != nil {
-// 		return err
-// 	}
-
-// 	if err := polycrate.EventHandler(ctx); err != nil {
-// 		// We're not terminating here to not block further execution
-// 		log.Warnf("Event handler failed: %s", err)
-// 	}
-
-// 	log.Debug("Stopped transaction")
-
-// 	return nil
-// }
 
 func (p *Polycrate) GetContextTXID(ctx context.Context) uuid.UUID {
 	k := ContextKey("TXID")
@@ -861,17 +666,6 @@ func (p *Polycrate) CreateConfigFile(ctx context.Context) error {
 	return nil
 }
 
-// func (p *Polycrate) ContextExit(ctx context.Context, cancelFunc context.CancelFunc, err error) {
-// 	if err := p.StopTransaction(ctx, cancelFunc); err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	return
-// }
-
 func (p *Polycrate) InitWorkspace(tx *PolycrateTransaction, path string, name string, withSSHKeys bool, withConfig bool) (*Workspace, error) {
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -943,38 +737,6 @@ func (p *Polycrate) CleanupRuntimeDir(tx *PolycrateTransaction) error {
 
 	return nil
 }
-
-// func (p *Polycrate) PreloadWorkspaceWithContext(ctx context.Context, path string, validate bool) (*Workspace, error) {
-// 	workspace, err := p.PreloadWorkspace(&PolycrateTransaction{}, path, validate)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	workspaceKey := ContextKey("workspace")
-// 	ctx = context.WithValue(ctx, workspaceKey, workspace)
-
-// 	log := polycrate.GetContextLogger(ctx)
-// 	log = log.WithField("workspace", workspace.Name)
-// 	ctx = polycrate.SetContextLogger(ctx, log)
-
-// 	return workspace, nil
-// }
-
-// func (p *Polycrate) GetWorkspaceWithContext(ctx context.Context, path string, validate bool) (context.Context, *Workspace, error) {
-// 	workspace, err := p.LoadWorkspace(&PolycrateTransaction{}, path, validate)
-// 	if err != nil {
-// 		return ctx, nil, err
-// 	}
-
-// 	workspaceKey := ContextKey("workspace")
-// 	ctx = context.WithValue(ctx, workspaceKey, workspace)
-
-// 	log := polycrate.GetContextLogger(ctx)
-// 	log = log.WithField("workspace", workspace.Name)
-// 	ctx = polycrate.SetContextLogger(ctx, log)
-
-// 	return ctx, workspace, nil
-// }
 
 func (p *Polycrate) PreloadWorkspace(tx *PolycrateTransaction, path string, validate bool) (*Workspace, error) {
 	var workspace *Workspace
@@ -1092,7 +854,9 @@ func (p *Polycrate) HighjackSigint(ctx context.Context, tx *PolycrateTransaction
 	//}()
 }
 func (p *Polycrate) WaitForGracefulShutdown() {
-	SigIntCTX, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	SigIntCTX, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
+
+	log.Debug("Starting graceful shutdown handler")
 
 	go func() {
 		select {
@@ -1106,28 +870,6 @@ func (p *Polycrate) WaitForGracefulShutdown() {
 		}
 	}()
 }
-
-// func (p *Polycrate) DiscoverWorkspaces() error {
-// 	workspacesDir := polycrateWorkspaceDir
-
-// 	if _, err := os.Stat(workspacesDir); !os.IsNotExist(err) {
-// 		log.WithFields(log.Fields{
-// 			"path": workspacesDir,
-// 		}).Debugf("Discovering local workspaces")
-
-// 		// This function adds all valid Blocks to the list of
-// 		err := filepath.WalkDir(workspacesDir, p.WalkWorkspacesDir)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	} else {
-// 		log.WithFields(log.Fields{
-// 			"path": workspacesDir,
-// 		}).Debugf("Skipping workspace discovery. Local workspaces directory not found")
-// 	}
-
-// 	return nil
-// }
 
 // This functions looks for a specific workspace in polycrate.Workspaces
 func (p *Polycrate) GetWorkspace(id string) (*Workspace, error) {
@@ -1146,41 +888,6 @@ func (p *Polycrate) GetWorkspace(id string) (*Workspace, error) {
 	err := fmt.Errorf("workspace not found in index")
 	return nil, err
 }
-
-// func (p *Polycrate) WalkWorkspacesDir(path string, d fs.DirEntry, err error) error {
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if !d.IsDir() {
-// 		fileinfo, _ := d.Info()
-
-// 		if fileinfo.Name() == WorkspaceConfigFile {
-// 			workspaceConfigFileDir := filepath.Dir(path)
-// 			log.WithFields(log.Fields{
-// 				"path": workspaceConfigFileDir,
-// 			}).Tracef("Local workspace detected")
-
-// 			w := Workspace{}
-// 			w.LocalPath = workspaceConfigFileDir
-// 			w.Path = workspaceConfigFileDir
-
-// 			log.WithFields(log.Fields{
-// 				"path": w.Path,
-// 			}).Tracef("Reading in local workspace")
-
-// 			w.SoftloadWorkspaceConfig().Flush()
-
-// 			// Check if the workspace has already been loaded to the local workspace index
-// 			_i, err := p.GetWorkspace(w.Name)
-// 			if err != nil {
-// 				// Workspace not indexed
-// 				p.Workspaces = append(p.Workspaces, _i)
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
 
 func (p *PolycrateConfig) validate() error {
 	err := validate.Struct(p)
@@ -1234,42 +941,6 @@ func (p *Polycrate) PullImage(ctx context.Context, image string) error {
 	return nil
 }
 
-// func (p *Polycrate) CreateContainer(ctx context.Context, name string, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (string, error) {
-// 	_, name, err := CreateContainer(ctx, name, image, command, env, mounts, workdir, ports, labels)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return name, nil
-// }
-
-// func (p *Polycrate) RemoveContainer(ctx context.Context, name string) error {
-// 	err := RemoveContainer(ctx, name)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// func (p *Polycrate) CopyFromImage(ctx context.Context, image string, src string, dst string) error {
-// 	txid := p.GetContextTXID(ctx)
-
-// 	name, err := p.CreateContainer(ctx, txid.String(), image, nil, nil, nil, "", nil, nil)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	err = CopyFromContainer(ctx, name, src, dst)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// err = p.RemoveContainer(ctx, name)
-// 	// if err != nil {
-// 	// 	return err
-// 	// }
-// 	return nil
-// }
-
 func (p *Polycrate) GetStableVersion(ctx context.Context) (string, error) {
 	log.Debugf("Getting stable version from %s", polycrate.Config.Registry.Url)
 
@@ -1306,23 +977,6 @@ func (p *Polycrate) GetStableVersion(ctx context.Context) (string, error) {
 	return v, nil
 }
 
-// func (p *Polycrate) UpdateCLI(ctx context.Context) error {
-// 	log.Warn("Starting Self-Update")
-// 	stableVersion, err := p.GetStableVersion(ctx)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	image := strings.Join([]string{WorkspaceConfigImageRef, stableVersion}, ":")
-// 	err = p.CopyFromImage(ctx, image, "/usr/local/bin/polycrate", "/usr/local/bin/polycrate")
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
 func (p *Polycrate) PruneContainer(tx *PolycrateTransaction) error {
 	log.Infof("Removing container")
 
@@ -1356,8 +1010,10 @@ func (p *Polycrate) RunContainer(tx *PolycrateTransaction, mounts []string, env 
 		mounts,
 		workdir,
 		ports,
-		labels)
+		labels,
+		name)
 }
+
 func (p *Polycrate) BuildContainer(ctx context.Context, contextDir string, dockerfile string, tags []string) (string, error) {
 	image, err := buildContainerImage(ctx, contextDir, dockerfile, tags)
 	if err != nil {

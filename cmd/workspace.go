@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -652,7 +652,7 @@ func (w *Workspace) PruneContainer(tx *PolycrateTransaction) error {
 
 func (w *Workspace) RunContainer(tx *PolycrateTransaction, name string, workdir string, cmd []string) error {
 
-	tx.Log.Infof("Starting container")
+	tx.Log.Infof("Preparing to start container")
 
 	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
 
@@ -2311,21 +2311,21 @@ func (c *Workspace) GetWorkflow(name string) (*Workflow, error) {
 // 			return this
 // 		}
 
-// 		log.WithFields(log.Fields{
-// 			"workspace": this.Name,
-// 			"message":   message,
-// 			"hash":      hash,
-// 			"module":    "sync",
-// 		}).Debugf("Added commit")
-// 	} else {
-// 		log.WithFields(log.Fields{
-// 			"workspace": this.Name,
-// 			"message":   message,
-// 			"module":    "sync",
-// 		}).Debugf("Not committing. Sync module not loaded")
-// 	}
-// 	return this
-// }
+//			log.WithFields(log.Fields{
+//				"workspace": this.Name,
+//				"message":   message,
+//				"hash":      hash,
+//				"module":    "sync",
+//			}).Debugf("Added commit")
+//		} else {
+//			log.WithFields(log.Fields{
+//				"workspace": this.Name,
+//				"message":   message,
+//				"module":    "sync",
+//			}).Debugf("Not committing. Sync module not loaded")
+//		}
+//		return this
+//	}
 func (w *Workspace) Commit(tx *PolycrateTransaction, message string) error {
 
 	hash, err := GitCommitAll(tx, w.LocalPath, message)

@@ -118,4 +118,4 @@ For enterprise support, please contact us at [hello@ayedo.de](mailto:hello@ayedo
 
 ## Copyright & License
 
-Copyright (c) 2021-2023 Ayedo Cloud Solutions GmbH - Released under the Sustainable Use License. Polycrate and the Polycrate Logo are trademarks of Ayedo Cloud Solutions GmbH.
+Copyright (c) 2021-2025 Ayedo Cloud Solutions GmbH - Released under the Sustainable Use License. Polycrate and the Polycrate Logo are trademarks of Ayedo Cloud Solutions GmbH.

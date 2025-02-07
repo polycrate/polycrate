@@ -1,5 +1,8 @@
 {
   "window.titleBarStyle": "custom",
+  "go.toolsEnvVars": {
+    "GOOS": "linux"
+  },
   "window.title": "${dirty}Polycrate ${separator} ${activeEditorShort} ${separator} ${rootName}${separator}${appName}",
   "workbench.colorCustomizations": {
     "activityBar.background": "#21013E",

@@ -201,12 +201,15 @@ func PruneContainer(tx *PolycrateTransaction, filters []string) (int, string, er
 	return exitCode, output, err
 }
 
-func RunContainer(tx *PolycrateTransaction, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string) (int, string, error) {
+func RunContainer(tx *PolycrateTransaction, image string, command []string, env []string, mounts []string, workdir string, ports []string, labels []string, name string) (int, string, error) {
 	// Prepare container command
 	var runCmd []string
 
 	// https://stackoverflow.com/questions/16248241/concatenate-two-slices-in-go
 	runCmd = append(runCmd, []string{"run", "--rm"}...)
+
+	// Name
+	runCmd = append(runCmd, []string{"--name", name}...)
 
 	// Env
 	for _, envVar := range env {
@@ -229,14 +232,9 @@ func RunContainer(tx *PolycrateTransaction, image string, command []string, env 
 	}
 
 	// Workdir
-	runCmd = append(runCmd, []string{"--workdir", workdir}...)
-
-	// Pull
-	// if pull {
-	// 	runCmd = append(runCmd, []string{"--pull", "always"}...)
-	// } else {
-	// 	runCmd = append(runCmd, []string{"--pull", "never"}...)
-	// }
+	if workdir != "" {
+		runCmd = append(runCmd, []string{"--workdir", workdir}...)
+	}
 
 	// Interactive
 	if interactive {
@@ -246,11 +244,6 @@ func RunContainer(tx *PolycrateTransaction, image string, command []string, env 
 		runCmd = append(runCmd, []string{"-t"}...)
 	}
 
-	// Platform
-	// fixed in cloudstack/cloudstack 1.1.3-main.build-46effead
-	// Multi-platform images possible!
-	// runCmd = append(runCmd, []string{"--platform", "linux/amd64"}...)
-
 	// Entrypoint
 	entrypointCmd := []string{"--entrypoint", "/bin/bash"}
 	runCmd = append(runCmd, entrypointCmd...)
@@ -258,6 +251,7 @@ func RunContainer(tx *PolycrateTransaction, image string, command []string, env 
 	// Image
 	runCmd = append(runCmd, image)
 
+	// Command
 	runCmd = append(runCmd, command...)
 
 	// Run container
