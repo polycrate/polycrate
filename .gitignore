@@ -220,4 +220,4 @@ dist/
 latest.txt
 .vscode/launch.json
 rootfs
-docs
+docs/
