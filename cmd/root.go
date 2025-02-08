@@ -24,8 +24,6 @@ import (
 	"github.com/spf13/cobra"
 
 	log "github.com/sirupsen/logrus"
-
-	kubectl "k8s.io/kubectl/pkg/cmd"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -72,7 +70,7 @@ func init() {
 
 	// CLI related
 	fs.StringVarP(&outputFormat, "output-format", "o", "yaml", "Output format (currently no-op).")
-	fs.BoolVarP(&force, "force", "f", false, "Force whatever you want to do. Like sudo with more willpower. Defaults to false.")
+	//fs.BoolVarP(&force, "force", "f", false, "Force whatever you want to do. Like sudo with more willpower. Defaults to false.")
 	fs.BoolVarP(&snapshot, "snapshot", "", false, "Only dump the workspace snapshot, do not run anything.")
 	fs.BoolVar(&dev, "dev", false, "Enable development mode for working with blocks")
 	fs.StringVar(&editor, "editor", DefaultEditor, "Editor to use to open the workspace")
@@ -147,6 +145,6 @@ func initConfig() {
 
 }
 
-func init() {
-	rootCmd.AddCommand(kubectl.NewDefaultKubectlCommand())
-}
+// func init() {
+// 	rootCmd.AddCommand(kubectl.NewDefaultKubectlCommand())
+// }
