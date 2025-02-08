@@ -1,7 +1,6 @@
 package kubectl
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -45,5 +44,4 @@ func main(args []string) {
 	if err := cli.RunNoErrOutput(command); err != nil {
 		util.CheckErr(err)
 	}
-	fmt.Println("kubectl main")
 }
