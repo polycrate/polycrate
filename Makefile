@@ -28,7 +28,6 @@ pre-release: tag
 latest-file: pre-release
 	@echo "$(shell svu --strip-prefix)" > latest
 	@cat latest
-	@mc cp latest ayedo-s3/polycrate/cli
 	@rm latest
 
 polyhub: latest-file
