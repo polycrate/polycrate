@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,6 +45,8 @@ var inventoryCmd = &cobra.Command{
 		for path, _ := range workspace.FindInventories(tx) {
 			fmt.Printf("%s\n", path)
 		}
+
+		showInventory(workspace)
 	},
 }
 
@@ -74,6 +76,7 @@ type AnsibleHost struct {
 	AnsibleHost    string `mapstructure:"ansible_host" json:"ansible_host" yaml:"ansible_host"`
 	AnsibleSshPort string `mapstructure:"ansible_ssh_port" json:"ansible_ssh_port" yaml:"ansible_ssh_port"`
 	AnsibleUser    string `mapstructure:"ansible_user" json:"ansible_user" yaml:"ansible_user"`
+	AnsibleBecome  string `mapstructure:"ansible_become" json:"ansible_become" yaml:"ansible_become"`
 }
 
 type AnsibleGroup struct {
@@ -108,6 +111,21 @@ func (i *AnsibleInventory) Load(path string) error {
 
 	if err := inventory.Unmarshal(i); err != nil {
 		log.Error(err)
+	}
+	return nil
+}
+
+func (i *AnsibleInventory) GetHost(hostname string) *PolycrateInventoryHost {
+	for key, host := range i.All.Hosts {
+		if key == hostname {
+			ph := PolycrateInventoryHost{
+				Name: key,
+				Host: host.AnsibleHost,
+				Port: host.AnsibleSshPort,
+				User: host.AnsibleUser,
+			}
+			return &ph
+		}
 	}
 	return nil
 }

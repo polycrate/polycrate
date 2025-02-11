@@ -192,39 +192,46 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, refresh bool) err
 
 	tx.Log.Infof("Starting SSH session")
 
-	host_cache := map[string]SSHHost{}
-	hosts_cache_path := filepath.Join(b.Artifacts.LocalPath, "hosts_cache.json")
-
-	var hosts = viper.New()
-
-	if _, err := os.Stat(hosts_cache_path); os.IsNotExist(err) || refresh {
-		hosts, err = b.getHostsFromInventory(tx)
-		if err != nil {
-			return err
-		}
-	} else {
-		tx.Log.Infof("Loading hosts from cache (use --refresh to update hosts list)")
-		hosts.SetConfigType("json")
-		hosts.SetConfigFile(hosts_cache_path)
-
-		err = hosts.MergeInConfig()
-		if err != nil {
-			return err
-		}
-
-	}
-
-	err := hosts.Unmarshal(&host_cache)
+	var inv AnsibleInventory
+	err := inv.Load(workspace.Inventory.LocalPath)
 	if err != nil {
 		return err
 	}
+	sshHost := inv.GetHost(hostname)
 
-	// Get IP
-	//sshHost := hosts.Sub(hostname)
-	sshHost := host_cache[hostname]
+	//host_cache := map[string]SSHHost{}
+	//hosts_cache_path := filepath.Join(b.Artifacts.LocalPath, "hosts_cache.json")
+
+	// var hosts = viper.New()
+
+	// if _, err := os.Stat(hosts_cache_path); os.IsNotExist(err) || refresh {
+	// 	hosts, err = b.getHostsFromInventory(tx)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// } else {
+	// 	tx.Log.Infof("Loading hosts from cache (use --refresh to update hosts list)")
+	// 	hosts.SetConfigType("json")
+	// 	hosts.SetConfigFile(hosts_cache_path)
+
+	// 	err = hosts.MergeInConfig()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// }
+
+	// err := hosts.Unmarshal(&host_cache)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// // Get IP
+	// //sshHost := hosts.Sub(hostname)
+	// sshHost := host_cache[hostname]
 
 	//ip := sshHost.GetString("ip")
-	ip := sshHost.Ip
+	ip := sshHost.Host
 	if ip == "" {
 		return fmt.Errorf("ip of host %s not found", hostname)
 	}
@@ -261,40 +268,20 @@ func (b *Block) SSH(tx *PolycrateTransaction, hostname string, refresh bool) err
 }
 
 func (b *Block) SSHList(tx *PolycrateTransaction, refresh bool, format bool) error {
-	//workspace := b.workspace
+	workspace := b.workspace
 
-	host_cache := map[string]SSHHost{}
-	hosts_cache_path := filepath.Join(b.Artifacts.LocalPath, "hosts_cache.json")
-
-	var hosts = viper.New()
-
-	if _, err := os.Stat(hosts_cache_path); os.IsNotExist(err) || refresh {
-		hosts, err = b.getHostsFromInventory(tx)
-		if err != nil {
-			return err
-		}
-	} else {
-		tx.Log.Warnf("Loading hosts from cache (use --refresh to update hosts list)")
-		hosts.SetConfigType("json")
-		hosts.SetConfigFile(hosts_cache_path)
-
-		err = hosts.MergeInConfig()
-		if err != nil {
-			return err
-		}
-
-	}
-
-	err := hosts.Unmarshal(&host_cache)
+	var inv AnsibleInventory
+	err := inv.Load(workspace.Inventory.LocalPath)
 	if err != nil {
 		return err
 	}
+	all_hosts := inv.All.GetHosts()
 
 	if !format {
-		printObject(host_cache)
+		printObject(all_hosts)
 	} else {
-		for host, _ := range host_cache {
-			polycrate_command := fmt.Sprintf("polycrate ssh --block %s %s", b.Name, host)
+		for _, host := range all_hosts {
+			polycrate_command := fmt.Sprintf("polycrate ssh %s", host.Name)
 			fmt.Println(polycrate_command)
 		}
 	}
