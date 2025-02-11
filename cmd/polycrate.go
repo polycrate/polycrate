@@ -103,6 +103,7 @@ type PolycrateEvent struct {
 	UserEmail   string               `yaml:"user_email,omitempty" mapstructure:"user_email,omitempty" json:"user_email,omitempty"`
 	UserName    string               `yaml:"user_name,omitempty" mapstructure:"user_name,omitempty" json:"user_name,omitempty"`
 	Date        string               `yaml:"date,omitempty" mapstructure:"date,omitempty" json:"date,omitempty"`
+	Snapshot    WorkspaceSnapshot    `yaml:"snapshot,omitempty" mapstructure:"snapshot,omitempty" json:"snapshot,omitempty"`
 	Transaction string               `yaml:"transaction,omitempty" mapstructure:"transaction,omitempty" json:"transaction,omitempty"`
 	Version     string               `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
 	Output      string               `yaml:"output,omitempty" mapstructure:"output,omitempty" json:"output,omitempty"`
@@ -187,6 +188,7 @@ func NewEvent(tx *PolycrateTransaction) *PolycrateEvent {
 		UserName:  tx.UserName,
 		Date:      tx.Date,
 		Output:    tx.Output,
+		Snapshot:  tx.Snapshot,
 	}
 
 	if tx.Snapshot.Workspace != nil {
