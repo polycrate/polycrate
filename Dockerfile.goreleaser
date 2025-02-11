@@ -1,4 +1,5 @@
 FROM docker:dind AS docker
+FROM quay.io/skopeo/stable:latest AS skopeo
 FROM python:3.11-slim
 
 ARG K8S_VERSION=1.32.1
@@ -16,8 +17,9 @@ ENV GOOS=${TARGETOS}
 ENV GOARCH=${TARGETARCH}
 ENV PATH=$PATH:/usr/local/go/bin
 
-# Copy Docker Client CLI from docker:dind
+# Copy CLIs from Docker images
 COPY --from=docker /usr/local/bin/docker /usr/local/bin/
+COPY --from=skopeo /usr/bin/skopeo /usr/local/bin/
 
 RUN apt-get update && \
   apt-get -y --no-install-recommends install \
@@ -32,6 +34,7 @@ RUN apt-get update && \
   rsync \
   openssh-client \
   sshpass \
+  skopeo \
   unzip \
   wget \
   less \
