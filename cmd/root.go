@@ -70,7 +70,7 @@ func init() {
 
 	// CLI related
 	fs.StringVarP(&outputFormat, "output-format", "o", "yaml", "Output format (currently no-op).")
-	//fs.BoolVarP(&force, "force", "f", false, "Force whatever you want to do. Like sudo with more willpower. Defaults to false.")
+	fs.BoolVarP(&force, "force", "f", false, "Force whatever you want to do. Like sudo with more willpower. Defaults to false.")
 	fs.BoolVarP(&snapshot, "snapshot", "", false, "Only dump the workspace snapshot, do not run anything.")
 	fs.BoolVar(&dev, "dev", false, "Enable development mode for working with blocks")
 	fs.StringVar(&editor, "editor", DefaultEditor, "Editor to use to open the workspace")
@@ -94,11 +94,11 @@ func init() {
 	fs.StringVar(&polycrate.Config.Registry.BaseImage, "registry-base-image", RegistryBaseImage, "The base image to package blocks in OCI format")
 
 	// Workspace related config
-	fs.StringVar(&defaultWorkspace.SyncOptions.Local.Branch.Name, "sync-local-branch", GitDefaultBranch, "Default git branch")
-	fs.StringVar(&defaultWorkspace.SyncOptions.Remote.Branch.Name, "sync-remote-branch", GitDefaultBranch, "Default git branch")
-	fs.StringVar(&defaultWorkspace.SyncOptions.Remote.Name, "sync-remote-name", GitDefaultRemote, "Default git remote")
-	fs.BoolVar(&defaultWorkspace.SyncOptions.Enabled, "sync-enabled", false, "Sync enabled")
-	fs.BoolVar(&defaultWorkspace.SyncOptions.Auto, "sync-auto", false, "Sync automatically")
+	// fs.StringVar(&defaultWorkspace.SyncOptions.Local.Branch.Name, "sync-local-branch", GitDefaultBranch, "Default git branch")
+	// fs.StringVar(&defaultWorkspace.SyncOptions.Remote.Branch.Name, "sync-remote-branch", GitDefaultBranch, "Default git branch")
+	// fs.StringVar(&defaultWorkspace.SyncOptions.Remote.Name, "sync-remote-name", GitDefaultRemote, "Default git remote")
+	// fs.BoolVar(&defaultWorkspace.SyncOptions.Enabled, "sync-enabled", false, "Sync enabled")
+	// fs.BoolVar(&defaultWorkspace.SyncOptions.Auto, "sync-auto", false, "Sync automatically")
 	fs.StringVar(&defaultWorkspace.Events.Handler, "event-handler", WorkspaceEventHandler, "Default event handler")
 	fs.StringVar(&defaultWorkspace.Events.Endpoint, "event-endpoint", "", "Default event endpoint")
 	fs.BoolVar(&defaultWorkspace.Events.Commit, "event-commit", false, "Auto-commit each event")
