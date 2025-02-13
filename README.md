@@ -29,6 +29,12 @@ You can share workspaces with your team or customers and make them use pre-defin
 
 ## Quick start
 
+Before using Polycrate, make sure you have the following dependencies installed:
+
+- Docker
+- git
+- curl
+
 ### Install Polycrate
 
 To see more examples on how to install Polycrate, please refer to our [docs](https://www.ayedo.de/polycrate/installation/)
@@ -36,6 +42,12 @@ To see more examples on how to install Polycrate, please refer to our [docs](htt
 ```bash
 curl https://raw.githubusercontent.com/polycrate/polycrate/main/get-polycrate.sh | bash
 polycrate version
+```
+
+or on Linux systems:
+
+```bash
+docker run -v $HOME/.bin:/_bin --entrypoint "/bin/sh" cargo.ayedo.cloud/library/polycrate -c "cp /usr/local/bin/polycrate /_bin/."
 ```
 
 ### Create your first workspace
