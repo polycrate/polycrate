@@ -2624,6 +2624,7 @@ func (c *Workspace) PushBlock(tx *PolycrateTransaction, blockName string) error 
 	}
 	log := tx.Log.log.WithField("block", block.Name)
 	log = log.WithField("version", block.Version)
+	log = log.WithField("checksum", block.Checksum)
 	log = log.WithField("path", block.Workdir.LocalPath)
 
 	log.Infof("Pushing block")
@@ -2636,6 +2637,11 @@ func (c *Workspace) PushBlock(tx *PolycrateTransaction, blockName string) error 
 	if block.Labels == nil {
 		block.Labels = map[string]string{}
 	}
+
+	// Add Checksum to Labels
+	block.Labels["polycrate.blocks.checksum"] = block.Checksum
+	block.Labels["polycrate.blocks.checksum_algo"] = "md5"
+
 	if dev {
 		// Append "-dev" to tag
 		txid := tx.TXID.String()
@@ -2811,7 +2817,7 @@ func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, er
 	}
 
 	// Compute block directory hash
-	block.Hash, err = hashdir.Make(block.Workdir.LocalPath, "md5")
+	block.Checksum, err = hashdir.Make(block.Workdir.LocalPath, "md5")
 	if err != nil {
 		return nil, err
 	}
