@@ -111,6 +111,7 @@ type Block struct {
 	Inventory   BlockInventory              `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
 	Kubeconfig  BlockKubeconfig             `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
 	Artifacts   BlockArtifacts              `yaml:"artifacts,omitempty" mapstructure:"artifacts,omitempty" json:"artifacts,omitempty"`
+	Hash        string                      `yaml:"hash,omitempty" mapstructure:"hash,omitempty" json:"hash,omitempty"`
 	resolved    bool
 	schema      string
 	workspace   *Workspace
@@ -738,6 +739,11 @@ func (c *Block) MergeIn(block *Block) error {
 	// Description
 	if block.Description != "" && c.Description == "" {
 		c.Description = block.Description
+	}
+
+	// Hash
+	if block.Hash != "" && c.Hash == "" {
+		c.Hash = block.Hash
 	}
 
 	// Schema

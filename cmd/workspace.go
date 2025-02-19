@@ -34,6 +34,7 @@ import (
 
 	//"github.com/docker/docker/container"
 	"github.com/google/uuid"
+	"github.com/gosimple/hashdir"
 
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
@@ -2807,6 +2808,12 @@ func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, er
 		block.Workdir.Path = block.Workdir.LocalPath
 	} else {
 		block.Workdir.Path = block.Workdir.ContainerPath
+	}
+
+	// Compute block directory hash
+	block.Hash, err = hashdir.Make(block.Workdir.LocalPath, "md5")
+	if err != nil {
+		return nil, err
 	}
 
 	// Set workspace
