@@ -23,7 +23,9 @@ release: polyhub
 unexport GITLAB_TOKEN
 pre-release: tag
 	@git push origin main
+	@git push ayedo-gitlab main
 	@git push origin $(shell svu)
+	@git push ayedo-gitlab $(shell svu)
 	@goreleaser release --rm-dist --debug --timeout 120m
 	
 latest-file: pre-release
