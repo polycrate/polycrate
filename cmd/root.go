@@ -92,6 +92,10 @@ func init() {
 	fs.StringVar(&polycrate.Config.Kubeconfig, "kubeconfig", KubeconfigPath, "Path to a global kubeconfig")
 	fs.StringVar(&polycrate.Config.Registry.Url, "registry-url", RegistryUrl, "The URL of the OCI registry")
 	fs.StringVar(&polycrate.Config.Registry.BaseImage, "registry-base-image", RegistryBaseImage, "The base image to package blocks in OCI format")
+	fs.StringVar(&polycrate.Config.Hub.Url, "hub-url", HubUrl, "The URL of the Polycrate Hub")
+	fs.StringVar(&polycrate.Config.Hub.ApiKey, "hub-api-key", "", "The Api Key of the Polycrate Hub")
+	fs.StringVar(&polycrate.Config.Hub.Username, "hub-username", "", "The Username of the Polycrate Hub")
+	fs.StringVar(&polycrate.Config.Hub.Password, "hub-password", "", "The Password of the Polycrate Hub")
 
 	// Workspace related config
 	// fs.StringVar(&defaultWorkspace.SyncOptions.Local.Branch.Name, "sync-local-branch", GitDefaultBranch, "Default git branch")

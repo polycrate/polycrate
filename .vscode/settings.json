@@ -12,9 +12,9 @@
     "activityBar.activeForeground": "#ff0239",
     "activityBar.inactiveForeground": "#ffffff",
     "titleBar.activeBackground": "#21013E",
+    "titleBar.inactiveBackground": "#21013E",
     "titleBar.activeForeground": "#fff"
   },
-  "workbench.colorTheme": "Shades of Purple",
   "editor.tabSize": 2,
   "editor.insertSpaces": true,
   "editor.detectIndentation": false,

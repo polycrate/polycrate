@@ -20,15 +20,10 @@
 : ${BINARY_NAME:="polycrate"}
 : ${USE_SUDO:="true"}
 : ${DEBUG:="false"}
-: ${VERIFY_CHECKSUM:="false"}
-: ${VERIFY_SIGNATURES:="false"}
 : ${POLYCRATE_INSTALL_DIR:="/usr/local/bin"}
-: ${GPG_PUBRING:="pubring.kbx"}
 
 HAS_CURL="$(type "curl" &> /dev/null && echo true || echo false)"
 HAS_WGET="$(type "wget" &> /dev/null && echo true || echo false)"
-HAS_OPENSSL="$(type "openssl" &> /dev/null && echo true || echo false)"
-HAS_GPG="$(type "gpg" &> /dev/null && echo true || echo false)"
 
 # initArch discovers the architecture for this system.
 initArch() {
@@ -67,7 +62,7 @@ runAsRoot() {
 # verifySupported checks that the os/arch combination is supported for
 # binary builds, as well whether or not necessary tools are present.
 verifySupported() {
-  local supported="darwin-amd64\ndarwin-arm64\nlinux-386\nlinux-amd64\nlinux-arm64\nwindows-amd64\nwindows-arm64\nwindows-386"
+  local supported="darwin-amd64\ndarwin-arm64\nlinux-386\nlinux-amd64\nlinux-arm64"
   if ! echo "${supported}" | grep -q "${OS}-${ARCH}"; then
     echo "No prebuilt binary for ${OS}-${ARCH}."
     exit 1
@@ -77,38 +72,19 @@ verifySupported() {
     echo "Either curl or wget is required"
     exit 1
   fi
-
-  if [ "${VERIFY_CHECKSUM}" == "true" ] && [ "${HAS_OPENSSL}" != "true" ]; then
-    echo "In order to verify checksum, openssl must first be installed."
-    echo "Please install openssl or set VERIFY_CHECKSUM=false in your environment."
-    exit 1
-  fi
-
-  if [ "${VERIFY_SIGNATURES}" == "true" ]; then
-    if [ "${HAS_GPG}" != "true" ]; then
-      echo "In order to verify signatures, gpg must first be installed."
-      echo "Please install gpg or set VERIFY_SIGNATURES=false in your environment."
-      exit 1
-    fi
-    if [ "${OS}" != "linux" ]; then
-      echo "Signature verification is currently only supported on Linux."
-      echo "Please set VERIFY_SIGNATURES=false or verify the signatures manually."
-      exit 1
-    fi
-  fi
 }
 
 get_latest_release() {
-  curl --silent "https://api.github.com/repos/polycrate/polycrate/releases/latest" | # Get latest release from GitHub api
-    grep '"tag_name":' |                                            # Get tag line
-    sed -E 's/.*"([^"]+)".*/\1/'   |                              # Pluck JSON value
-    cut -c 2-
+  curl --silent "https://hub.polycrate.io/api/v1/cli/get/?out=latest&type=plain"
+  # curl --silent "https://api.github.com/repos/polycrate/polycrate/releases/latest" | # Get latest release from GitHub api
+  #   grep '"tag_name":' |                                            # Get tag line
+  #   sed -E 's/.*"([^"]+)".*/\1/'   |                              # Pluck JSON value
+  #   cut -c 2-
 }
 
 # checkDesiredVersion checks if the desired version is available.
 checkDesiredVersion() {
   if [ "x$DESIRED_VERSION" == "x" ]; then
-    #TAG=$(curl -s https://s3.ayedo.de/polycrate/cli/latest)
     TAG=$(get_latest_release)
     echo "Latest version is $TAG"
   else
@@ -137,12 +113,14 @@ checkPolycrateInstalledVersion() {
 # for that binary.
 downloadFile() {
   #DOWNLOAD_URL="https://s3.ayedo.de/polycrate/cli/v${TAG}/${BINARY_NAME}_${TAG}_${OS}_${ARCH}.tar.gz"
-  DOWNLOAD_URL="https://github.com/polycrate/polycrate/releases/download/v${TAG}/${BINARY_NAME}_${TAG}_${OS}_${ARCH}.tar.gz"
+  DOWNLOAD_URL="https://hub.polycrate.io/get/polycrate/${TAG}/${OS}_${ARCH}/${BINARY_NAME}_${TAG}_${OS}_${ARCH}.tar.gz"
+  # DOWNLOAD_URL="https://github.com/polycrate/polycrate/releases/download/v${TAG}/${BINARY_NAME}_${TAG}_${OS}_${ARCH}.tar.gz"
 
-  CHECKSUM_URL="$DOWNLOAD_URL.sha256"
   POLYCRATE_TMP_ROOT="$(mktemp -dt polycrate-installer-XXXXXX)"
   POLYCRATE_TMP_FILE="$POLYCRATE_TMP_ROOT/${BINARY_NAME}.tar.gz"
+  
   echo "Downloading $DOWNLOAD_URL"
+
   if [ "${HAS_CURL}" == "true" ]; then
     curl -SsL "$DOWNLOAD_URL" -o "$POLYCRATE_TMP_FILE"
   elif [ "${HAS_WGET}" == "true" ]; then
@@ -150,22 +128,10 @@ downloadFile() {
   fi
 }
 
-# verifyFile verifies the SHA256 checksum of the binary package
-# and the GPG signatures for both the package and checksum file
-# (depending on settings in environment).
-verifyFile() {
-  if [ "${VERIFY_CHECKSUM}" == "true" ]; then
-    verifyChecksum
-  fi
-  if [ "${VERIFY_SIGNATURES}" == "true" ]; then
-    verifySignatures
-  fi
-}
-
 # installFile installs the Polycrate binary.
 installFile() {
   POLYCRATE_TMP_BIN="$POLYCRATE_TMP_ROOT/$BINARY_NAME"
-  echo "Unpacking polycrate"
+  echo "Unpacking $BINARY_NAME"
 
   tar xzf ${POLYCRATE_TMP_FILE} -C $POLYCRATE_TMP_ROOT
 
@@ -183,64 +149,6 @@ installFile() {
   echo "$BINARY_NAME installed into $POLYCRATE_INSTALL_DIR/$BINARY_NAME"
 }
 
-# verifyChecksum verifies the SHA256 checksum of the binary package.
-verifyChecksum() {
-  printf "Verifying checksum... "
-  local sum=$(openssl sha1 -sha256 ${POLYCRATE_TMP_FILE} | awk '{print $2}')
-  local expected_sum=$(cat ${POLYCRATE_SUM_FILE})
-  if [ "$sum" != "$expected_sum" ]; then
-    echo "SHA sum of ${POLYCRATE_TMP_FILE} does not match. Aborting."
-    exit 1
-  fi
-  echo "Done."
-}
-
-# verifySignatures obtains the latest KEYS file from GitHub main branch
-# as well as the signature .asc files from the specific GitHub release,
-# then verifies that the release artifacts were signed by a maintainer's key.
-verifySignatures() {
-  printf "Verifying signatures... "
-  local keys_filename="KEYS"
-  local github_keys_url="https://raw.githubusercontent.com/helm/helm/main/${keys_filename}"
-  if [ "${HAS_CURL}" == "true" ]; then
-    curl -SsL "${github_keys_url}" -o "${HELM_TMP_ROOT}/${keys_filename}"
-  elif [ "${HAS_WGET}" == "true" ]; then
-    wget -q -O "${HELM_TMP_ROOT}/${keys_filename}" "${github_keys_url}"
-  fi
-  local gpg_keyring="${HELM_TMP_ROOT}/keyring.gpg"
-  local gpg_homedir="${HELM_TMP_ROOT}/gnupg"
-  mkdir -p -m 0700 "${gpg_homedir}"
-  local gpg_stderr_device="/dev/null"
-  if [ "${DEBUG}" == "true" ]; then
-    gpg_stderr_device="/dev/stderr"
-  fi
-  gpg --batch --quiet --homedir="${gpg_homedir}" --import "${HELM_TMP_ROOT}/${keys_filename}" 2> "${gpg_stderr_device}"
-  gpg --batch --no-default-keyring --keyring "${gpg_homedir}/${GPG_PUBRING}" --export > "${gpg_keyring}"
-  local github_release_url="https://github.com/helm/helm/releases/download/${TAG}"
-  if [ "${HAS_CURL}" == "true" ]; then
-    curl -SsL "${github_release_url}/helm-${TAG}-${OS}-${ARCH}.tar.gz.sha256.asc" -o "${HELM_TMP_ROOT}/helm-${TAG}-${OS}-${ARCH}.tar.gz.sha256.asc"
-    curl -SsL "${github_release_url}/helm-${TAG}-${OS}-${ARCH}.tar.gz.asc" -o "${HELM_TMP_ROOT}/helm-${TAG}-${OS}-${ARCH}.tar.gz.asc"
-  elif [ "${HAS_WGET}" == "true" ]; then
-    wget -q -O "${HELM_TMP_ROOT}/helm-${TAG}-${OS}-${ARCH}.tar.gz.sha256.asc" "${github_release_url}/helm-${TAG}-${OS}-${ARCH}.tar.gz.sha256.asc"
-    wget -q -O "${HELM_TMP_ROOT}/helm-${TAG}-${OS}-${ARCH}.tar.gz.asc" "${github_release_url}/helm-${TAG}-${OS}-${ARCH}.tar.gz.asc"
-  fi
-  local error_text="If you think this might be a potential security issue,"
-  error_text="${error_text}\nplease see here: https://github.com/helm/community/blob/master/SECURITY.md"
-  local num_goodlines_sha=$(gpg --verify --keyring="${gpg_keyring}" --status-fd=1 "${HELM_TMP_ROOT}/helm-${TAG}-${OS}-${ARCH}.tar.gz.sha256.asc" 2> "${gpg_stderr_device}" | grep -c -E '^\[GNUPG:\] (GOODSIG|VALIDSIG)')
-  if [[ ${num_goodlines_sha} -lt 2 ]]; then
-    echo "Unable to verify the signature of helm-${TAG}-${OS}-${ARCH}.tar.gz.sha256!"
-    echo -e "${error_text}"
-    exit 1
-  fi
-  local num_goodlines_tar=$(gpg --verify --keyring="${gpg_keyring}" --status-fd=1 "${HELM_TMP_ROOT}/helm-${TAG}-${OS}-${ARCH}.tar.gz.asc" 2> "${gpg_stderr_device}" | grep -c -E '^\[GNUPG:\] (GOODSIG|VALIDSIG)')
-  if [[ ${num_goodlines_tar} -lt 2 ]]; then
-    echo "Unable to verify the signature of helm-${TAG}-${OS}-${ARCH}.tar.gz!"
-    echo -e "${error_text}"
-    exit 1
-  fi
-  echo "Done."
-}
-
 # fail_trap is executed if an error occurs.
 fail_trap() {
   result=$?
@@ -251,7 +159,7 @@ fail_trap() {
     else
       echo "Failed to install $BINARY_NAME"
     fi
-    echo -e "\tFor support, go to https://docs.polycrate.io"
+    echo -e "\tFor support, go to https://docs.ayedo.cloud/s/main/"
   fi
   cleanup
   exit $result
@@ -328,7 +236,6 @@ verifySupported
 checkDesiredVersion
 if ! checkPolycrateInstalledVersion; then
   downloadFile
-  verifyFile
   installFile
 fi
 testVersion

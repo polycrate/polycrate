@@ -87,11 +87,11 @@ docker_manifests:
     image_templates:
       - cargo.ayedo.cloud/library/polycrate:{{ .Version }}-amd64
       - cargo.ayedo.cloud/library/polycrate:{{ .Version }}-arm64v8
-  - name_template: cargo.ayedo.cloud/library/polycrate:v{{ .Major }}
+  - name_template: cargo.ayedo.cloud/library/polycrate:{{ .Major }}
     image_templates:
       - cargo.ayedo.cloud/library/polycrate:v{{ .Major }}-amd64
       - cargo.ayedo.cloud/library/polycrate:v{{ .Major }}-arm64v8
-  - name_template: cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}
+  - name_template: cargo.ayedo.cloud/library/polycrate:{{ .Major }}.{{ .Minor }}
     image_templates:
       - cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}-amd64
       - cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}-arm64v8
@@ -110,9 +110,9 @@ release:
   footer: |
     ## Docker Images
 
-    - `cargo.ayedo.cloud/library/polycrate:v{{ .Version }}`
-    - `cargo.ayedo.cloud/library/polycrate:v{{ .Major }}.{{ .Minor }}`
-    - `cargo.ayedo.cloud/library/polycrate:v{{ .Major }}`
+    - `cargo.ayedo.cloud/library/polycrate:{{ .Version }}`
+    - `cargo.ayedo.cloud/library/polycrate:{{ .Major }}.{{ .Minor }}`
+    - `cargo.ayedo.cloud/library/polycrate:{{ .Major }}`
     - `cargo.ayedo.cloud/library/polycrate:latest`
 
     ## Get support

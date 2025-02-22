@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,8 +18,8 @@ package cmd
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 
-	"bytes"
 	"compress/gzip"
 	"io"
 	"io/ioutil"
@@ -27,7 +27,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"text/template"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -36,7 +35,6 @@ import (
 var consent bool
 var dryRun bool
 var latestUrl string
-var downloadUrlTemplate string
 var tempDownloadPath string
 var packageRegistry string
 
@@ -117,7 +115,6 @@ Use --force to re-install or downgrade to a specific version
 	},
 }
 
-//
 func init() {
 	rootCmd.AddCommand(updateCmd)
 
@@ -127,8 +124,6 @@ func init() {
 	updateCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "d", false, "Don't actually do anything")
 	updateCmd.PersistentFlags().StringVar(&latestUrl, "latest-url", "https://api.github.com/repos/polycrate/polycrate/releases/latest", "Latest URL")
 	updateCmd.PersistentFlags().StringVar(&tempDownloadPath, "temp-download-path", "/tmp/polycrate", "Temporary download path")
-	updateCmd.PersistentFlags().StringVar(&packageRegistry, "package-registry", "https://github.com//polycrate/polycrate/releases/download", "Package Registry")
-	updateCmd.PersistentFlags().StringVar(&downloadUrlTemplate, "download-url", "{{ .PackageRegistry }}/v{{ .Version }}/polycrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}.tar.gz", "Download URL Template")
 
 }
 
@@ -149,44 +144,6 @@ type CLIDownload struct {
 	Os              string
 	PackageRegistry string
 }
-
-// func getStableVersion() string {
-// 	// Get content of stable version file
-// 	log.Debug("Determining stable version from " + latestUrl)
-// 	_stableVersion, err := getRemoteFileContent(latestUrl)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	stableVersion := strings.Trim(_stableVersion, "\n")
-
-// 	return stableVersion
-
-// 	// // Get Tags
-// 	// resp, err := http.Get(latestUrl)
-// 	// if err != nil {
-// 	// 	return ""
-// 	// }
-
-// 	// if resp.Body != nil {
-// 	// 	defer resp.Body.Close()
-// 	// }
-
-// 	// body, readErr := ioutil.ReadAll(resp.Body)
-// 	// if readErr != nil {
-// 	// 	log.Fatal(readErr)
-// 	// }
-
-// 	// tags := []GitHubTag{}
-
-// 	// jsonErr := json.Unmarshal(body, &tags)
-// 	// if jsonErr != nil {
-// 	// 	log.Fatal(jsonErr)
-// 	// }
-// 	// log.Debug(tags)
-
-// 	// return strings.Split(tags[0].Name, "v")[1]
-// }
 
 func ExtractTarGz(gzipStream io.Reader) error {
 	uncompressedStream, err := gzip.NewReader(gzipStream)
@@ -274,40 +231,24 @@ func Untar(tarball, target string) error {
 
 func downloadPolycrateCLI(packageVersion string) error {
 	// Discover arch/platform
-	runtimeArch := runtime.GOARCH
 	runtimeOS := runtime.GOOS
-
-	cd := CLIDownload{
-		Version:         packageVersion,
-		Arch:            runtimeArch,
-		Os:              runtimeOS,
-		PackageRegistry: packageRegistry,
-	}
-
-	urlTemplate := template.New("CLI_Donwload_URL")
-	urlTemplate, _ = urlTemplate.Parse(downloadUrlTemplate)
-
-	var url bytes.Buffer
-	err := urlTemplate.Execute(&url, cd)
-	if err != nil {
-		return err
-	}
+	runtimeArch := runtime.GOARCH
+	downloadUrl := fmt.Sprintf("%s/get/polycrate/%s/%s_%s/polycrate_%s_%s_%s.tar.gz", polycrate.Config.Hub.Url, packageVersion, runtimeOS, runtimeArch, packageVersion, runtimeOS, runtimeArch)
 
 	if !dryRun {
 		// Create temp file
-		packageDownload, err := ioutil.TempFile("/tmp", "polycrate-"+packageVersion+"-*")
+		packageDownload, err := os.CreateTemp("/tmp", "polycrate-"+packageVersion+"-*")
 		CheckErr(err)
 
 		// Download to tempfile
-		err = DownloadFile(url.String(), packageDownload.Name())
+		err = DownloadFile(downloadUrl, packageDownload.Name())
 		CheckErr(err)
 
 		defer os.Remove(packageDownload.Name())
 
-		log.Debug("Downloaded version " + packageVersion + " from " + url.String() + " to " + packageDownload.Name())
+		log.Debug("Downloaded version " + packageVersion + " from " + downloadUrl + " to " + packageDownload.Name())
 
 		// Unpack
-		//extract.Archive(packageDownload, "/tmp")
 		os.Chdir("/tmp")
 		if _, err := os.Stat(tempDownloadPath); !os.IsNotExist(err) {
 			err := os.Remove(tempDownloadPath)

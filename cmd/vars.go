@@ -57,6 +57,9 @@ const BlocksConfigFile string = "block.poly"
 const EnvPrefix string = "polycrate"
 
 // default registry url
+const HubUrl string = "https://hub.polycrate.io"
+
+// default registry url
 const RegistryUrl string = "cargo.ayedo.cloud"
 
 // default registry namespace

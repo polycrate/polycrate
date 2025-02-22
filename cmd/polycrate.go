@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"io"
 	"os/signal"
 	"syscall"
 	"time"
@@ -12,7 +13,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,7 +22,6 @@ import (
 	"github.com/Songmu/prompter"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	semver "github.com/hashicorp/go-version"
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -80,6 +79,7 @@ type PolycrateConfig struct {
 	//Providers []PolycrateProvider     `yaml:"providers,omitempty" mapstructure:"providers,omitempty" json:"providers,omitempty"`
 	//Gitlab   PolycrateGitlabProvider `yaml:"gitlab,omitempty" mapstructure:"gitlab,omitempty" json:"gitlab,omitempty"`
 	Registry     Registry           `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty"`
+	Hub          Hub                `yaml:"hub,omitempty" mapstructure:"hub,omitempty" json:"hub,omitempty"`
 	Sync         SyncOptions        `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	Loglevel     int                `yaml:"loglevel,omitempty" mapstructure:"loglevel,omitempty" json:"loglevel,omitempty"`
 	Logformat    string             `yaml:"logformat,omitempty" mapstructure:"logformat,omitempty" json:"logformat,omitempty"`
@@ -944,38 +944,22 @@ func (p *Polycrate) PullImage(ctx context.Context, image string) error {
 }
 
 func (p *Polycrate) GetStableVersion(ctx context.Context) (string, error) {
-	log.Debugf("Getting stable version from %s", polycrate.Config.Registry.Url)
+	log.Debugf("Getting stable version from %s", polycrate.Config.Hub.Url)
 
-	url := fmt.Sprintf("https://%s/api/v2.0/projects/library/repositories/polycrate/artifacts?q=%s&page=1&page_size=100", p.Config.Registry.Url, url.QueryEscape("tags=latest"))
+	url := fmt.Sprintf("%s/api/v1/cli/get?out=latest&type=plain", p.Config.Hub.Url)
+	log.Debugf("Calling URL %s/api/v1/cli/get?out=latest&type=plain", p.Config.Hub.Url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
 	}
-
-	// Unmarshal artifacts
-	var repositoryArtifactList []HarborRepositoryArtifact
-	err = json.NewDecoder(resp.Body).Decode(&repositoryArtifactList)
+	defer resp.Body.Close()
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
+	bodyString := string(bodyBytes)
 
-	// Above query should only ever return 1 artifact
-	if len(repositoryArtifactList) > 1 {
-		return "", fmt.Errorf("unable to determine latest version. too many artifacts")
-	}
-	artifact := repositoryArtifactList[0]
-
-	var v string
-	for _, tag := range artifact.Tags {
-		if tag.Name != "latest" && !strings.HasPrefix(tag.Name, "v") {
-			v = tag.Name
-			_, err := semver.NewVersion(v)
-			if err != nil {
-				return "", err
-			}
-		}
-	}
-
+	v := bodyString
 	return v, nil
 }
 
