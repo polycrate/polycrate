@@ -127,6 +127,12 @@ type WorkspaceInventory struct {
 	ContainerPath string `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 }
 
+type WorkspaceRegistry struct {
+	Endpoint string `yaml:"endpoint,omitempty" mapstructure:"endpoint,omitempty" json:"endpoint,omitempty"`
+	Username string `yaml:"username,omitempty" mapstructure:"username,omitempty" json:"username,omitempty"`
+	Password string `yaml:"password,omitempty" mapstructure:"password,omitempty" json:"password,omitempty"`
+}
+
 type Inventory struct {
 	Path string `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 }
@@ -143,14 +149,16 @@ type Workspace struct {
 	Workflows       []*Workflow            `yaml:"workflows,omitempty" mapstructure:"workflows,omitempty" json:"workflows,omitempty"`
 	ExtraEnv        []string               `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
 	ExtraMounts     []string               `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
+	Organization    string                 `yaml:"organization,omitempty" mapstructure:"organization,omitempty" json:"organization,omitempty"`
+	Identifier      string                 `yaml:"identifier,omitempty" mapstructure:"identifier,omitempty" json:"identifier,omitempty"`
 	Path            string                 `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	LocalPath       string                 `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
 	ContainerPath   string                 `yaml:"containerpath,omitempty" mapstructure:"containerpath,omitempty" json:"containerpath,omitempty"`
 	Version         string                 `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
-	Identifier      string                 `yaml:"identifier,omitempty" mapstructure:"identifier,omitempty" json:"identifier,omitempty"`
 	Meta            map[string]interface{} `yaml:"meta,omitempty" mapstructure:"meta,omitempty" json:"meta,omitempty"`
 	SyncOptions     SyncOptions            `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	Inventory       WorkspaceInventory     `yaml:"inventory,omitempty" mapstructure:"inventory,omitempty" json:"inventory,omitempty"`
+	Registry        WorkspaceRegistry      `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty"`
 	Kubeconfig      WorkspaceKubeconfig    `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
 	loaded          bool
 	currentBlock    *Block
