@@ -539,6 +539,29 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			return err
 		}
 
+		// Add system labels
+		// workspaces.polycrate.io/name
+		// organizations.polycrate.io/name
+		// blocks.polycrate.io/name
+		// blocks.polycrate.io/kind
+		// k8sappinstances.polycrate.io/name
+
+		if block.Labels == nil {
+			block.Labels = make(map[string]string)
+		}
+
+		block.Labels["workspaces.polycrate.io/name"] = block.workspace.Name
+		block.Labels["blocks.polycrate.io/name"] = block.Name
+		block.Labels["blocks.polycrate.io/kind"] = block.Kind
+
+		if block.workspace.Organization != "" {
+			block.Labels["organizations.polycrate.io/name"] = block.workspace.Organization
+		}
+
+		if block.Kind == "k8sappinstance" {
+			block.Labels["k8sappinstances.polycrate.io/name"] = block.Name
+		}
+
 		for _, action := range block.Actions {
 			existingAction := action
 			if err != nil {
