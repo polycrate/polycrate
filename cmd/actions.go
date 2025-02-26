@@ -292,6 +292,8 @@ func (c *Action) MergeIn(action Action) error {
 
 func (a *Action) Run(tx *PolycrateTransaction) error {
 
+	polycrate.WaitForGracefulShutdown()
+
 	tx.Log.Infof("Running action")
 
 	// Check if a prompt is configured and execute it

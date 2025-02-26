@@ -550,6 +550,7 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			block.Labels = make(map[string]string)
 		}
 
+		block.Labels["cli.polycrate.io/txid"] = tx.TXID.String()
 		block.Labels["workspaces.polycrate.io/name"] = block.workspace.Name
 		block.Labels["blocks.polycrate.io/name"] = block.Name
 		block.Labels["blocks.polycrate.io/kind"] = block.Kind

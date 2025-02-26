@@ -404,7 +404,7 @@ func (p *Polycrate) Load(ctx context.Context) error {
 	// if err := p.LoadWorkspaces(); err != nil {
 	// 	return err
 	// }
-	p.WaitForGracefulShutdown()
+	// p.WaitForGracefulShutdown()
 
 	return nil
 }

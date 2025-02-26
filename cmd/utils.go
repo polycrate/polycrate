@@ -264,17 +264,6 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 
 	cmd := exec.CommandContext(ctx, name, args...)
 
-	// to run child process in a new process group
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
-
-	cmd.Cancel = func() error {
-		return interruptProcessTree(cmd.Process.Pid, syscall.SIGINT)
-	}
-
-	cmd.WaitDelay = 1 * time.Second
-
 	cmd.Env = os.Environ()
 
 	if len(env) > 0 {
@@ -284,18 +273,30 @@ func RunCommand(ctx context.Context, env []string, name string, args ...string) 
 	var stdBuffer bytes.Buffer
 	if !interactive {
 
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+		}
+
+		cmd.Cancel = func() error {
+			return interruptProcessTree(cmd.Process.Pid, syscall.SIGINT)
+		}
+
+		cmd.WaitDelay = 1 * time.Second
+
 		mw := io.MultiWriter(os.Stdout, &stdBuffer)
 
 		cmd.Stdout = mw
 		cmd.Stderr = mw
+		cmd.Start()
+		err = cmd.Wait()
+
+		// to run child process in a new process group
 	} else {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
+		err = cmd.Run()
 	}
-
-	cmd.Start()
-	err = cmd.Wait()
 
 	if err != nil {
 		//log.Debugf("Error executing command: %s", err)
