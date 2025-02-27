@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -49,12 +50,14 @@ func buildContainerImage(ctx context.Context, path string, dockerfilePath string
 	return tags[0], nil
 }
 
-func PullImageGo(ctx context.Context, image string) error {
+func PullImageGo(ctx context.Context, _image string) error {
+	os.Setenv("DOCKER_API_VERSION", "1.47")
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return err
 	}
-	reader, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
+
+	reader, err := cli.ImagePull(ctx, _image, image.PullOptions{})
 	if err != nil {
 		return err
 	}

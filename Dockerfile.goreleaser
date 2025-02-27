@@ -1,5 +1,6 @@
 FROM docker:dind AS docker
-FROM quay.io/skopeo/stable:latest AS skopeo
+#FROM quay.io/skopeo/stable:latest AS skopeo
+#COPY --from=skopeo /usr/bin/skopeo /usr/local/bin/
 FROM python:3.11-slim
 
 ARG K8S_VERSION=1.32.1
@@ -19,7 +20,7 @@ ENV PATH=$PATH:/usr/local/go/bin
 
 # Copy CLIs from Docker images
 COPY --from=docker /usr/local/bin/docker /usr/local/bin/
-COPY --from=skopeo /usr/bin/skopeo /usr/local/bin/
+#COPY --from=skopeo /usr/bin/skopeo /usr/local/bin/
 
 RUN apt-get update && \
   apt-get -y --no-install-recommends install \

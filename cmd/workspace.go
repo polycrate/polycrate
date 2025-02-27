@@ -538,6 +538,7 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 		if err != nil {
 			return err
 		}
+		//w.registerEnvVar("KUBECONFIG", w.Kubeconfig.Path)
 
 		// Add system labels
 		// workspaces.polycrate.io/name
@@ -1256,6 +1257,7 @@ func (w *Workspace) Load(tx *PolycrateTransaction, path string, validate bool) (
 	if err := w.bootstrapEnvVars(); err != nil {
 		return nil, err
 	}
+	w.registerEnvVar("KUBECONFIG", w.Kubeconfig.Path)
 
 	// Bootstrap container mounts
 	if err := w.bootstrapMounts(); err != nil {
