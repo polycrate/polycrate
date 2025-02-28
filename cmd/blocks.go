@@ -99,7 +99,7 @@ type BlockArtifacts struct {
 type Block struct {
 	Name        string                      `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,block_name"`
 	Description string                      `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
-	Kind        string                      `yaml:"kind,omitempty" mapstructure:"kind,omitempty" json:"kind,omitempty"` // Refers to polycrate-api's `kind` stanza of the `block` object_type; a block can have the following kinds: k8sapp,k8scluster,k8sappinstance,generic
+	Kind        string                      `yaml:"kind,omitempty" mapstructure:"kind,omitempty" json:"kind,omitempty"` // Refers to polycrate-api's `kind` stanza of the `block` object_type; a block can have the following kinds: k8sapp,k8scluster,k8sappinstance,linuxapp,dockerapp,library,generic
 	Labels      map[string]string           `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
 	Alias       []string                    `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
 	Actions     []*Action                   `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
