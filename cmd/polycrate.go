@@ -106,6 +106,7 @@ type PolycrateEvent struct {
 	Snapshot    WorkspaceSnapshot    `yaml:"snapshot,omitempty" mapstructure:"snapshot,omitempty" json:"snapshot,omitempty"`
 	Transaction string               `yaml:"transaction,omitempty" mapstructure:"transaction,omitempty" json:"transaction,omitempty"`
 	Version     string               `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
+	CommitSha   string               `yaml:"commit_sha,omitempty" mapstructure:"commit_sha,omitempty" json:"commit_sha,omitempty"`
 	Output      string               `yaml:"output,omitempty" mapstructure:"output,omitempty" json:"output,omitempty"`
 	Config      WorkspaceEventConfig `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	Message     string               `yaml:"message,omitempty" mapstructure:"message,omitempty" json:"message,omitempty"`
@@ -146,6 +147,7 @@ type PolycrateTransaction struct {
 	Date        string            `yaml:"date,omitempty" mapstructure:"date,omitempty" json:"date,omitempty"`
 	Transaction uuid.UUID         `yaml:"transaction,omitempty" mapstructure:"transaction,omitempty" json:"transaction,omitempty"`
 	Version     string            `yaml:"version,omitempty" mapstructure:"version,omitempty" json:"version,omitempty"`
+	CommitSha   string            `yaml:"commit_sha,omitempty" mapstructure:"commit_sha,omitempty" json:"commit_sha,omitempty"`
 	ExitCode    int               `yaml:"exit_code,omitempty" mapstructure:"exit_code,omitempty" json:"exit_code,omitempty"`
 	Output      string            `yaml:"output,omitempty" mapstructure:"output,omitempty" json:"output,omitempty"`
 	Snapshot    WorkspaceSnapshot `yaml:"snapshot,omitempty" mapstructure:"snapshot,omitempty" json:"snapshot,omitempty"`
@@ -180,6 +182,7 @@ func NewEvent(tx *PolycrateTransaction) *PolycrateEvent {
 	event := &PolycrateEvent{
 		Command:     tx.Command,
 		Version:     tx.Version,
+		CommitSha:   tx.CommitSha,
 		Transaction: tx.TXID.String(),
 		Labels: map[string]string{
 			"monk.event.class": "polycrate",
@@ -352,6 +355,32 @@ func (p *Polycrate) GetUserInfo() map[string]string {
 	}
 
 	return user
+}
+
+func (p *Polycrate) CommitWorkspace(tx *PolycrateTransaction, workspace *Workspace, message string) (string, error) {
+	if GitHasChanges(workspace.LocalPath) {
+
+		// Commit all
+		commit_id, _ := GitCommitAll(workspace.LocalPath, message)
+
+		tx.Log.Debugf("Created Commit with ID %s: '%s'", commit_id, message)
+
+		behind_by, _ := GitBehindBy(workspace.LocalPath)
+		if behind_by > 0 {
+			// Warn that we need to pull first
+			tx.Log.Warnf("The workspace is %v commits behind the remote git repository", behind_by)
+		}
+
+		ahead_by, _ := GitAheadBy(workspace.LocalPath)
+		if ahead_by > 0 {
+			// Warn that we need should push
+			tx.Log.Warnf("The workspace is %v commits ahead of the remote git repository", ahead_by)
+		}
+
+		return commit_id, nil
+	}
+
+	return "", fmt.Errorf("unable to commit workspace")
 }
 
 func (p *Polycrate) Load(ctx context.Context) error {
@@ -531,6 +560,10 @@ func (p *Polycrate) Transaction() *PolycrateTransaction {
 	return &tx
 }
 
+func (tx *PolycrateTransaction) SetCommitSha(commitSha string) *PolycrateTransaction {
+	tx.CommitSha = commitSha
+	return tx
+}
 func (tx *PolycrateTransaction) SetCommand(cmd *cobra.Command) *PolycrateTransaction {
 	tx.Command = FormatCommand(cmd)
 	return tx
@@ -566,6 +599,8 @@ func (tx *PolycrateTransaction) Stop() *PolycrateTransaction {
 		// We're not terminating here to not block further execution
 		tx.Log.Warnf("Event handler failed: %s", err)
 	}
+
+	polycrate.CommitWorkspace(tx, tx.Snapshot.Workspace, "Auto-Commit after finished Transaction")
 
 	tx.Log.Debug("Stopped transaction")
 	tx.CancelFunc()

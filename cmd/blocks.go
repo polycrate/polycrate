@@ -99,7 +99,9 @@ type BlockArtifacts struct {
 type Block struct {
 	Name        string                      `yaml:"name,omitempty" mapstructure:"name,omitempty" json:"name,omitempty" validate:"required,block_name"`
 	Description string                      `yaml:"description,omitempty" mapstructure:"description,omitempty" json:"description,omitempty"`
-	Kind        string                      `yaml:"kind,omitempty" mapstructure:"kind,omitempty" json:"kind,omitempty"` // Refers to polycrate-api's `kind` stanza of the `block` object_type; a block can have the following kinds: k8sapp,k8scluster,k8sappinstance,linuxapp,dockerapp,library,generic
+	Kind        string                      `yaml:"kind,omitempty" mapstructure:"kind,omitempty" json:"kind,omitempty"`       // Refers to polycrate-api's `kind` stanza of the `block` object_type; a block can have the following kinds: k8sapp,k8scluster,k8sappinstance,linuxapp,dockerapp,library,generic
+	Type        string                      `yaml:"type,omitempty" mapstructure:"type,omitempty" json:"type,omitempty"`       // Type as in db|kv|mq|generic
+	Flavor      string                      `yaml:"flavor,omitempty" mapstructure:"flavor,omitempty" json:"flavor,omitempty"` // Flavor as in postgresql|mysql|mariadb|nats|redis|rabbitmq
 	Labels      map[string]string           `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
 	Alias       []string                    `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
 	Actions     []*Action                   `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
@@ -538,6 +540,16 @@ func (c *Block) MergeIn(block *Block) error {
 	// Kind
 	if block.Kind != "" && c.Kind == "" {
 		c.Kind = block.Kind
+	}
+
+	// Type
+	if block.Type != "" && c.Type == "" {
+		c.Type = block.Type
+	}
+
+	// Flavor
+	if block.Flavor != "" && c.Flavor == "" {
+		c.Flavor = block.Flavor
 	}
 
 	// Force `kind` to be `k8sappinstance` if a block has been instantiated from a block with kind `k8sapp`

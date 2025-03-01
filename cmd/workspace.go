@@ -310,6 +310,12 @@ func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action s
 	// 	return ctx, err
 	// }
 
+	commit_message := fmt.Sprintf("Polycrate Auto-Commit at TXID %s", tx.TXID)
+	_, commit_error := w.Commit(tx, commit_message, true)
+	if commit_error != nil {
+		return commit_error
+	}
+
 	var err error
 
 	var block *Block
@@ -562,6 +568,7 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 
 		if block.Kind == "k8sappinstance" {
 			block.Labels["k8sappinstances.polycrate.io/name"] = block.Name
+			block.Labels["logs.polycrate.io/source"] = "app"
 		}
 
 		for _, action := range block.Actions {
@@ -686,7 +693,7 @@ func (w *Workspace) PruneContainer(tx *PolycrateTransaction) error {
 
 func (w *Workspace) RunContainer(tx *PolycrateTransaction, name string, workdir string, cmd []string) error {
 
-	tx.Log.Infof("Preparing to start container")
+	tx.Log.Debugf("Preparing to start container")
 
 	containerImage := strings.Join([]string{w.Config.Image.Reference, w.Config.Image.Version}, ":")
 
@@ -1166,7 +1173,7 @@ func (w *Workspace) Preload(tx *PolycrateTransaction, path string, validate bool
 	w.Blocks = []*Block{}
 
 	// Check if this is a git repo
-	// w.isGitRepo = GitIsRepo(tx, path)
+	w.isGitRepo = GitIsRepo(path)
 
 	// Load Workspace config (e.g. workspace.poly)
 	err = w.LoadConfigFromFile(tx, path, validate)
@@ -2363,18 +2370,18 @@ func (c *Workspace) GetWorkflow(name string) (*Workflow, error) {
 //		}
 //		return this
 //	}
-func (w *Workspace) Commit(tx *PolycrateTransaction, message string) error {
+func (w *Workspace) Commit(tx *PolycrateTransaction, message string, saveCommitShaToTx bool) (string, error) {
 
-	hash, err := GitCommitAll(tx, w.LocalPath, message)
+	commit_id, err := polycrate.CommitWorkspace(tx, w, message)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	log := log.WithField("message", message)
-	log = log.WithField("hash", hash)
-	log.Tracef("Added commit")
+	if saveCommitShaToTx {
+		tx.SetCommitSha(commit_id)
+	}
 
-	return nil
+	return commit_id, nil
 }
 
 // func (this *Workspace) SyncPull() *Workspace {
@@ -2388,7 +2395,7 @@ func (w *Workspace) Commit(tx *PolycrateTransaction, message string) error {
 
 func (w *Workspace) Pull(tx *PolycrateTransaction) error {
 
-	_, err := GitPull(tx, w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
+	_, err := GitPull(w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
 	if err != nil {
 		return err
 	}
@@ -2407,7 +2414,7 @@ func (w *Workspace) Pull(tx *PolycrateTransaction) error {
 
 func (w *Workspace) Push(tx *PolycrateTransaction) error {
 
-	_, err := GitPush(tx, w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
+	_, err := GitPush(w.LocalPath, w.SyncOptions.Remote.Name, w.SyncOptions.Remote.Branch.Name)
 	if err != nil {
 		return err
 	}

@@ -13,60 +13,60 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func GitGetRemoteUrl(tx *PolycrateTransaction, path string, name string) (string, error) {
+func GitGetRemoteUrl(path string, name string) (string, error) {
 	remoteArgs := []string{
 		"remote",
 		"get-url",
 		name,
 	}
-	output, err := GitExecute(tx.Context, path, remoteArgs)
+	output, err := GitExecute(context.TODO(), path, remoteArgs)
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(output), nil
 }
 
-func GitUpdateRemoteUrl(tx *PolycrateTransaction, path string, remote string, url string) error {
-	err := GitDeleteRemote(tx, path, remote)
+func GitUpdateRemoteUrl(path string, remote string, url string) error {
+	err := GitDeleteRemote(path, remote)
 	if err != nil {
 		return err
 	}
 
-	err = GitCreateRemote(tx, path, remote, url)
+	err = GitCreateRemote(path, remote, url)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func GitCreateRepo(tx *PolycrateTransaction, path string, remote string, branch string, url string) error {
+func GitCreateRepo(path string, remote string, branch string, url string) error {
 	err := CreateDir(path)
 	if err != nil {
 		return err
 	}
 
-	_, err = GitInit(tx, path)
+	_, err = GitInit(path)
 	if err != nil {
 		return err
 	}
 
-	_, err = GitCheckout(tx, path, branch, true)
+	_, err = GitCheckout(path, branch, true)
 	if err != nil {
 		return err
 	}
 
-	err = GitCreateRemote(tx, path, remote, url)
+	err = GitCreateRemote(path, remote, url)
 	if err != nil {
 		return err
 	}
 
 	//Make an initial commit
-	_, err = GitCommitAll(tx, path, "Initial sync")
+	_, err = GitCommitAll(path, "Initial sync")
 	if err != nil {
 		return err
 	}
 
-	_, err = GitPush(tx, path, remote, branch)
+	_, err = GitPush(path, remote, branch)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func GitCreateRepo(tx *PolycrateTransaction, path string, remote string, branch 
 	return nil
 }
 
-func GitCheckout(tx *PolycrateTransaction, path string, branch string, create bool) (string, error) {
+func GitCheckout(path string, branch string, create bool) (string, error) {
 	checkoutArgs := []string{
 		"checkout",
 	}
@@ -85,7 +85,7 @@ func GitCheckout(tx *PolycrateTransaction, path string, branch string, create bo
 
 	checkoutArgs = append(checkoutArgs, branch)
 
-	output, err := GitExecute(tx.Context, path, checkoutArgs)
+	output, err := GitExecute(context.TODO(), path, checkoutArgs)
 	if err != nil {
 		return "", err
 	}
@@ -93,14 +93,14 @@ func GitCheckout(tx *PolycrateTransaction, path string, branch string, create bo
 	return output, nil
 }
 
-func GitInit(tx *PolycrateTransaction, path string) (string, error) {
-	tx.Log.Debugf("Initializing git repository at %s", path)
+func GitInit(path string) (string, error) {
+	//tx.Log.Debugf("Initializing git repository at %s", path)
 
 	initArgs := []string{
 		"init",
 	}
 
-	output, err := GitExecute(tx.Context, path, initArgs)
+	output, err := GitExecute(context.TODO(), path, initArgs)
 	if err != nil {
 		return "", err
 	}
@@ -155,7 +155,7 @@ func GitCreateAndCheckoutBranch(repository *git.Repository, branch string, remot
 	return nil
 }
 
-func GitDeleteRemote(tx *PolycrateTransaction, path string, name string) error {
+func GitDeleteRemote(path string, name string) error {
 	log.WithFields(log.Fields{
 		"path":   workspace.LocalPath,
 		"remote": name,
@@ -167,7 +167,7 @@ func GitDeleteRemote(tx *PolycrateTransaction, path string, name string) error {
 		name,
 	}
 
-	output, err := GitExecute(tx.Context, path, args)
+	output, err := GitExecute(context.TODO(), path, args)
 	if err != nil {
 		return err
 	}
@@ -185,12 +185,12 @@ func GitDeleteRemote(tx *PolycrateTransaction, path string, name string) error {
 // 	return url != ""
 // }
 
-func GitHasRemote(tx *PolycrateTransaction, path string) bool {
+func GitHasRemote(path string) bool {
 	args := []string{
 		"remote",
 		"-v",
 	}
-	output, err := GitExecute(tx.Context, path, args)
+	output, err := GitExecute(context.TODO(), path, args)
 	if err != nil {
 		return false
 	}
@@ -201,11 +201,11 @@ func GitHasRemote(tx *PolycrateTransaction, path string) bool {
 	return false
 }
 
-func GitIsRepo(tx *PolycrateTransaction, path string) bool {
+func GitIsRepo(path string) bool {
 	args := []string{
 		"status",
 	}
-	_, err := GitExecute(tx.Context, path, args)
+	_, err := GitExecute(context.TODO(), path, args)
 
 	return err == nil
 }
@@ -288,13 +288,13 @@ func GitIsAncestor(r *git.Repository) (bool, error) {
 	return isAncestor, nil
 }
 
-func GitHasChanges(tx *PolycrateTransaction, path string) bool {
+func GitHasChanges(path string) bool {
 	statusArgs := []string{
 		"status",
 		"--porcelain",
 	}
 
-	output, err := GitExecute(tx.Context, path, statusArgs)
+	output, err := GitExecute(context.TODO(), path, statusArgs)
 	if err != nil {
 		return false
 	}
@@ -334,13 +334,13 @@ func GitGetUserName() (string, error) {
 	return output, nil
 }
 
-func GitCommitAll(tx *PolycrateTransaction, path string, message string) (string, error) {
+func GitCommitAll(path string, message string) (string, error) {
 	addArgs := []string{
 		"add",
 		".",
 	}
 
-	_, err := GitExecute(tx.Context, path, addArgs)
+	_, err := GitExecute(context.TODO(), path, addArgs)
 	if err != nil {
 		return "", err
 	}
@@ -351,7 +351,7 @@ func GitCommitAll(tx *PolycrateTransaction, path string, message string) (string
 		fmt.Sprintf("--message=%s", message),
 	}
 
-	_, err = GitExecute(tx.Context, path, commitArgs)
+	_, err = GitExecute(context.TODO(), path, commitArgs)
 	if err != nil {
 		return "", err
 	}
@@ -362,7 +362,7 @@ func GitCommitAll(tx *PolycrateTransaction, path string, message string) (string
 		"HEAD",
 	}
 
-	hash, err := GitExecute(tx.Context, path, hashArgs)
+	hash, err := GitExecute(context.TODO(), path, hashArgs)
 	if err != nil {
 		return "", err
 	}
@@ -392,11 +392,11 @@ func GitExecute(ctx context.Context, path string, args []string) (string, error)
 	return strings.TrimSpace(output), nil
 }
 
-func GitFetch(tx *PolycrateTransaction, path string) (string, error) {
+func GitFetch(path string) (string, error) {
 	fetchArgs := []string{
 		"fetch",
 	}
-	output, err := GitExecute(tx.Context, path, fetchArgs)
+	output, err := GitExecute(context.TODO(), path, fetchArgs)
 	if err != nil {
 		return "", err
 	}
@@ -404,14 +404,14 @@ func GitFetch(tx *PolycrateTransaction, path string) (string, error) {
 	return output, nil
 }
 
-func GitPush(tx *PolycrateTransaction, path string, remote string, branch string) (string, error) {
+func GitPush(path string, remote string, branch string) (string, error) {
 	pushArgs := []string{
 		"push",
 		"--set-upstream",
 		remote,
 		branch,
 	}
-	output, err := GitExecute(tx.Context, path, pushArgs)
+	output, err := GitExecute(context.TODO(), path, pushArgs)
 
 	if err != nil {
 		return "", err
@@ -419,14 +419,14 @@ func GitPush(tx *PolycrateTransaction, path string, remote string, branch string
 
 	return output, nil
 }
-func GitSetUpstreamTracking(tx *PolycrateTransaction, path string, remote string, branch string) (string, error) {
+func GitSetUpstreamTracking(path string, remote string, branch string) (string, error) {
 	pushArgs := []string{
 		"branch",
 		"-u",
 		strings.Join([]string{remote, branch}, "/"),
 		branch,
 	}
-	output, err := GitExecute(tx.Context, path, pushArgs)
+	output, err := GitExecute(context.TODO(), path, pushArgs)
 
 	if err != nil {
 		return "", err
@@ -435,13 +435,13 @@ func GitSetUpstreamTracking(tx *PolycrateTransaction, path string, remote string
 	return output, nil
 }
 
-func GitPull(tx *PolycrateTransaction, path string, remote string, branch string) (string, error) {
+func GitPull(path string, remote string, branch string) (string, error) {
 	pullArgs := []string{
 		"pull",
 		remote,
 		branch,
 	}
-	output, err := GitExecute(tx.Context, path, pullArgs)
+	output, err := GitExecute(context.TODO(), path, pullArgs)
 
 	if err != nil {
 		return "", err
@@ -450,7 +450,7 @@ func GitPull(tx *PolycrateTransaction, path string, remote string, branch string
 	return output, nil
 }
 
-func GitBehindBy(tx *PolycrateTransaction, path string) (int, error) {
+func GitBehindBy(path string) (int, error) {
 	// behind_count = $(git rev-list --count HEAD..@{u}).
 	revArgs := []string{
 		"rev-list",
@@ -458,31 +458,32 @@ func GitBehindBy(tx *PolycrateTransaction, path string) (int, error) {
 		"HEAD..@{u}",
 	}
 
-	output, err := GitExecute(tx.Context, path, revArgs)
+	output, err := GitExecute(context.TODO(), path, revArgs)
 	if err != nil {
 		return 0, err
 	}
-	int, err := strconv.Atoi(output)
+	behind_by, err := strconv.Atoi(output)
+	fmt.Println(output)
 	if err != nil {
 		return 0, err
 	}
-	return int, nil
+	return behind_by, nil
 }
 
-func GitGetHeadCommit(tx *PolycrateTransaction, path string, revision string) (string, error) {
+func GitGetHeadCommit(path string, revision string) (string, error) {
 	revArgs := []string{
 		"rev-parse",
 		revision,
 	}
 
-	output, err := GitExecute(tx.Context, path, revArgs)
+	output, err := GitExecute(context.TODO(), path, revArgs)
 	if err != nil {
 		return "", err
 	}
 	return output, nil
 }
 
-func GitAheadBy(tx *PolycrateTransaction, path string) (int, error) {
+func GitAheadBy(path string) (int, error) {
 	// ahead_count = $(git rev-list --count @{u}..HEAD)
 	revArgs := []string{
 		"rev-list",
@@ -490,19 +491,21 @@ func GitAheadBy(tx *PolycrateTransaction, path string) (int, error) {
 		"@{u}..HEAD",
 	}
 
-	output, err := GitExecute(tx.Context, path, revArgs)
+	output, err := GitExecute(context.TODO(), path, revArgs)
 	if err != nil {
 		return 0, err
 	}
 
-	int, err := strconv.Atoi(output)
+	ahead_by, err := strconv.Atoi(output)
 	if err != nil {
+		fmt.Println(err)
 		return 0, err
 	}
-	return int, nil
+
+	return ahead_by, nil
 }
 
-func GitCreateRemote(tx *PolycrateTransaction, path string, name string, url string) error {
+func GitCreateRemote(path string, name string, url string) error {
 	log.WithFields(log.Fields{
 		"path":   workspace.LocalPath,
 		"remote": name,
@@ -516,7 +519,7 @@ func GitCreateRemote(tx *PolycrateTransaction, path string, name string, url str
 		url,
 	}
 
-	_, err := GitExecute(tx.Context, path, remoteArgs)
+	_, err := GitExecute(context.TODO(), path, remoteArgs)
 
 	if err != nil {
 		return err
@@ -527,7 +530,7 @@ func GitCreateRemote(tx *PolycrateTransaction, path string, name string, url str
 		"remote": GitDefaultRemote,
 	}).Debugf("Fetching remote")
 
-	_, err = GitFetch(tx, path)
+	_, err = GitFetch(path)
 
 	if err != nil {
 		return err
