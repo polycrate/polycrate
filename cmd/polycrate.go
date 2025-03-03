@@ -380,7 +380,8 @@ func (p *Polycrate) CommitWorkspace(tx *PolycrateTransaction, workspace *Workspa
 		return commit_id, nil
 	}
 
-	return "", fmt.Errorf("unable to commit workspace")
+	//return "", fmt.Errorf("unable to commit workspace")
+	return "", nil
 }
 
 func (p *Polycrate) Load(ctx context.Context) error {
