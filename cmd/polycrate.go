@@ -600,7 +600,7 @@ func (tx *PolycrateTransaction) Stop() *PolycrateTransaction {
 		tx.Log.Warnf("Event handler failed: %s", err)
 	}
 
-	polycrate.CommitWorkspace(tx, tx.Snapshot.Workspace, "Auto-Commit after finished Transaction")
+	polycrate.CommitWorkspace(tx, tx.Snapshot.Workspace, fmt.Sprintf("[polycrate-cli] Auto-Commit after finalizing transaction (TXID: %s)", tx.TXID))
 
 	tx.Log.Debug("Stopped transaction")
 	tx.CancelFunc()

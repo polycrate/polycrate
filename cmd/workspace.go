@@ -310,7 +310,7 @@ func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action s
 	// 	return ctx, err
 	// }
 
-	commit_message := fmt.Sprintf("Polycrate Auto-Commit at TXID %s", tx.TXID)
+	commit_message := fmt.Sprintf("[polycrate-cli] Auto-Commit before running action (TXID: %s)", tx.TXID)
 	_, commit_error := w.Commit(tx, commit_message, true)
 	if commit_error != nil {
 		return commit_error
