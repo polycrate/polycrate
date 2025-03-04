@@ -521,6 +521,8 @@ func (c *Block) MergeIn(block *Block) error {
 	// 	log.Fatal(err)
 	// }
 	// return nil
+	printObject(c)
+	printObject(block)
 
 	// Name
 	if block.Name != "" && c.Name == "" {
@@ -604,6 +606,7 @@ func (c *Block) MergeIn(block *Block) error {
 			log.Debug("Merging block config using experimental merge method")
 
 			c.Config = mergeMaps(block.Config, c.Config)
+			//c.Config = mergeMaps(c.Config, block.Config)
 		} else {
 
 			if err := mergo.Merge(&c.Config, block.Config); err != nil {
