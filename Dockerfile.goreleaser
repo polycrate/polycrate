@@ -77,7 +77,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN mkdir -p /etc/ansible /etc/ansible/roles /etc/ansible/collections /workspace /polycrate /usr/share/ansible/plugins/vars && \
   pip install --no-cache-dir -r python-requirements.txt
 
-RUN ansible-galaxy collection install community.general community.docker && \
+RUN ansible-galaxy collection install community.general community.docker netbox.netbox && \
   ansible-galaxy install -r ansible-requirements.yml
 
 COPY hack/ansible/plugins/vars/polycrate_vars.py /usr/share/ansible/plugins/vars/polycrate_vars.py

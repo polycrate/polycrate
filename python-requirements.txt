@@ -25,3 +25,6 @@ netaddr
 #boto3
 python-benedict
 PyVmomi
+pynetbox
+netaddr
+pytz

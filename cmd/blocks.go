@@ -521,8 +521,6 @@ func (c *Block) MergeIn(block *Block) error {
 	// 	log.Fatal(err)
 	// }
 	// return nil
-	printObject(c)
-	printObject(block)
 
 	// Name
 	if block.Name != "" && c.Name == "" {

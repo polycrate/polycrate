@@ -216,6 +216,27 @@ func Untar(tarball, target string) error {
 			continue
 		}
 
+		const (
+			c_ISUID = 04000 // Set uid
+			c_ISGID = 02000 // Set gid
+			c_ISVTX = 01000 // Save text (sticky bit)
+		)
+
+		if os.ModeSetuid != 0 {
+			header.Mode |= c_ISUID
+		}
+		if os.ModeSetgid != 0 {
+			header.Mode |= c_ISGID
+		}
+		if os.ModeSticky != 0 {
+			header.Mode |= c_ISVTX
+		}
+
+		if !info.IsDir() {
+			header.Typeflag = tar.TypeDir
+			//header.Name += "/"
+		}
+
 		file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
 		if err != nil {
 			return err
