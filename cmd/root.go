@@ -96,6 +96,9 @@ func init() {
 	fs.StringVar(&polycrate.Config.Hub.ApiKey, "hub-api-key", "", "The Api Key of the Polycrate Hub")
 	fs.StringVar(&polycrate.Config.Hub.Username, "hub-username", "", "The Username of the Polycrate Hub")
 	fs.StringVar(&polycrate.Config.Hub.Password, "hub-password", "", "The Password of the Polycrate Hub")
+	fs.StringVar(&polycrate.Config.Backplane.Url, "backplane-url", HubUrl, "The URL of the Polycrate Hub")
+	fs.StringVar(&polycrate.Config.Backplane.Username, "backplane-username", "", "The Username of the Polycrate Hub")
+	fs.StringVar(&polycrate.Config.Backplane.Password, "backplane-password", "", "The Password of the Polycrate Hub")
 
 	// Workspace related config
 	// fs.StringVar(&defaultWorkspace.SyncOptions.Local.Branch.Name, "sync-local-branch", GitDefaultBranch, "Default git branch")

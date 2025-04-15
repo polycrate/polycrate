@@ -80,6 +80,7 @@ type PolycrateConfig struct {
 	//Gitlab   PolycrateGitlabProvider `yaml:"gitlab,omitempty" mapstructure:"gitlab,omitempty" json:"gitlab,omitempty"`
 	Registry     Registry           `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty"`
 	Hub          Hub                `yaml:"hub,omitempty" mapstructure:"hub,omitempty" json:"hub,omitempty"`
+	Backplane    Backplane          `yaml:"backplane,omitempty" mapstructure:"backplane,omitempty" json:"backplane,omitempty"`
 	Sync         SyncOptions        `yaml:"sync,omitempty" mapstructure:"sync,omitempty" json:"sync,omitempty"`
 	Loglevel     int                `yaml:"loglevel,omitempty" mapstructure:"loglevel,omitempty" json:"loglevel,omitempty"`
 	Logformat    string             `yaml:"logformat,omitempty" mapstructure:"logformat,omitempty" json:"logformat,omitempty"`
@@ -642,9 +643,19 @@ func (p *Polycrate) LoadConfigFromFile(ctx context.Context, path string) error {
 	// Match CLI Flags with Config options
 	// CLI Flags have precedence
 	c.BindPFlag("loglevel", rootCmd.Flags().Lookup("loglevel"))
+	c.BindPFlag("logformat", rootCmd.Flags().Lookup("logformat"))
+	c.BindPFlag("check_updates", rootCmd.Flags().Lookup("check-updates"))
+	c.BindPFlag("merge_v2", rootCmd.Flags().Lookup("merge-v2"))
 	c.BindPFlag("kubeconfig", rootCmd.Flags().Lookup("kubeconfig"))
 	c.BindPFlag("registry.url", rootCmd.Flags().Lookup("registry-url"))
 	c.BindPFlag("registry.base_image", rootCmd.Flags().Lookup("registry-base-image"))
+	c.BindPFlag("hub.url", rootCmd.Flags().Lookup("hub-url"))
+	c.BindPFlag("hub.api_key", rootCmd.Flags().Lookup("hub-api-key"))
+	c.BindPFlag("hub.username", rootCmd.Flags().Lookup("hub-username"))
+	c.BindPFlag("hub.password", rootCmd.Flags().Lookup("hub-password"))
+	c.BindPFlag("backplane.url", rootCmd.Flags().Lookup("backplane-url"))
+	c.BindPFlag("backplane.username", rootCmd.Flags().Lookup("backplane-username"))
+	c.BindPFlag("backplane.password", rootCmd.Flags().Lookup("backplane-password"))
 	c.BindPFlag("workspace.config.image.version", rootCmd.Flags().Lookup("image-version"))
 	c.BindPFlag("workspace.config.image.reference", rootCmd.Flags().Lookup("image-ref"))
 	c.BindPFlag("workspace.config.blocksroot", rootCmd.Flags().Lookup("blocks-root"))
@@ -657,11 +668,11 @@ func (p *Polycrate) LoadConfigFromFile(ctx context.Context, path string) error {
 	c.BindPFlag("workspace.config.sshprivatekey", rootCmd.Flags().Lookup("ssh-private-key"))
 	c.BindPFlag("workspace.config.sshpublickey", rootCmd.Flags().Lookup("ssh-public-key"))
 	c.BindPFlag("workspace.config.dockerfile", rootCmd.Flags().Lookup("dockerfile"))
-	c.BindPFlag("workspace.sync.local.branch.name", rootCmd.Flags().Lookup("sync-local-branch"))
-	c.BindPFlag("workspace.sync.remote.branch.name", rootCmd.Flags().Lookup("sync-remote-branch"))
-	c.BindPFlag("workspace.sync.remote.name", rootCmd.Flags().Lookup("sync-remote-name"))
-	c.BindPFlag("workspace.sync.enabled", rootCmd.Flags().Lookup("sync-enabled"))
-	c.BindPFlag("workspace.sync.auto", rootCmd.Flags().Lookup("sync-auto"))
+	// c.BindPFlag("workspace.sync.local.branch.name", rootCmd.Flags().Lookup("sync-local-branch"))
+	// c.BindPFlag("workspace.sync.remote.branch.name", rootCmd.Flags().Lookup("sync-remote-branch"))
+	// c.BindPFlag("workspace.sync.remote.name", rootCmd.Flags().Lookup("sync-remote-name"))
+	// c.BindPFlag("workspace.sync.enabled", rootCmd.Flags().Lookup("sync-enabled"))
+	// c.BindPFlag("workspace.sync.auto", rootCmd.Flags().Lookup("sync-auto"))
 	c.BindPFlag("workspace.extraenv", rootCmd.Flags().Lookup("env"))
 	c.BindPFlag("workspace.extramounts", rootCmd.Flags().Lookup("mount"))
 	c.BindPFlag("workspace.localpath", rootCmd.Flags().Lookup("workspace"))

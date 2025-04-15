@@ -149,7 +149,7 @@ type Workspace struct {
 	Workflows       []*Workflow            `yaml:"workflows,omitempty" mapstructure:"workflows,omitempty" json:"workflows,omitempty"`
 	ExtraEnv        []string               `yaml:"extraenv,omitempty" mapstructure:"extraenv,omitempty" json:"extraenv,omitempty"`
 	ExtraMounts     []string               `yaml:"extramounts,omitempty" mapstructure:"extramounts,omitempty" json:"extramounts,omitempty"`
-	Organization    string                 `yaml:"organization,omitempty" mapstructure:"organization,omitempty" json:"organization,omitempty"`
+	Organization    string                 `yaml:"organization,omitempty" mapstructure:"organization,omitempty" json:"organization,omitempty" validate:"required,metadata_name"`
 	Identifier      string                 `yaml:"identifier,omitempty" mapstructure:"identifier,omitempty" json:"identifier,omitempty"`
 	Path            string                 `yaml:"path,omitempty" mapstructure:"path,omitempty" json:"path,omitempty"`
 	LocalPath       string                 `yaml:"localpath,omitempty" mapstructure:"localpath,omitempty" json:"localpath,omitempty"`
@@ -332,6 +332,13 @@ func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action s
 
 	if block.Template {
 		return errors.New("this is a template block. not running action")
+	}
+
+	if block.Kind == "k8sappinstance" {
+		err := block.ValidateConfig()
+		if err != nil {
+			return err
+		}
 	}
 
 	//log := polycrate.GetContextLogger(ctx)

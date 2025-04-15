@@ -22,9 +22,11 @@ import (
 	"os"
 	"path/filepath"
 	"polycrate/cmd/mergo"
+	"reflect"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/mitchellh/mapstructure"
 
 	//"github.com/imdario/mergo"
 
@@ -66,6 +68,91 @@ func init() {
 	rootCmd.AddCommand(blocksCmd)
 	blocksCmd.PersistentFlags().BoolVar(&pruneBlock, "prune", false, "Prune artifacts")
 	blocksCmd.PersistentFlags().StringVarP(&blockVersion, "version", "v", "latest", "Version of the block")
+}
+
+type BlockConfigChartRepo struct {
+	Name *string `yaml:"name" mapstructure:"name" json:"name" validate:"required"`
+	URL  *string `yaml:"url" mapstructure:"url" json:"url" validate:"required"`
+}
+type BlockConfigChartAuth struct {
+	Enabled  *bool   `yaml:"enabled,omitempty" mapstructure:"enabled,omitempty" json:"enabled,omitempty" validate:"required"`
+	Username *string `yaml:"username,omitempty" mapstructure:"username,omitempty" json:"username,omitempty" validate:"required"`
+	Password *string `yaml:"password,omitempty" mapstructure:"password,omitempty" json:"password,omitempty" validate:"required"`
+	Registry *string `yaml:"registry,omitempty" mapstructure:"registry,omitempty" json:"registry,omitempty" validate:"required"`
+}
+type BlockConfigChart struct {
+	Name    *string              `yaml:"name" mapstructure:"name" json:"name" validate:"required"`
+	Version *string              `yaml:"version" mapstructure:"version" json:"version" validate:"required"`
+	OCI     *bool                `yaml:"oci" mapstructure:"oci" json:"oci" validate:"required"`
+	Auth    BlockConfigChartAuth `yaml:"auth,omitempty" mapstructure:"auth,omitempty" json:"auth,omitempty" validate:"required"`
+	Repo    BlockConfigChartRepo `yaml:"repo" mapstructure:"repo" json:"repo" validate:"required"`
+}
+type BlockConfigPersistence struct {
+	Enabled      *bool   `yaml:"enabled" mapstructure:"enabled" json:"enabled" validate:"required"`
+	Size         *string `yaml:"size" mapstructure:"size" json:"size" validate:"required"`
+	AccessMode   *string `yaml:"access_mode" mapstructure:"access_mode" json:"access_mode" validate:"required"`
+	StorageClass *string `yaml:"storage_class" mapstructure:"storage_class" json:"storage_class" validate:"required"`
+}
+type BlockConfigIngressTlsLetsEncrypt struct {
+	Issuer string `yaml:"issuer" mapstructure:"issuer" json:"issuer" validate:"required"`
+}
+type BlockConfigIngressTls struct {
+	Enabled     *bool                            `yaml:"enabled" mapstructure:"enabled" json:"enabled" validate:"required"`
+	LetsEncrypt BlockConfigIngressTlsLetsEncrypt `yaml:"letsencrypt" mapstructure:"letsencrypt" json:"letsencrypt" validate:"required"`
+}
+type BlockConfigIngress struct {
+	Enabled          *bool                 `yaml:"enabled" mapstructure:"enabled" json:"enabled" validate:"required"`
+	Class            *string               `yaml:"class" mapstructure:"class" json:"class" validate:"required"`
+	Host             *string               `yaml:"host" mapstructure:"host" json:"host" validate:"required"`
+	ExtraAnnotations map[string]string     `yaml:"extra_annotations" mapstructure:"extra_annotations" json:"extra_annotations" validate:"required"`
+	ExtraHosts       []map[string]string   `yaml:"extra_hosts" mapstructure:"extra_hosts" json:"extra_hosts" validate:"required"`
+	Tls              BlockConfigIngressTls `yaml:"tls" mapstructure:"tls" json:"tls" validate:"required"`
+}
+type BlockConfigUpdateStrategy struct {
+	Type *string `yaml:"type" mapstructure:"type" json:"type" validate:"required"`
+}
+type BlockConfigDependencyConnectionTls struct {
+	Enabled                  *bool `yaml:"enabled" mapstructure:"enabled" json:"enabled" validate:"required"`
+	AcceptInvalidCertificate *bool `yaml:"accept_invalid_certificate" mapstructure:"accept_invalid_certificate" json:"accept_invalid_certificate" validate:"required"`
+	AcceptInvalidHostname    *bool `yaml:"accept_invalid_hostname" mapstructure:"accept_invalid_hostname" json:"accept_invalid_hostname" validate:"required"`
+}
+type BlockConfigConnection struct {
+	Endpoint *string                            `yaml:"endpoint" mapstructure:"endpoint" json:"endpoint" validate:"required"`
+	Port     *int                               `yaml:"port" mapstructure:"port" json:"port" validate:"required"`
+	Username *string                            `yaml:"username" mapstructure:"username" json:"username" validate:"required"`
+	Password *string                            `yaml:"password" mapstructure:"password" json:"password" validate:"required"`
+	Tls      BlockConfigDependencyConnectionTls `yaml:"tls" mapstructure:"tls" json:"tls" validate:"required"`
+}
+type BlockConfigDependency struct {
+	Enabled    *bool                       `yaml:"enabled" mapstructure:"enabled" json:"enabled" validate:"required"`
+	From       *string                     `yaml:"from" mapstructure:"from" json:"from" validate:"required"`
+	Connection BlockConfigConnection       `yaml:"connection" mapstructure:"connection" json:"connection" validate:"required"`
+	App        map[interface{}]interface{} `yaml:"app,omitempty" mapstructure:"app,omitempty" json:"app,omitempty" validate:"required"`
+}
+type BlockConfigMonitoringVMServiceScrape struct {
+	Enabled bool `yaml:"enabled" mapstructure:"enabled" json:"enabled"`
+}
+type BlockConfigMonitoring struct {
+	Enabled         bool                                 `yaml:"enabled" mapstructure:"enabled" json:"enabled" validate:"required"`
+	VMServiceScrape BlockConfigMonitoringVMServiceScrape `yaml:"vmservicescrape" mapstructure:"vmservicescrape" json:"vmservicescrape" validate:"required"`
+}
+type BlockConfigBackup struct {
+	Enabled  bool   `yaml:"enabled" mapstructure:"enabled" json:"enabled" validate:"required"`
+	Schedule string `yaml:"schedule" mapstructure:"schedule" json:"schedule" validate:"required"`
+}
+type BlockConfig struct {
+	Connection      BlockConfigConnection            `yaml:"connection,omitempty" mapstructure:"connection,omitempty" json:"connection,omitempty"`
+	Namespace       string                           `yaml:"namespace" mapstructure:"namespace" json:"namespace"`
+	CreateNamespace bool                             `yaml:"create_namespace" mapstructure:"create_namespace" json:"create_namespace" validate:"required"`
+	Chart           BlockConfigChart                 `yaml:"chart" mapstructure:"chart" json:"chart" validate:"required"`
+	Persistence     BlockConfigPersistence           `yaml:"persistence" mapstructure:"persistence" json:"persistence" validate:"required"`
+	UpdateStrategy  BlockConfigUpdateStrategy        `yaml:"update_strategy" mapstructure:"update_strategy" json:"update_strategy" validate:"required"`
+	Ingress         BlockConfigIngress               `yaml:"ingress" mapstructure:"ingress" json:"ingress" validate:"required"`
+	Monitoring      BlockConfigMonitoring            `yaml:"monitoring" mapstructure:"monitoring" json:"monitoring" validate:"required"`
+	Backup          BlockConfigBackup                `yaml:"backup" mapstructure:"backup" json:"backup" validate:"required"`
+	Dependencies    map[string]BlockConfigDependency `yaml:"dependencies" mapstructure:"dependencies" json:"dependencies" validate:"required"`
+	ExtraManifests  []map[interface{}]interface{}    `yaml:"extra_manifests" mapstructure:"extra_manifests" json:"extra_manifests" validate:"required"`
+	App             map[interface{}]interface{}      `yaml:"app,omitempty" mapstructure:"app,omitempty" json:"app,omitempty" validate:"required"`
 }
 
 type BlockWorkdir struct {
@@ -488,6 +575,7 @@ func (c *Block) getActionByName(actionName string) *Action {
 }
 
 func (b *Block) validate() error {
+	// Validate the whole block
 	err := validate.Struct(b)
 
 	if err != nil {
@@ -508,11 +596,87 @@ func (b *Block) validate() error {
 		return goErrors.New("error validating Block")
 	}
 
-	// if _, err := os.Stat(blockDir); os.IsNotExist(err) {
-	// 	return goErrors.New("Block not found at: " + blockDir)
-	// }
-	// log.Debug("Found Block at " + blockDir)
+	return nil
+}
 
+func FindTagName(i interface{}, original string) string {
+	reflected := reflect.ValueOf(i)
+
+	switch reflected.Kind() {
+	case reflect.Ptr:
+		reflected = reflected.Elem()
+	case reflect.Struct:
+		break
+	default:
+		// Fields that are not structs will be ignored
+		return original
+	}
+
+	// Find the field from the struct and extract tag
+	for i := 0; i < reflected.Type().NumField(); i++ {
+		f := reflected.Type().Field(i)
+		if f.Name == original {
+			tag := f.Tag.Get("mapstructure")
+			if tag != "" {
+				return tag
+			} else {
+				return original
+			}
+		}
+	}
+
+	// Always return the original field name
+	// We should never get here. If we do, it means the struct being
+	// checked is the wrong one. The field should always be found.
+	return original
+}
+
+func (b *Block) ValidateConfig() error {
+	// Validate only the config section
+	var block_config BlockConfig
+	decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "mapstructure", Result: &block_config})
+	err := decoder.Decode(b.Config)
+	if err != nil {
+		log.Error(err)
+	}
+
+	// printObject(b.blockConfig)
+	// if err := b.blockConfig.UnmarshalExact(&block_config); err != nil {
+	// 	log.Warn(err)
+	// }
+	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("mapstructure"), ",", 2)[0]
+		// skip if tag key says it should be ignored
+		if name == "-" {
+			return ""
+		}
+		return name
+	})
+
+	err = validate.Struct(block_config)
+
+	if err != nil {
+
+		// this check is only needed when your code could produce
+		// an invalid value for validation such as interface with nil
+		// value most including myself do not usually have code like this.
+		if _, ok := err.(*validator.InvalidValidationError); ok {
+			log.Warn(err)
+			return nil
+		}
+
+		log.Warn("Failed to validate Block Configuration against Schema: https://docs.ayedo.cloud/s/main/doc/konventionen-CcsUteZH7W")
+		for _, err := range err.(validator.ValidationErrors) {
+			namespace := err.Namespace()
+			_namespace := strings.ToLower(strings.Replace(namespace, "BlockConfig", "block.config", -1))
+
+			//fieldName := FindTagName(block_config, err.Field())
+			log.Warn("`" + _namespace + "`: " + err.Tag())
+		}
+
+		// from here you can create your own error messages in whatever language you wish
+		//return goErrors.New("error validating Block")
+	}
 	return nil
 }
 
