@@ -854,6 +854,12 @@ func (p *Polycrate) LoadWorkspace(tx *PolycrateTransaction, path string, validat
 		return nil, err
 	}
 
+	// Check if workspace exists in Backplane
+	verr := workspace.ValidateWithBackplane(tx)
+	if verr != nil {
+		tx.Log.Warnf("Error validating workspace with Backplane: %s", verr)
+	}
+
 	return workspace, nil
 }
 

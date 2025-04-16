@@ -194,3 +194,5 @@ var ErrWorkspaceConfigNotFound = errors.New("workspace config not found")
 //var signals = make(chan os.Signal, 1)
 
 var globalCmd *cobra.Command
+
+var backplane Backplane

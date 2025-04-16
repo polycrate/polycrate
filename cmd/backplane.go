@@ -23,13 +23,7 @@ var backplaneCmd = &cobra.Command{
 
 		fmt.Println("Backplane Info here")
 
-		backplane := new(Backplane)
 		backplane.SystemInfo(tx)
-
-		err := backplane.GetWorkspace(tx, "laser24", "ayedo")
-		if err != nil {
-			tx.Log.Fatal(err)
-		}
 	},
 }
 
@@ -85,16 +79,16 @@ type BackplaneManagedObject struct {
 	Conditions            []BackplaneCondition `json:"conditions"`
 }
 type BackplaneOrganization struct {
-	BackplaneManagedObject
 	LegalName     string               `json:"legal_name"`
 	IsSystemOwner bool                 `json:"is_system_owner"`
 	Workspaces    []BackplaneWorkspace `json:"workspaces"`
+	BackplaneManagedObject
 }
 type BackplaneWorkspace struct {
-	BackplaneManagedObject
 	GitBranch         string                `json:"git_branch"`
 	GitCommitShortSHA string                `json:"git_commit_short_sha"`
 	Organization      BackplaneOrganization `json:"organization"`
+	BackplaneManagedObject
 }
 
 type Backplane struct {
@@ -215,7 +209,7 @@ func (b *Backplane) SystemInfo(tx *PolycrateTransaction) error {
 	return nil
 }
 
-func (b *Backplane) GetWorkspace(tx *PolycrateTransaction, name string, organization string) error {
+func (b *Backplane) GetWorkspace(tx *PolycrateTransaction, name string, organization string) (*BackplaneWorkspace, error) {
 	b.LoadToken(tx)
 
 	url := fmt.Sprintf("%s/api/v1/workspaces/?name=%s&organization=%s", polycrate.Config.Backplane.Url, name, organization)
@@ -223,7 +217,7 @@ func (b *Backplane) GetWorkspace(tx *PolycrateTransaction, name string, organiza
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", fmt.Sprintf("Token %s", polycrate.Config.Backplane.ApiKey))
@@ -231,7 +225,7 @@ func (b *Backplane) GetWorkspace(tx *PolycrateTransaction, name string, organiza
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer resp.Body.Close()
@@ -248,26 +242,25 @@ func (b *Backplane) GetWorkspace(tx *PolycrateTransaction, name string, organiza
 
 	derr := json.NewDecoder(resp.Body).Decode(backplaneResponse)
 	if derr != nil {
-		return derr
+		return nil, derr
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		panic(resp.Status)
 	}
 
-	outputFormat = "json"
 	workspaces := backplaneResponse.Results
 
 	if len(workspaces) > 1 {
-		return goErrors.New("More than 1 Workspace matched")
+		//printObject(workspaces)
+		return nil, goErrors.New("more than 1 Workspace matched")
 	}
 
 	if len(workspaces) == 0 {
-		return goErrors.New("No Workspace matched")
+		return nil, goErrors.New("no Workspace matched")
 	}
 
-	workspace := workspaces[0]
-	printObject(workspace)
+	workspace := &workspaces[0]
 
-	return nil
+	return workspace, nil
 }

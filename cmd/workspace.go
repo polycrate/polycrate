@@ -1235,6 +1235,24 @@ func (w *Workspace) Preload(tx *PolycrateTransaction, path string, validate bool
 	return w, nil
 }
 
+func (w *Workspace) ValidateWithBackplane(tx *PolycrateTransaction) error {
+	// Check if workspace exists in Backplane
+
+	backplaneWorkspace, err := backplane.GetWorkspace(tx, w.Name, w.Organization)
+	if err != nil {
+		return err
+	}
+
+	if backplaneWorkspace == nil {
+		tx.Log.Warnf("Cannot find Workspace '%s' of organization '%s' in Backplane (%s)", w.Name, w.Organization, polycrate.Config.Backplane.Url)
+		return nil
+	} else {
+		tx.Log.Infof("Found Workspace '%s' of organization '%s' in Backplane (%s)", w.Name, w.Organization, polycrate.Config.Backplane.Url)
+	}
+
+	return nil
+}
+
 func (w *Workspace) Load(tx *PolycrateTransaction, path string, validate bool) (*Workspace, error) {
 	var err error
 
