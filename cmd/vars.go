@@ -53,6 +53,9 @@ const WorkspaceConfigLogsRoot string = ".logs"
 // default block config file
 const BlocksConfigFile string = "block.poly"
 
+// default block changelog file
+const BlocksChangelogFile string = "CHANGELOG.poly"
+
 // default env prefix
 const EnvPrefix string = "polycrate"
 

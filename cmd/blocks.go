@@ -70,6 +70,13 @@ func init() {
 	blocksCmd.PersistentFlags().StringVarP(&blockVersion, "version", "v", "latest", "Version of the block")
 }
 
+type BlockChangelog struct {
+	Version     string `yaml:"version" mapstructure:"version" json:"version" validate:"required"`
+	Date        string `yaml:"date" mapstructure:"date" json:"date" validate:"required"`
+	Type        string `yaml:"type" mapstructure:"type" json:"type" validate:"required"`
+	Description string `yaml:"description" mapstructure:"description" json:"description"`
+}
+
 type BlockConfigChartRepo struct {
 	Name *string `yaml:"name" mapstructure:"name" json:"name" validate:"required"`
 	URL  *string `yaml:"url" mapstructure:"url" json:"url" validate:"required"`
@@ -192,6 +199,7 @@ type Block struct {
 	Labels      map[string]string           `yaml:"labels,omitempty" mapstructure:"labels,omitempty" json:"labels,omitempty"`
 	Alias       []string                    `yaml:"alias,omitempty" mapstructure:"alias,omitempty" json:"alias,omitempty"`
 	Actions     []*Action                   `yaml:"actions,omitempty" mapstructure:"actions,omitempty" json:"actions,omitempty"`
+	Changelog   []*BlockChangelog           `yaml:"changelog,omitempty" mapstructure:"changelog,omitempty" json:"changelog,omitempty"`
 	Config      map[interface{}]interface{} `yaml:"config,omitempty" mapstructure:"config,omitempty" json:"config,omitempty"`
 	From        string                      `yaml:"from,omitempty" mapstructure:"from,omitempty" json:"from,omitempty"`
 	Template    bool                        `yaml:"template,omitempty" mapstructure:"template,omitempty" json:"template,omitempty"`

@@ -2869,6 +2869,28 @@ func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, er
 		return nil, err
 	}
 
+	// Check CHANGELOG
+	var blockChangelog []*BlockChangelog
+	changelogFilePath := filepath.Join(block.Workdir.LocalPath, BlocksChangelogFile)
+	if _, err := os.Stat(changelogFilePath); os.IsNotExist(err) {
+		tx.Log.Warnf("Block '%s' is missing '%s'", block.Name, BlocksChangelogFile)
+	} else {
+
+		blockChangelogObject := viper.NewWithOptions(viper.KeyDelimiter("::"))
+		blockChangelogObject.SetConfigType("yaml")
+		blockChangelogObject.SetConfigFile(changelogFilePath)
+
+		if err := blockChangelogObject.MergeInConfig(); err != nil {
+			return nil, err
+		}
+
+		if err := blockChangelogObject.UnmarshalExact(&blockChangelog); err != nil {
+			return nil, err
+		}
+
+		block.Changelog = blockChangelog
+	}
+
 	// Set Block vars
 	relativeBlockPath, err := filepath.Rel(filepath.Join(w.LocalPath, w.Config.BlocksRoot), block.Workdir.LocalPath)
 	if err != nil {
