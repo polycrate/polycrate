@@ -1,0 +1,19 @@
+name: poly-workspace
+organization: polycrate
+blocks:
+  - name: default-false
+    from: default-false
+    config:
+      foo: true
+      count: 1
+
+  - name: default-true
+    from: default-true
+    config:
+      foo: false
+      count: 0
+
+  - name: camelcase
+    config:
+      fooBar: false
+      camelCase: willBeIgnored

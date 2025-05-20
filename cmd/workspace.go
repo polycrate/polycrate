@@ -1061,7 +1061,7 @@ func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, va
 	if validate {
 		errors, err := w.Validate(tx)
 		if err != nil {
-			for errorString := range errors {
+			for _, errorString := range errors {
 				tx.Log.Error(errorString)
 			}
 			return err

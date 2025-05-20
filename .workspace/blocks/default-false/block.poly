@@ -1,0 +1,5 @@
+name: default-false
+version: 0.0.1
+config:
+  foo: false
+  count: 0
