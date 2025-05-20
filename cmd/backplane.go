@@ -21,8 +21,6 @@ var backplaneCmd = &cobra.Command{
 		tx.SetCommand(cmd)
 		defer tx.Stop()
 
-		fmt.Println("Backplane Info here")
-
 		backplane.SystemInfo(tx)
 	},
 }
@@ -203,7 +201,7 @@ func (b *Backplane) SystemInfo(tx *PolycrateTransaction) error {
 		panic(resp.Status)
 	}
 
-	outputFormat = "json"
+	//outputFormat = "json"
 	printObject(backplaneSystemState)
 
 	return nil

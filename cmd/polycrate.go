@@ -87,6 +87,7 @@ type PolycrateConfig struct {
 	Kubeconfig   string             `yaml:"kubeconfig,omitempty" mapstructure:"kubeconfig,omitempty" json:"kubeconfig,omitempty"`
 	Webhooks     []Webhook          `yaml:"webhooks,omitempty" mapstructure:"webhooks,omitempty" json:"webhooks,omitempty"`
 	CheckUpdates bool               `yaml:"check_updates,omitempty" mapstructure:"check_updates,omitempty" json:"check_updates,omitempty"`
+	AutoCommit   bool               `yaml:"auto_commit,omitempty" mapstructure:"auto_commit,omitempty" json:"auto_commit,omitempty"`
 	Experimental ExperimentalConfig `yaml:"experimental,omitempty" mapstructure:"experimental,omitempty" json:"experimental,omitempty"`
 	//Workspace PolycrateWorkspaceDefaults `yaml:"workspace,omitempty" mapstructure:"workspace,omitempty" json:"workspace,omitempty"`
 }

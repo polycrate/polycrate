@@ -611,7 +611,7 @@ func DownloadFile(url string, fp string) error {
 
 func printObject(object interface{}) {
 	if outputFormat == "json" {
-		data, err := json.Marshal(object)
+		data, err := json.MarshalIndent(object, "", "  ")
 		CheckErr(err)
 		fmt.Printf("%s\n", data)
 	}
@@ -1011,6 +1011,33 @@ func FormatCommand(cmd *cobra.Command) string {
 	}, " ")
 
 	return command
+}
+
+func deepMergeMap(defaults, override map[interface{}]interface{}) map[interface{}]interface{} {
+	result := make(map[interface{}]interface{})
+
+	// Defaults übernehmen
+	for k, v := range defaults {
+		result[k] = v
+	}
+
+	// Override hineinmischen
+	for k, v := range override {
+		if vMap, ok := v.(map[interface{}]interface{}); ok {
+			if dMap, ok := result[k].(map[interface{}]interface{}); ok {
+				// Rekursives Mergen von verschachtelten Maps
+				result[k] = deepMergeMap(dMap, vMap)
+			} else {
+				// Überschreiben, wenn im defaults keine Map war
+				result[k] = v
+			}
+		} else {
+			// Überschreiben einfacher Werte
+			result[k] = v
+		}
+	}
+
+	return result
 }
 
 func mergeMaps(a, b map[interface{}]interface{}) map[interface{}]interface{} {

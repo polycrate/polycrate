@@ -310,10 +310,12 @@ func (w *Workspace) RunAction(tx *PolycrateTransaction, _block string, _action s
 	// 	return ctx, err
 	// }
 
-	commit_message := fmt.Sprintf("[polycrate-cli] Auto-Commit before running action (TXID: %s)", tx.TXID)
-	_, commit_error := w.Commit(tx, commit_message, true)
-	if commit_error != nil {
-		return commit_error
+	if polycrate.Config.AutoCommit {
+		commit_message := fmt.Sprintf("[polycrate-cli] Auto-Commit before running action (TXID: %s)", tx.TXID)
+		_, commit_error := w.Commit(tx, commit_message, true)
+		if commit_error != nil {
+			return commit_error
+		}
 	}
 
 	var err error
@@ -564,10 +566,11 @@ func (w *Workspace) ResolveBlock(tx *PolycrateTransaction, block *Block, workspa
 			block.Labels = make(map[string]string)
 		}
 
-		block.Labels["cli.polycrate.io/txid"] = tx.TXID.String()
+		//block.Labels["cli.polycrate.io/txid"] = tx.TXID.String()
 		block.Labels["workspaces.polycrate.io/name"] = block.workspace.Name
 		block.Labels["blocks.polycrate.io/name"] = block.Name
 		block.Labels["blocks.polycrate.io/kind"] = block.Kind
+		block.Labels["polycrate.io/managed-by"] = "cli" // or "api"
 
 		if block.workspace.Organization != "" {
 			block.Labels["organizations.polycrate.io/name"] = block.workspace.Organization

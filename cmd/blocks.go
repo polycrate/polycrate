@@ -775,8 +775,25 @@ func (c *Block) MergeIn(block *Block) error {
 		if polycrate.Config.Experimental.MergeV2 {
 			log.Debug("Merging block config using experimental merge method")
 
-			c.Config = mergeMaps(block.Config, c.Config)
+			merged := deepMergeMap(block.Config, c.Config)
+
+			c.Config = merged
+			//c.Config = mergeMaps(block.Config, c.Config)
 			//c.Config = mergeMaps(c.Config, block.Config)
+
+			// marshal to yaml
+			// merge
+			// unmarshal to struct
+
+			// 	block_yaml, _ := yaml.Marshal(block.Config)
+			// 	c_yaml, _ := yaml.Marshal(c.Config)
+
+			// 	if err := yaml.Unmarshal(c_yaml, &c.Config); err != nil {
+			// 		log.Error(err)
+			// 	}
+			// 	if err := yaml.Unmarshal(block_yaml, &c.Config); err != nil {
+			// 		log.Error(err)
+			// 	}
 		} else {
 
 			if err := mergo.Merge(&c.Config, block.Config); err != nil {
