@@ -24,6 +24,8 @@ import (
 	"polycrate/cmd/mergo"
 	"reflect"
 	"strings"
+	
+	"gopkg.in/yaml.v3"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/mitchellh/mapstructure"
@@ -212,7 +214,7 @@ type Block struct {
 	resolved    bool
 	schema      string
 	workspace   *Workspace
-	blockConfig viper.Viper
+	blockConfig *yaml.Node `yaml:"-"`
 }
 
 type SSHHost struct {
