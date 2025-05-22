@@ -19,3 +19,6 @@ blocks:
       barFoo: true
       camelCase: willBeIgnored
       camelcase: shouldbeTHERE
+      nocamel: false
+      integer: 0
+      string: ""

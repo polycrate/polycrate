@@ -4,3 +4,11 @@ config:
   camelCase: LOL
   fooBar: true
   barFoo: false
+  nocamel: true
+  integer: 1
+  string: "asdasd"
+
+actions:
+  - name: install
+    script:
+      - echo "INSTALL"

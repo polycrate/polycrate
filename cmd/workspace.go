@@ -989,7 +989,7 @@ func (w *Workspace) RunWorkflow(tx *PolycrateTransaction, name string, stepName 
 func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, validate bool) error {
 	// This variable holds the configuration loaded from the workspace config file (e.g. workspace.poly)
 	var workspaceConfig = viper.NewWithOptions(viper.KeyDelimiter("::"))
-	
+
 	// Match CLI Flags with Config options
 	// CLI Flags have precedence
 
@@ -1060,12 +1060,12 @@ func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, va
 		if err != nil {
 			return err
 		}
-	
-		var plain map[string]interface{}     // generic YAML → Go map
+
+		var plain map[string]interface{} // generic YAML → Go map
 		if err := yaml.Unmarshal(raw, &plain); err != nil {
 			return err
 		}
-	
+
 		// Find the "blocks" key in a case-insensitive way
 		for k, v := range plain {
 			if strings.EqualFold(k, "blocks") {
@@ -1079,7 +1079,7 @@ func (w *Workspace) LoadConfigFromFile(tx *PolycrateTransaction, path string, va
 	if err := workspaceConfig.Unmarshal(&w); err != nil {
 		return err
 	}
-	
+
 	if validate {
 		errors, err := w.Validate(tx)
 		if err != nil {
@@ -2130,6 +2130,7 @@ func (c *Workspace) registerCurrentBlock(block *Block) {
 		c.registerEnvVar("POLYCRATE_BLOCK_WORKDIR", block.Workdir.ContainerPath)
 	}
 	c.currentBlock = block
+	fmt.Printf("REGISTERED CURRENT BLOCK %s", block.Name)
 }
 func (c *Workspace) registerCurrentAction(action *Action) {
 
@@ -2832,7 +2833,7 @@ func (w *Workspace) LoadInstalledBlocks(tx *PolycrateTransaction) error {
 			// and base blocks will not be merged in again
 			log.Tracef("Marking block as unresolved")
 			existingBlock.resolved = false
-			
+
 			// Always merge this way, the method decides which merge method to use
 			err := existingBlock.MergeIn(installedBlock)
 			if err != nil {
@@ -2840,46 +2841,46 @@ func (w *Workspace) LoadInstalledBlocks(tx *PolycrateTransaction) error {
 			}
 
 			/*
-			if polycrate.Config.Experimental.MergeV2 {
-				// This doesnt work
-				log.Warn("Loading installed blocks using experimental merge method")
-				// Marshal struct to yaml so we can unmarshal it back into the installed block
-				
-				//log.Warn("LoadInstalledBlocks")
-				//
-				log.Warn(DumpAll(existingBlock))
-				
-				existingBlockConfig, err := yaml.Marshal(&existingBlock)
-				if err != nil {
-					return err
-				}
+				if polycrate.Config.Experimental.MergeV2 {
+					// This doesnt work
+					log.Warn("Loading installed blocks using experimental merge method")
+					// Marshal struct to yaml so we can unmarshal it back into the installed block
 
-				// Unmarshal into installed block
-				err = yaml.Unmarshal(existingBlockConfig, installedBlock)
-				if err != nil {
-					return err
-				}
+					//log.Warn("LoadInstalledBlocks")
+					//
+					log.Warn(DumpAll(existingBlock))
 
-				existingBlock = installedBlock
-			
-				log.Warn("--------------------")
-				log.Warn(DumpAll(installedBlock))
-				///
-				
-				//log.Warn(DumpAll(existingBlock))
-				err := existingBlock.MergeIn(installedBlock)
-				if err != nil {
-					return err
+					existingBlockConfig, err := yaml.Marshal(&existingBlock)
+					if err != nil {
+						return err
+					}
+
+					// Unmarshal into installed block
+					err = yaml.Unmarshal(existingBlockConfig, installedBlock)
+					if err != nil {
+						return err
+					}
+
+					existingBlock = installedBlock
+
+					log.Warn("--------------------")
+					log.Warn(DumpAll(installedBlock))
+					///
+
+					//log.Warn(DumpAll(existingBlock))
+					err := existingBlock.MergeIn(installedBlock)
+					if err != nil {
+						return err
+					}
+					//log.Warn(DumpAll(existingBlock))
+
+				} else {
+					log.Debugf("Merging installed block with existing block")
+					err := existingBlock.MergeIn(installedBlock)
+					if err != nil {
+						return err
+					}
 				}
-				//log.Warn(DumpAll(existingBlock))
-				
-			} else {
-				log.Debugf("Merging installed block with existing block")
-				err := existingBlock.MergeIn(installedBlock)
-				if err != nil {
-					return err
-				}
-			}
 			*/
 
 		}
@@ -2910,7 +2911,7 @@ func (w *Workspace) LoadBlockOld(tx *PolycrateTransaction, path string) (*Block,
 
 	// Save block config (*viper.Viper) for later use
 	block.blockConfig = *blockConfigObject
-	
+
 	// Load schema
 	schemaFilePath := filepath.Join(block.Workdir.LocalPath, "schema.json")
 	if _, err := os.Stat(schemaFilePath); !os.IsNotExist(err) {
@@ -2968,7 +2969,6 @@ func (w *Workspace) LoadBlockOld(tx *PolycrateTransaction, path string) (*Block,
 	return block, nil
 }*/
 
-
 func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, error) {
 	block := new(Block)
 	block.Workdir.LocalPath = path
@@ -2994,6 +2994,7 @@ func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, er
 	if _, err := os.Stat(changelogPath); err == nil {
 		var blockChangelog []*BlockChangelog
 		if _, err := loadYAMLFile(changelogPath, &blockChangelog); err != nil {
+			tx.Log.Errorf("Changelog Path: %s", changelogPath)
 			return nil, fmt.Errorf("loading block changelog: %w", err)
 		}
 		block.Changelog = blockChangelog
@@ -3023,8 +3024,6 @@ func (w *Workspace) LoadBlock(tx *PolycrateTransaction, path string) (*Block, er
 	block.workspace = w
 	return block, nil
 }
-
-
 
 func (w *Workspace) LoadLog(tx *PolycrateTransaction, path string) (*WorkspaceLog, error) {
 	log := new(WorkspaceLog)

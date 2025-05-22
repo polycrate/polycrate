@@ -24,7 +24,7 @@ import (
 	"polycrate/cmd/mergo"
 	"reflect"
 	"strings"
-	
+
 	"gopkg.in/yaml.v3"
 
 	"github.com/go-playground/validator/v10"
@@ -77,6 +77,8 @@ type BlockChangelog struct {
 	Date        string `yaml:"date" mapstructure:"date" json:"date" validate:"required"`
 	Type        string `yaml:"type" mapstructure:"type" json:"type" validate:"required"`
 	Description string `yaml:"description" mapstructure:"description" json:"description"`
+	Message     string `yaml:"message" mapstructure:"message" json:"message"`
+	Email       string `yaml:"email" mapstructure:"email" json:"email"`
 }
 
 type BlockConfigChartRepo struct {
