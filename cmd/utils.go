@@ -1013,7 +1013,7 @@ func FormatCommand(cmd *cobra.Command) string {
 	return command
 }
 
-func deepMergeMap(defaults, override map[interface{}]interface{}) map[interface{}]interface{} {
+func deepMergeMapV1(defaults, override map[interface{}]interface{}) map[interface{}]interface{} {
 	result := make(map[interface{}]interface{})
 
 	// Defaults übernehmen
@@ -1038,6 +1038,122 @@ func deepMergeMap(defaults, override map[interface{}]interface{}) map[interface{
 	}
 
 	return result
+}
+
+
+func DumpAll(v interface{}) string {
+	var buf bytes.Buffer
+	dumpRec(&buf, v, 0)
+	return buf.String()
+}
+
+func dumpRec(buf *bytes.Buffer, v interface{}, indent int) {
+	prefix := strings.Repeat("  ", indent)
+	val    := reflect.ValueOf(v)
+
+	switch val.Kind() {
+	case reflect.Map:
+		buf.WriteString("{\n")
+		for _, k := range val.MapKeys() {
+			buf.WriteString(prefix + "  ")
+			fmt.Fprintf(buf, "%v: ", k)
+			dumpRec(buf, val.MapIndex(k).Interface(), indent+1)
+			buf.WriteByte('\n')
+		}
+		buf.WriteString(prefix + "}")
+	case reflect.Slice, reflect.Array:
+		buf.WriteString("[\n")
+		for i := 0; i < val.Len(); i++ {
+			buf.WriteString(prefix + "  - ")
+			dumpRec(buf, val.Index(i).Interface(), indent+1)
+			buf.WriteByte('\n')
+		}
+		buf.WriteString(prefix + "]")
+	default:
+		fmt.Fprintf(buf, "%#v", v) // Wert inkl. Typ-Info
+	}
+}
+
+func unmarshalStrict(data []byte, target any) error {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)          // unbekannte Felder -> Fehlermeldung
+	return dec.Decode(target)
+}
+
+func loadYAMLFile(path string, target any) (*yaml.Node, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// Vollständigen AST einlesen
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		return nil, err
+	}
+
+	// Strict unmarshaling in die Zielstruktur
+	if err := unmarshalStrict(data, target); err != nil {
+		return nil, err
+	}
+
+	return &node, nil
+}
+
+func deepMergeMap(defaults, override map[interface{}]interface{}) map[interface{}]interface{} {
+	res := make(map[interface{}]interface{}, len(defaults))
+
+	// 1. defaults kopieren
+	for k, v := range defaults {
+		res[k] = v
+	}
+
+	// 2. override drüber-mergen
+	for oKey, oVal := range override {
+		// Suche nach einem äquivalenten Key (case-insensitiv) im Resultat
+		rKey, found := equivalentKey(res, oKey)
+
+		// Falls noch nicht vorhanden, nehmen wir den Key aus override
+		if !found {
+			rKey = oKey
+		}
+
+		// Rekursion, wenn beide Seiten ebenfalls Maps sind
+		if rMap, ok1 := res[rKey].(map[interface{}]interface{}); ok1 {
+			if oMap, ok2 := oVal.(map[interface{}]interface{}); ok2 {
+				res[rKey] = deepMergeMap(rMap, oMap)
+				continue
+			}
+		}
+
+		// Andernfalls schlicht überschreiben
+		res[rKey] = oVal
+	}
+
+	return res
+}
+
+// equivalentKey liefert den tatsächlich vorhandenen Map-Key,
+// dessen Normalform (vgl. normalize) zum gesuchten Key passt.
+func equivalentKey(m map[interface{}]interface{}, search interface{}) (interface{}, bool) {
+	n := normalize(search)
+	for k := range m {
+		if normalize(k) == n {
+			return k, true
+		}
+	}
+	return nil, false
+}
+
+// normalize bildet Keys auf eine kanonische Vergleichsform ab.
+// Aktuell: alles in Kleinbuchstaben und als String.
+func normalize(k interface{}) string {
+	switch v := k.(type) {
+	case string:
+		return strings.ToLower(v)
+	default:
+		return strings.ToLower(fmt.Sprint(v))
+	}
 }
 
 func mergeMaps(a, b map[interface{}]interface{}) map[interface{}]interface{} {
