@@ -1,0 +1,188 @@
+labels:
+  monk.event.class: polycrate
+  monk.event.level: Info
+workspace: poly-workspace
+block: camelcase
+action: install
+command: polycrate run camelcase install --workspace=/Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace
+user_email: fp@ayedo.de
+user_name: Fabian Peter
+date: "2025-05-22T16:51:50+02:00"
+snapshot:
+  workspace:
+    name: poly-workspace
+    events:
+      handler: workspace
+    config:
+      image:
+        reference: cargo.ayedo.cloud/library/polycrate
+        version: latest
+      blocksroot: blocks
+      logsroot: .logs
+      blocksconfig: block.poly
+      workspaceconfig: workspace.poly
+      workflowsroot: workflows
+      artifactsroot: artifacts
+      containerroot: /workspace
+      sshprivatekey: id_rsa
+      sshpublickey: id_rsa.pub
+      remoteroot: /polycrate
+      dockerfile: Dockerfile.poly
+      globals: {}
+    blocks:
+    - name: default-false
+      config:
+        count: 1
+        foo: true
+      from: default-false
+      version: 0.0.1
+      workdir:
+        path: /workspace/blocks/default-false
+        localpath: /Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace/blocks/default-false
+        containerpath: /workspace/blocks/default-false
+      checksum: 9ef21c105f52532acb38cc8dd406fa80
+    - name: default-true
+      config:
+        count: 0
+        foo: false
+      from: default-true
+    - name: camelcase
+      labels:
+        blocks.polycrate.io/kind: ""
+        blocks.polycrate.io/name: camelcase
+        organizations.polycrate.io/name: polycrate
+        polycrate.io/managed-by: cli
+        workspaces.polycrate.io/name: poly-workspace
+      actions:
+      - name: install
+        script:
+        - echo "INSTALL"
+        block: camelcase
+      config:
+        barFoo: true
+        camelCase: willBeIgnored
+        camelcase: shouldbeTHERE
+        fooBar: true
+        integer: 1
+        nocamel: true
+        string: asdasd
+      version: 0.6.2
+      workdir:
+        path: /workspace/blocks/camelcase
+        localpath: /Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace/blocks/camelcase
+        containerpath: /workspace/blocks/camelcase
+      inventory:
+        path: /etc/ansible/hosts
+        localpath: /etc/ansible/hosts
+        containerpath: /etc/ansible/hosts
+      kubeconfig:
+        path: /Users/derfabianpeter/.kube/config
+        localpath: /Users/derfabianpeter/.kube/config
+        containerpath: /Users/derfabianpeter/.kube/config
+      artifacts:
+        path: /workspace/artifacts/blocks/camelcase
+        localpath: /Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace/artifacts/blocks/camelcase
+        containerpath: /workspace/artifacts/blocks/camelcase
+      checksum: f31524de0303e6c21613fd728f3369e4
+    organization: polycrate
+    path: /workspace
+    localpath: /Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace
+    containerpath: /workspace
+    inventory:
+      path: /workspace/inventory.yml
+      localpath: /Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace/inventory.yml
+      containerpath: /workspace/inventory.yml
+    kubeconfig:
+      path: /Users/derfabianpeter/.kube/config
+      localpath: /Users/derfabianpeter/.kube/config
+      containerpath: /Users/derfabianpeter/.kube/config
+  action:
+    name: install
+    script:
+    - echo "INSTALL"
+    block: camelcase
+  block:
+    name: camelcase
+    labels:
+      blocks.polycrate.io/kind: ""
+      blocks.polycrate.io/name: camelcase
+      organizations.polycrate.io/name: polycrate
+      polycrate.io/managed-by: cli
+      workspaces.polycrate.io/name: poly-workspace
+    actions:
+    - name: install
+      script:
+      - echo "INSTALL"
+      block: camelcase
+    config:
+      barFoo: true
+      camelCase: willBeIgnored
+      camelcase: shouldbeTHERE
+      fooBar: true
+      integer: 1
+      nocamel: true
+      string: asdasd
+    version: 0.6.2
+    workdir:
+      path: /workspace/blocks/camelcase
+      localpath: /Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace/blocks/camelcase
+      containerpath: /workspace/blocks/camelcase
+    inventory:
+      path: /etc/ansible/hosts
+      localpath: /etc/ansible/hosts
+      containerpath: /etc/ansible/hosts
+    kubeconfig:
+      path: /Users/derfabianpeter/.kube/config
+      localpath: /Users/derfabianpeter/.kube/config
+      containerpath: /Users/derfabianpeter/.kube/config
+    artifacts:
+      path: /workspace/artifacts/blocks/camelcase
+      localpath: /Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace/artifacts/blocks/camelcase
+      containerpath: /workspace/artifacts/blocks/camelcase
+    checksum: f31524de0303e6c21613fd728f3369e4
+  env:
+    ANSIBLE_ACTION_WARNINGS: "False"
+    ANSIBLE_CALLBACK_RESULT_FORMAT: yaml
+    ANSIBLE_COMMAND_WARNINGS: "False"
+    ANSIBLE_DEPRECATION_WARNINGS: "False"
+    ANSIBLE_DISPLAY_OK_HOSTS: "True"
+    ANSIBLE_DISPLAY_SKIPPED_HOSTS: "False"
+    ANSIBLE_HOST_KEY_CHECKING: "False"
+    ANSIBLE_INVENTORY: /etc/ansible/hosts
+    ANSIBLE_INVENTORY_ENABLED: yaml,hcloud,host_list,script,auto,ini,toml
+    ANSIBLE_LOCALHOST_WARNING: "False"
+    ANSIBLE_PRIVATE_KEY_FILE: /workspace/id_rsa
+    ANSIBLE_RUN_VARS_PLUGINS: start
+    ANSIBLE_SSH_PRIVATE_KEY_FILE: /workspace/id_rsa
+    ANSIBLE_STDOUT_CALLBACK: ansible.builtin.default
+    ANSIBLE_VARS_ENABLED: polycrate_vars
+    ANSIBLE_VARS_PLUGINS: /root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars
+    ANSIBLE_VERBOSITY: "1"
+    DEFAULT_VARS_PLUGIN_PATH: /root/.ansible/plugins/vars:/usr/share/ansible/plugins/vars
+    IN_CI: "true"
+    IN_CONTAINER: "1"
+    KUBECONFIG: /Users/derfabianpeter/.kube/config
+    POLYCRATE_ACTION: install
+    POLYCRATE_BLOCK: camelcase
+    POLYCRATE_CLI_VERSION: latest
+    POLYCRATE_FORCE: "0"
+    POLYCRATE_IMAGE_REFERENCE: ""
+    POLYCRATE_IMAGE_VERSION: latest-amd64
+    POLYCRATE_RUNTIME_SCRIPT_PATH: ""
+    POLYCRATE_VERSION: latest
+    POLYCRATE_WORKSPACE: ""
+    POLYCRATE_WORKSPACE_SNAPSHOT_YAML: /Users/derfabianpeter/.polycrate/run/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68-workspace-snapshot.yml
+    TERM: xterm-256color
+  mounts:
+    ? /Users/derfabianpeter/.polycrate/run/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68-execution-script.sh
+    : /Users/derfabianpeter/.polycrate/run/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68-execution-script.sh
+    ? /Users/derfabianpeter/.polycrate/run/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68-workspace-snapshot.yml
+    : /Users/derfabianpeter/.polycrate/run/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68/5060e6ff-75c0-4a7a-ba33-cea4b34b9f68-workspace-snapshot.yml
+    /Users/derfabianpeter/d/ayedo/polycrate/polycrate-cli/.workspace: /workspace
+    /var/run/docker.sock: /var/run/docker.sock
+transaction: 5060e6ff-75c0-4a7a-ba33-cea4b34b9f68
+version: latest
+output: "INSTALL\r\n"
+config:
+  handler: workspace
+message: Transaction stopped
