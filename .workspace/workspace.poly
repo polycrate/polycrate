@@ -16,4 +16,6 @@ blocks:
   - name: camelcase
     config:
       fooBar: false
+      barFoo: true
       camelCase: willBeIgnored
+      camelcase: shouldbeTHERE
